@@ -1,9 +1,22 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 
 export function AnimatedBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [scrollVelocity, setScrollVelocity] = useState(0)
+  const lastScrollRef = useRef(0)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScroll = window.scrollY
+      setScrollVelocity(currentScroll - lastScrollRef.current)
+      lastScrollRef.current = currentScroll
+    }
+
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -24,7 +37,6 @@ export function AnimatedBackground() {
       opacity: number
     }> = []
 
-    // Create particles
     for (let i = 0; i < 50; i++) {
       particles.push({
         x: Math.random() * canvas.width,
@@ -43,7 +55,7 @@ export function AnimatedBackground() {
 
       particles.forEach((particle) => {
         particle.x += particle.vx
-        particle.y += particle.vy
+        particle.y += particle.vy + scrollVelocity * 0.01
 
         if (particle.x < 0) particle.x = canvas.width
         if (particle.x > canvas.width) particle.x = 0
@@ -55,7 +67,6 @@ export function AnimatedBackground() {
         ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2)
         ctx.fill()
 
-        // Draw connections
         particles.forEach((otherParticle) => {
           const dx = particle.x - otherParticle.x
           const dy = particle.y - otherParticle.y
@@ -84,7 +95,7 @@ export function AnimatedBackground() {
 
     window.addEventListener("resize", handleResize)
     return () => window.removeEventListener("resize", handleResize)
-  }, [])
+  }, [scrollVelocity])
 
   return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
 }

@@ -107,7 +107,6 @@ export default function SignUpPage() {
       if (authData.user) {
         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
 
-        // Create verification code record
         const { error: codeError } = await supabase.from("verification_codes").insert({
           user_id: authData.user.id,
           email,
@@ -119,7 +118,6 @@ export default function SignUpPage() {
 
         if (codeError) throw codeError
 
-        // Update profile with additional info
         const { error: profileError } = await supabase
           .from("profiles")
           .update({
@@ -133,10 +131,6 @@ export default function SignUpPage() {
 
         if (profileError) throw profileError
 
-        // Log for debugging (in production, send via email service)
-        console.log(`[v0] Verification code for ${email}: ${verificationCode}`)
-
-        // Redirect to verification page
         router.push(`/auth/verify-code?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phoneNumber)}`)
       }
     } catch (error: unknown) {

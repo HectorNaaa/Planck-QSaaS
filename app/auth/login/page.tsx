@@ -45,7 +45,7 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
           redirectTo: `${window.location.origin}/auth/oauth-callback`,
