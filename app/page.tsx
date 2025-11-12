@@ -4,8 +4,8 @@ import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Zap, BarChart3, Lock } from "lucide-react"
-import { InteractiveQubit } from "@/components/interactive-qubit"
 import { PricingSection } from "@/components/pricing-section"
+import { AnimatedBackground } from "@/components/animated-background"
 
 export default function LandingPage() {
   return (
@@ -33,9 +33,11 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
-        <div className="flex flex-col items-center gap-12">
-          <InteractiveQubit />
+      <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 overflow-hidden">
+        <div className="absolute inset-0 h-full -z-10">
+          <AnimatedBackground />
+        </div>
+        <div className="flex flex-col items-center gap-12 relative z-10">
           <div className="text-center">
             <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6 text-balance">
               Quantum Computing <span className="text-primary">Made Simple</span>
@@ -91,15 +93,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <h2 className="text-4xl font-bold text-foreground mb-8 text-center">The Evolution of Computing</h2>
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="flex justify-center">
           <Image
             src="/computing-evolution.jpg"
-            alt="Computing Evolution from classical to quantum"
-            width={1000}
-            height={300}
-            className="rounded-xl shadow-lg"
+            alt="Computing Evolution"
+            width={600}
+            height={180}
+            className="rounded-lg shadow-lg"
           />
         </div>
       </section>

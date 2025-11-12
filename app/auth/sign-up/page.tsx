@@ -100,23 +100,26 @@ export default function SignUpPage() {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo:
-            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/verify-code`,
-          data: {
-            country,
-            occupation,
-            phone_number: phoneNumber,
-            country_code: countryCode,
-          },
-        },
       })
 
       if (authError) throw authError
 
       if (authData.user) {
-        const verificationCode = Math.random().toString().slice(2, 8)
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
 
+        // Create verification code record
+        const { error: codeError } = await supabase.from("verification_codes").insert({
+          user_id: authData.user.id,
+          email,
+          phone_number: phoneNumber,
+          code: verificationCode,
+          code_type: "email",
+          expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        })
+
+        if (codeError) throw codeError
+
+        // Update profile with additional info
         const { error: profileError } = await supabase
           .from("profiles")
           .update({
@@ -130,20 +133,10 @@ export default function SignUpPage() {
 
         if (profileError) throw profileError
 
-        // Create verification code record
-        await supabase.from("verification_codes").insert({
-          user_id: authData.user.id,
-          email,
-          phone_number: phoneNumber,
-          code: verificationCode,
-          code_type: "email",
-          expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-        })
+        // Log for debugging (in production, send via email service)
+        console.log(`[v0] Verification code for ${email}: ${verificationCode}`)
 
-        // In production, send email with code here
-        console.log(`[v0] Verification code: ${verificationCode}`)
-        console.log(`[v0] Sending to email: ${email}`)
-
+        // Redirect to verification page
         router.push(`/auth/verify-code?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phoneNumber)}`)
       }
     } catch (error: unknown) {
