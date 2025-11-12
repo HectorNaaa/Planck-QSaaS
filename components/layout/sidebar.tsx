@@ -1,31 +1,59 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { LayoutDashboard, Zap, BookOpen, Settings, CreditCard, LogOut } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
+import Image from "next/image"
+import { createClient } from "@/lib/supabase/client"
+import { useState } from "react"
+import { LoadingSpinner } from "@/components/loading-spinner"
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/runner", label: "Quantum Runner", icon: Zap },
-  { href: "/templates", label: "Templates", icon: BookOpen },
-  { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/billing", label: "Billing", icon: CreditCard },
+  { href: "/qsaas/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/qsaas/runner", label: "Quantum Runner", icon: Zap },
+  { href: "/qsaas/templates", label: "Templates", icon: BookOpen },
+  { href: "/qsaas/settings", label: "Settings", icon: Settings },
+  { href: "/qsaas/billing", label: "Billing", icon: CreditCard },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    const supabase = createClient()
+
+    try {
+      await supabase.auth.signOut()
+      router.push("/auth/login")
+    } catch (error) {
+      console.error("Logout error:", error)
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   return (
     <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
-      {/* Logo */}
-      <div className="p-6 border-b border-sidebar-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-sidebar-primary flex items-center justify-center">
-            <span className="text-sidebar-primary-foreground font-bold text-lg">Q</span>
-          </div>
-          <h1 className="text-xl font-bold text-sidebar-foreground">QuantumSaaS</h1>
-        </div>
+      {/* Header with Logo */}
+      <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
+        <Link
+          href="/"
+          className="flex items-center hover:opacity-80 transition-opacity flex-shrink-0"
+          title="Back to home"
+        >
+          <Image
+            src="/logo-isotipo.png"
+            alt="Planck Logo"
+            width={40}
+            height={40}
+            className="w-10 h-10 object-contain"
+            priority
+          />
+        </Link>
         <ThemeToggle />
       </div>
 
@@ -51,11 +79,24 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Footer */}
+      {/* Footer with Logout */}
       <div className="p-4 border-t border-sidebar-border">
-        <button className="flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent w-full transition-colors">
-          <LogOut size={20} />
-          <span className="font-medium">Sign Out</span>
+        <button
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent w-full transition-colors disabled:opacity-50"
+        >
+          {isLoggingOut ? (
+            <>
+              <LoadingSpinner size="sm" />
+              <span className="font-medium">Signing out...</span>
+            </>
+          ) : (
+            <>
+              <LogOut size={20} />
+              <span className="font-medium">Sign Out</span>
+            </>
+          )}
         </button>
       </div>
     </aside>

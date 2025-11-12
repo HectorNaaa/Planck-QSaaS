@@ -27,31 +27,33 @@ export default function LandingPage() {
               Docs
             </a>
           </nav>
-          <Link href="/dashboard">
+          <Link href="/qsaas/dashboard">
             <Button className="bg-primary hover:bg-primary/90">Get Started</Button>
           </Link>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-32">
-        <div className="text-center">
-          <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6 text-balance">
-            Quantum Computing <span className="text-primary">Made Simple</span>
-          </h1>
-          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto text-balance">
-            Build and run quantum algorithms without the complexity. Access powerful quantum computing resources with an
-            intuitive interface.
-          </p>
-          <div className="flex gap-4 justify-center flex-wrap">
-            <Link href="/dashboard">
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8">
-                Start Free Trial <ArrowRight className="ml-2" size={20} />
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20">
+        <div className="flex flex-col items-center gap-12">
+          <InteractiveQubit />
+          <div className="text-center">
+            <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6 text-balance">
+              Quantum Computing <span className="text-primary">Made Simple</span>
+            </h1>
+            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto text-balance">
+              Build and run quantum algorithms without the complexity. Access powerful quantum computing resources with
+              an intuitive interface.
+            </p>
+            <div className="flex gap-4 justify-center flex-wrap">
+              <Link href="/qsaas/dashboard">
+                <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8">
+                  Start Free Trial <ArrowRight className="ml-2" size={20} />
+                </Button>
+              </Link>
+              <Button size="lg" variant="outline" className="text-lg px-8 bg-transparent">
+                Watch Demo
               </Button>
-            </Link>
-            <Button size="lg" variant="outline" className="text-lg px-8 bg-transparent">
-              Watch Demo
-            </Button>
+            </div>
           </div>
         </div>
       </section>
@@ -90,11 +92,6 @@ export default function LandingPage() {
       </section>
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <h2 className="text-4xl font-bold text-foreground mb-8 text-center">Experience Quantum Interactions</h2>
-        <InteractiveQubit />
-      </section>
-
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <h2 className="text-4xl font-bold text-foreground mb-8 text-center">The Evolution of Computing</h2>
         <div className="flex justify-center">
           <Image
@@ -113,7 +110,7 @@ export default function LandingPage() {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
         <h2 className="text-4xl font-bold text-foreground mb-6">Ready to build quantum?</h2>
         <p className="text-lg text-muted-foreground mb-8">Join developers using Planck to build the quantum future</p>
-        <Link href="/dashboard">
+        <Link href="/qsaas/dashboard">
           <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8">
             Get Started Now <ArrowRight className="ml-2" size={20} />
           </Button>

@@ -5,11 +5,11 @@ import { usePathname } from "next/navigation"
 import { LayoutDashboard, Zap, BookOpen, Settings, CreditCard } from "lucide-react"
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/runner", label: "Runner", icon: Zap },
-  { href: "/templates", label: "Templates", icon: BookOpen },
-  { href: "/settings", label: "Settings", icon: Settings },
-  { href: "/billing", label: "Billing", icon: CreditCard },
+  { href: "/qsaas/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/qsaas/runner", label: "Runner", icon: Zap },
+  { href: "/qsaas/templates", label: "Templates", icon: BookOpen },
+  { href: "/qsaas/settings", label: "Settings", icon: Settings },
+  { href: "/qsaas/billing", label: "Billing", icon: CreditCard },
 ]
 
 export function MobileBottomNav() {
