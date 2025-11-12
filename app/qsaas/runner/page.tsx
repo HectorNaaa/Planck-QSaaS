@@ -26,16 +26,19 @@ export default function RunnerPage() {
     setIsRunning(true)
 
     try {
-      // Log execution start
-      await logExecution({
-        circuit_name: circuitName,
-        execution_type: executionType,
-        backend,
-        status: "running",
-        qubits_used: qubits,
-        shots,
-        error_mitigation: errorMitigation,
-      })
+      try {
+        await logExecution({
+          circuit_name: circuitName,
+          execution_type: executionType,
+          backend,
+          status: "running",
+          qubits_used: qubits,
+          shots,
+          error_mitigation: errorMitigation,
+        })
+      } catch (logError) {
+        console.error("[v0] Failed to log execution start:", logError)
+      }
 
       // Simulate quantum computation
       await new Promise((resolve) => setTimeout(resolve, 2500))
@@ -52,31 +55,39 @@ export default function RunnerPage() {
       setResults(mockResults)
 
       // Log execution completion
-      await logExecution({
-        circuit_name: circuitName,
-        execution_type: executionType,
-        backend,
-        status: "completed",
-        success_rate: mockResults.success_rate,
-        runtime_ms: mockResults.runtime_ms,
-        qubits_used: mockResults.qubits_used,
-        shots,
-        error_mitigation: errorMitigation,
-      })
+      try {
+        await logExecution({
+          circuit_name: circuitName,
+          execution_type: executionType,
+          backend,
+          status: "completed",
+          success_rate: mockResults.success_rate,
+          runtime_ms: mockResults.runtime_ms,
+          qubits_used: mockResults.qubits_used,
+          shots,
+          error_mitigation: errorMitigation,
+        })
+      } catch (logError) {
+        console.error("[v0] Failed to log execution completion:", logError)
+      }
     } catch (error) {
       console.error("[v0] Execution error:", error)
 
       // Log failure
-      await logExecution({
-        circuit_name: circuitName,
-        execution_type: executionType,
-        backend,
-        status: "failed",
-        qubits_used: qubits,
-        shots,
-        error_mitigation: errorMitigation,
-        error: error instanceof Error ? error.message : "Unknown error",
-      })
+      try {
+        await logExecution({
+          circuit_name: circuitName,
+          execution_type: executionType,
+          backend,
+          status: "failed",
+          qubits_used: qubits,
+          shots,
+          error_mitigation: errorMitigation,
+          error: error instanceof Error ? error.message : "Unknown error",
+        })
+      } catch (logError) {
+        console.error("[v0] Failed to log execution failure:", logError)
+      }
     } finally {
       setIsRunning(false)
     }

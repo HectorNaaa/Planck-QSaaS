@@ -7,35 +7,35 @@ const templates = [
     id: 1,
     name: "Bell State",
     description: "Create an entangled quantum state",
-    min.qubits: 2,
+    minQubits: 2,
     difficulty: "Beginner",
   },
   {
     id: 2,
     name: "Grover's Algorithm",
     description: "Search an unsorted database",
-    min.qubits: 8,
+    minQubits: 8,
     difficulty: "Intermediate",
   },
   {
     id: 3,
     name: "Shor's Algorithm",
     description: "Factor large numbers",
-    min.qubits: 16,
+    minQubits: 16,
     difficulty: "Advanced",
   },
   {
     id: 4,
     name: "VQE Optimizer",
     description: "Variational Quantum Eigensolver",
-    min.qubits: 12,
+    minQubits: 12,
     difficulty: "Advanced",
   },
   {
     id: 5,
     name: "QAOA Circuit",
     description: "Quantum Approximate Optimization Algorithm",
-    min.qubits: 10,
+    minQubits: 10,
     difficulty: "Intermediate",
   },
 ]
@@ -57,7 +57,7 @@ export default function TemplatesPage() {
             </div>
             <p className="text-muted-foreground text-sm mb-4 flex-grow">{template.description}</p>
             <div className="flex items-center gap-4 mb-4 text-sm">
-              <span className="text-muted-foreground">{template.qubits} qubits</span>
+              <span className="text-muted-foreground">{template.minQubits} qubits</span>
               <span
                 className={`px-3 py-1 rounded-full text-xs font-medium ${
                   template.difficulty === "Beginner"
