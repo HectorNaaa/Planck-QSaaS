@@ -14,7 +14,7 @@ export default function LandingPage() {
       <header className="border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <Image src="/planck-logo.jpg" alt="Planck Logo" width={120} height={40} className="h-10 w-auto" />
+            <Image src="/images/design-mode/Planck%20Logotype%20no%20bg.png" alt="Planck Logo" width={120} height={40} className="h-10 w-auto" />
           </div>
           <nav className="hidden md:flex gap-8">
             <a href="#features" className="text-foreground hover:text-primary transition">
