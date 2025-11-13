@@ -68,14 +68,14 @@ export function PricingSection() {
         {plans.map((plan, index) => (
           <div
             key={index}
-            className={`rounded-xl border p-8 transition-all duration-300 hover:scale-105 shadow-lg ${
+            className={`rounded-xl border p-8 transition-all duration-300 hover:scale-105 shadow-lg bg-secondary ${
               plan.popular
                 ? "border-primary bg-card shadow-xl shadow-primary/20 scale-105"
                 : "border-border bg-card shadow-lg hover:shadow-xl"
             }`}
           >
             {plan.popular && (
-              <div className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-sm font-medium inline-block mb-4">
+              <div className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-semibold inline-block mb-4">
                 Most Popular
               </div>
             )}
