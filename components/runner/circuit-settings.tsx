@@ -10,7 +10,7 @@ export function CircuitSettings() {
   const [errorMitigation, setErrorMitigation] = useState<"none" | "low" | "medium" | "high">("none")
 
   return (
-    <Card className="p-6">
+    <Card className="p-6 shadow-lg">
       <h3 className="text-lg font-bold text-foreground mb-4">Circuit Settings</h3>
 
       <div className="mb-4">

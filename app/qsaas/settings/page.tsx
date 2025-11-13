@@ -24,7 +24,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Account Settings */}
-      <Card className="p-6">
+      <Card className="p-6 shadow-lg">
         <h2 className="text-2xl font-bold text-foreground mb-6">Account</h2>
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -57,7 +57,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* API Keys */}
-      <Card className="p-6">
+      <Card className="p-6 shadow-lg">
         <h2 className="text-2xl font-bold text-foreground mb-6">API Keys</h2>
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg border border-border">
@@ -82,7 +82,7 @@ export default function SettingsPage() {
       </Card>
 
       {/* Preferences */}
-      <Card className="p-6">
+      <Card className="p-6 shadow-lg">
         <h2 className="text-2xl font-bold text-foreground mb-6">Preferences</h2>
         <div className="space-y-4">
           <div className="flex items-center justify-between">

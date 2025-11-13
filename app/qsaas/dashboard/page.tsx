@@ -31,7 +31,7 @@ export default function DashboardPage() {
         {stats.map((stat, i) => {
           const Icon = stat.icon
           return (
-            <Card key={i} className="p-6">
+            <Card key={i} className="p-6 hover:shadow-lg hover:scale-105 transition-all duration-300 shadow-lg">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-muted-foreground text-sm font-medium">{stat.label}</p>
                 <Icon className="text-primary" size={24} />
@@ -44,7 +44,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Activity */}
-      <Card className="p-6">
+      <Card className="p-6 hover:shadow-lg transition-all duration-300 shadow-lg">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-foreground">Recent Circuits</h2>
           <Link href="/qsaas/runner">
@@ -84,33 +84,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* Quick Links */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-          <h3 className="text-lg font-bold text-foreground mb-3">Start a New Circuit</h3>
-          <p className="text-muted-foreground mb-4">Build and run your own quantum circuits from scratch.</p>
-          <Link href="/qsaas/runner">
-            <Button variant="outline" className="w-full bg-transparent">
-              Open Runner
-            </Button>
-          </Link>
-        </Card>
-        <Card className="p-6 bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
-          <h3 className="text-lg font-bold text-foreground mb-3">Browse Templates</h3>
-          <p className="text-muted-foreground mb-4">Use pre-built quantum algorithms as a starting point.</p>
-          <Link href="/qsaas/templates">
-            <Button variant="outline" className="w-full bg-transparent">
-              View Templates
-            </Button>
-          </Link>
-        </Card>
-        <Card className="p-6 bg-gradient-to-br from-secondary/10 to-secondary/5 border-secondary/20">
-          <h3 className="text-lg font-bold text-foreground mb-3">Documentation</h3>
-          <p className="text-muted-foreground mb-4">Learn quantum computing concepts and best practices.</p>
-          <Button variant="outline" className="w-full bg-transparent">
-            Read Docs
-          </Button>
-        </Card>
-      </div>
+      
     </div>
   )
 }

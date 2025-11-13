@@ -50,7 +50,7 @@ export default function TemplatesPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {templates.map((template) => (
-          <Card key={template.id} className="p-6 flex flex-col">
+          <Card key={template.id} className="p-6 flex flex-col shadow-lg">
             <div className="flex items-start gap-3 mb-4">
               <BookOpen className="text-primary flex-shrink-0" size={24} />
               <h3 className="text-lg font-bold text-foreground">{template.name}</h3>

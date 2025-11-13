@@ -56,7 +56,7 @@ export default function BillingPage() {
         {plans.map((plan, i) => (
           <Card
             key={i}
-            className={`p-6 flex flex-col transition ${
+            className={`p-6 flex flex-col transition shadow-lg ${
               plan.highlighted ? "border-primary/50 border-2 shadow-lg shadow-primary/20" : ""
             }`}
           >
@@ -85,7 +85,7 @@ export default function BillingPage() {
       </div>
 
       {/* Billing History */}
-      <Card className="p-6">
+      <Card className="p-6 shadow-lg">
         <h2 className="text-2xl font-bold text-foreground mb-6">Billing History</h2>
         <div className="overflow-x-auto">
           <table className="w-full">

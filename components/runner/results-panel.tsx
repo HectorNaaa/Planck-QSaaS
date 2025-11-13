@@ -56,7 +56,7 @@ export function ResultsPanel() {
   aggregatedStats.avgRuntime = aggregatedStats.avgRuntime / aggregatedStats.totalExecutions
 
   return (
-    <Card className="p-6">
+    <Card className="p-6 shadow-lg">
       <h3 className="text-lg font-bold text-foreground mb-4">Execution Results</h3>
 
       {/* Aggregated Stats */}

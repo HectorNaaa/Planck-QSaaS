@@ -98,7 +98,7 @@ export default function RunnerPage() {
       {/* Header */}
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-4xl font-bold text-foreground mb-2">Quantum Runner</h1>
+          <h1 className="text-4xl font-bold mb-2 text-foreground">Quantum Runner</h1>
           <p className="text-muted-foreground">Build and execute quantum circuits in real-time.</p>
         </div>
         <div className="flex gap-3">
@@ -134,7 +134,7 @@ export default function RunnerPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Circuit Editor */}
         <div className="lg:col-span-2 space-y-6">
-          <Card className="p-6">
+          <Card className="p-6 shadow-lg">
             <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Builder</h2>
             <div className="bg-secondary/50 rounded-lg p-8 min-h-96 border border-border flex items-center justify-center">
               <div className="text-center">
@@ -144,7 +144,7 @@ export default function RunnerPage() {
             </div>
           </Card>
 
-          <Card className="p-6">
+          <Card className="p-6 shadow-lg">
             <h2 className="text-2xl font-bold text-foreground mb-4">Quantum Code</h2>
             <pre className="bg-secondary/50 p-4 rounded-lg text-sm text-muted-foreground overflow-x-auto font-mono">
               {`// Grover's Algorithm Example

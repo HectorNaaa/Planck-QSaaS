@@ -30,7 +30,7 @@ export function DatabaseUploader() {
   }
 
   return (
-    <Card className="p-6">
+    <Card className="p-6 shadow-lg">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold text-foreground">Database & Config</h3>
         <button onClick={() => setIsExpanded(!isExpanded)} className="text-primary hover:text-primary/80 transition">
