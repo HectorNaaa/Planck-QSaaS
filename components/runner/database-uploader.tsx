@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
-import { Upload, X } from "lucide-react"
+import { Upload, X, ChevronDown } from 'lucide-react'
 import { Card } from "@/components/ui/card"
 
 interface DatabaseConfig {
@@ -31,11 +31,12 @@ export function DatabaseUploader() {
 
   return (
     <Card className="p-6 shadow-lg">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
         <h3 className="text-lg font-bold text-foreground">Database & Config</h3>
-        <button onClick={() => setIsExpanded(!isExpanded)} className="text-primary hover:text-primary/80 transition">
-          {isExpanded ? "−" : "+"}
-        </button>
+        <ChevronDown
+          size={24}
+          className={`text-primary transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
+        />
       </div>
 
       {isExpanded && (
@@ -59,25 +60,23 @@ export function DatabaseUploader() {
             </div>
           </div>
 
-          {/* Predefined Configs */}
           <div>
             <label className="block text-sm font-medium text-foreground mb-2">Or Select Template</label>
-            <div className="space-y-2">
+            <select
+              value={selectedConfig?.name || ""}
+              onChange={(e) => {
+                const config = mockConfigs.find((c) => c.name === e.target.value)
+                setSelectedConfig(config || null)
+              }}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground hover:border-primary/50 transition"
+            >
+              <option value="">Select a template...</option>
               {mockConfigs.map((config) => (
-                <button
-                  key={config.name}
-                  onClick={() => setSelectedConfig(config)}
-                  className={`w-full text-left p-3 rounded-lg transition ${
-                    selectedConfig?.name === config.name
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary hover:bg-secondary/70 text-foreground"
-                  }`}
-                >
-                  <div className="font-medium">{config.name}</div>
-                  <div className="text-xs opacity-75">{config.description}</div>
-                </button>
+                <option key={config.name} value={config.name}>
+                  {config.name} - {config.description}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* Selected Info */}

@@ -1,29 +1,47 @@
 "use client"
 
 import { useState } from "react"
+import { ChevronDown } from 'lucide-react'
 import { Card } from "@/components/ui/card"
 
-type ExecutionBackend = "quantum-gpu" | "hpc-gpu" | "qpu"
+type ExecutionBackend = "quantum_inspired_gpu" | "hpc_gpu" | "quantum_qpu"
 
-export function ExecutionSettings() {
-  const [backend, setBackend] = useState<ExecutionBackend>("quantum-gpu")
+interface ExecutionSettingsProps {
+  onBackendChange?: (backend: ExecutionBackend) => void
+  currentBackend?: ExecutionBackend
+  onModeChange?: (mode: "auto" | "manual") => void
+}
+
+export function ExecutionSettings({ onBackendChange, currentBackend, onModeChange }: ExecutionSettingsProps) {
+  const [backend, setBackend] = useState<ExecutionBackend>(currentBackend || "quantum_inspired_gpu")
   const [isExpanded, setIsExpanded] = useState(false)
+  const [mode, setMode] = useState<"auto" | "manual">("auto")
+
+  const handleBackendChange = (newBackend: ExecutionBackend) => {
+    setBackend(newBackend)
+    onBackendChange?.(newBackend)
+  }
+
+  const handleModeChange = (newMode: "auto" | "manual") => {
+    setMode(newMode)
+    onModeChange?.(newMode)
+  }
 
   const backends = [
     {
-      id: "quantum-gpu" as const,
+      id: "quantum_inspired_gpu" as const,
       label: "Quantum Inspired GPU",
       description: "Classical GPU simulation with quantum-inspired algorithms",
       icon: "🚀",
     },
     {
-      id: "hpc-gpu" as const,
+      id: "hpc_gpu" as const,
       label: "HPC GPU",
       description: "High-performance computing GPU for large-scale simulations",
       icon: "⚡",
     },
     {
-      id: "qpu" as const,
+      id: "quantum_qpu" as const,
       label: "Quantum QPU",
       description: "Real quantum processor execution (limited availability)",
       icon: "🔬",
@@ -32,41 +50,76 @@ export function ExecutionSettings() {
 
   return (
     <Card className="p-6 shadow-lg">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
         <h3 className="text-lg font-bold text-foreground">Execution Settings</h3>
-        <button onClick={() => setIsExpanded(!isExpanded)} className="text-primary hover:text-primary/80 transition">
-          {isExpanded ? "−" : "+"}
-        </button>
+        <ChevronDown
+          size={24}
+          className={`text-primary transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
+        />
       </div>
 
       {isExpanded && (
-        <div className="space-y-3">
-          {backends.map((b) => (
-            <button
-              key={b.id}
-              onClick={() => setBackend(b.id)}
-              className={`w-full text-left p-4 rounded-lg transition border-2 ${
-                backend === b.id
-                  ? "border-primary bg-primary/10"
-                  : "border-secondary bg-secondary/30 hover:border-primary/50"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">{b.icon}</span>
-                <div className="flex-1">
-                  <p className="font-medium text-foreground">{b.label}</p>
-                  <p className="text-xs text-muted-foreground">{b.description}</p>
-                </div>
-                <div
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                    backend === b.id ? "border-primary bg-primary" : "border-muted-foreground"
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Execution Mode</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleModeChange("auto")}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition ${
+                  mode === "auto"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                }`}
+              >
+                Auto
+              </button>
+              <button
+                onClick={() => handleModeChange("manual")}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition ${
+                  mode === "manual"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                }`}
+              >
+                Manual
+              </button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              {mode === "auto" ? "Optimal backend selected automatically" : "Manually select execution backend"}
+            </p>
+          </div>
+
+          {mode === "manual" && (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-foreground">Backend Selection</label>
+              {backends.map((b) => (
+                <button
+                  key={b.id}
+                  onClick={() => handleBackendChange(b.id)}
+                  className={`w-full text-left p-4 rounded-lg transition border-2 ${
+                    backend === b.id
+                      ? "border-primary bg-primary/10"
+                      : "border-secondary bg-secondary/30 hover:border-primary/50"
                   }`}
                 >
-                  {backend === b.id && <div className="w-2 h-2 bg-primary-foreground rounded-full" />}
-                </div>
-              </div>
-            </button>
-          ))}
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl">{b.icon}</span>
+                    <div className="flex-1">
+                      <p className="font-medium text-foreground">{b.label}</p>
+                      <p className="text-xs text-muted-foreground">{b.description}</p>
+                    </div>
+                    <div
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                        backend === b.id ? "border-primary bg-primary" : "border-muted-foreground"
+                      }`}
+                    >
+                      {backend === b.id && <div className="w-2 h-2 bg-primary-foreground rounded-full" />}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </Card>

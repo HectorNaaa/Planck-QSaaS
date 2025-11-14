@@ -7,11 +7,25 @@ import { ArrowRight, Zap, BarChart3, GitBranch } from 'lucide-react'
 import { PricingSection } from "@/components/pricing-section"
 import { HeroAnimation } from "@/components/hero-animation"
 import { FAQSection } from "@/components/faq-section"
+import { TitleAnimation } from "@/components/title-animation"
+import React from "react"
 
 export default function LandingPage() {
+  const [scrollRotation, setScrollRotation] = React.useState(0)
+
+  React.useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY
+      setScrollRotation(scrollY * 0.2)
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
   return (
     <div className="min-h-screen bg-background">
-      <header className="fixed top-3 left-3 right-3 z-50 bg-background/95 backdrop-blur-sm border-b border-border shadow-lg rounded-lg opacity-95">
+      <header className="fixed top-3 left-3 right-3 z-50 bg-background/95 backdrop-blur-sm border-b border-border shadow-lg rounded-lg opacity-[0.96]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div>
             <Image
@@ -35,7 +49,7 @@ export default function LandingPage() {
           </nav>
           <Link href="/auth/login">
             <Button className="bg-primary hover:bg-primary/90 text-lg transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 px-6 py-2.5">
-              Get Started
+              Access
             </Button>
           </Link>
         </div>
@@ -43,14 +57,17 @@ export default function LandingPage() {
 
       <div className="pt-24">
         {/* Hero Section */}
-        <section className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 overflow-hidden md:py-32">
+        <section data-hn-hero className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 overflow-hidden md:py-32">
           <div className="absolute inset-0 -z-10">
             <HeroAnimation />
+          </div>
+          <div className="absolute inset-0 -z-10">
+            <TitleAnimation />
           </div>
 
           <div className="flex flex-col items-center gap-12 relative z-10">
             <div className="text-center space-y-6">
-              <h1 className="text-5xl md:text-7xl font-bold text-foreground text-balance">
+              <h1 className="hn-slogan-wrap text-5xl md:text-7xl font-bold text-foreground text-balance" style={{ '--scroll-rotation': `${scrollRotation}deg` } as React.CSSProperties}>
                 Effortless <span className="text-primary">Quantum Solutions</span>
               </h1>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-balance">
@@ -60,15 +77,15 @@ export default function LandingPage() {
                 <Link href="/auth/login">
                   <Button
                     size="lg"
-                    className="bg-primary hover:bg-primary/90 text-lg px-8 transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 shadow-xl"
+                    className="hn-cta bg-primary hover:bg-primary/90 text-lg px-8 transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 shadow-xl"
                   >
-                    Start Free Trial <ArrowRight className="ml-2" size={20} />
+                    Access <ArrowRight className="ml-2" size={20} />
                   </Button>
                 </Link>
                 <Button
                   size="lg"
                   variant="outline"
-                  className="text-lg px-8 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 bg-card"
+                  className="text-lg px-8 hover:shadow-lg transition-all duration-300 hover:scale-105 bg-secondary shadow-lg"
                 >
                   Watch Demo
                 </Button>
@@ -79,7 +96,7 @@ export default function LandingPage() {
 
         {/* Features */}
         <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <h2 className="text-4xl font-bold text-foreground mb-12 text-center">Powerful Features</h2>
+          <h2 className="text-4xl font-bold text-foreground mb-12 text-center">Features</h2>
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
@@ -102,7 +119,7 @@ export default function LandingPage() {
               return (
                 <div
                   key={i}
-                  className="border border-border p-8 hover:shadow-lg transition hover:shadow-xl hover:scale-105 duration-300 shadow-lg rounded-lg bg-secondary"
+                  className="border border-border p-8 hover:shadow-lg transition hover:shadow-xl hover:scale-105 duration-300 shadow-lg rounded-lg bg-card"
                 >
                   <Icon className="text-primary mb-4" size={32} />
                   <h3 className="text-xl font-semibold text-foreground mb-2">{feature.title}</h3>
@@ -142,7 +159,7 @@ export default function LandingPage() {
               size="lg"
               className="bg-primary hover:bg-primary/90 text-lg px-8 transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 shadow-lg"
             >
-              Get Started Now <ArrowRight className="ml-2" />
+              Access <ArrowRight className="ml-2" />
             </Button>
           </Link>
         </section>
@@ -154,6 +171,185 @@ export default function LandingPage() {
           </div>
         </footer>
       </div>
+
+      <style jsx>{`
+        /* Scoped hero glow effects */
+        [data-hn-hero] .hn-slogan-wrap {
+          position: relative;
+          display: inline-block;
+        }
+
+        /* Halo behind slogan - enhanced with multiple layers and more dynamic movement */
+        [data-hn-hero] .hn-slogan-wrap::before {
+          content: '';
+          position: absolute;
+          inset: -3rem;
+          background: radial-gradient(
+            ellipse 120% 100% at center,
+            var(--primary, #578e7e) 0%,
+            rgba(87, 142, 126, 0.36) 30%,
+            rgba(87, 142, 126, 0.18) 50%,
+            transparent 75%
+          );
+          opacity: 0.21;
+          filter: blur(60px);
+          z-index: -1;
+          animation: hn-halo-pulse 3s ease-in-out infinite, hn-halo-drift 8s ease-in-out infinite alternate;
+          transform: rotate(var(--scroll-rotation, 0deg));
+          transition: transform 0.1s ease-out;
+        }
+
+        /* Secondary halo layer for more depth */
+        [data-hn-hero] .hn-slogan-wrap::after {
+          content: '';
+          position: absolute;
+          inset: -2rem;
+          background: radial-gradient(
+            circle at center,
+            rgba(87, 142, 126, 0.48) 0%,
+            rgba(87, 142, 126, 0.24) 40%,
+            transparent 70%
+          );
+          opacity: 0.15;
+          filter: blur(45px);
+          z-index: -1;
+          animation: hn-halo-pulse 3s ease-in-out infinite 0.5s;
+          transform: rotate(calc(var(--scroll-rotation, 0deg) * -1.5));
+          transition: transform 0.1s ease-out;
+        }
+
+        [data-hn-hero] .hn-cta {
+          position: relative;
+        }
+
+        /* CTA glow - enhanced with pulsing and shimmer */
+        [data-hn-hero] .hn-cta::before {
+          content: '';
+          position: absolute;
+          bottom: -12px;
+          left: 5%;
+          right: 5%;
+          height: 20px;
+          background: radial-gradient(
+            ellipse at center,
+            var(--primary, #578e7e) 0%,
+            rgba(87, 142, 126, 0.7) 40%,
+            transparent 75%
+          );
+          opacity: 0.5;
+          filter: blur(12px);
+          animation: hn-glow-pulse 2.5s ease-in-out infinite;
+        }
+
+        /* Secondary CTA glow layer */
+        [data-hn-hero] .hn-cta::after {
+          content: '';
+          position: absolute;
+          bottom: -8px;
+          left: 15%;
+          right: 15%;
+          height: 16px;
+          background: radial-gradient(
+            ellipse at center,
+            rgba(87, 142, 126, 0.9) 0%,
+            rgba(87, 142, 126, 0.5) 50%,
+            transparent 80%
+          );
+          opacity: 0.4;
+          filter: blur(8px);
+          animation: hn-glow-pulse 2.5s ease-in-out infinite 0.3s, hn-shimmer 4s ease-in-out infinite;
+        }
+
+        /* Enhanced animations */
+        @keyframes hn-halo-pulse {
+          0%, 100% {
+            opacity: 0.18;
+            transform: scale(1);
+          }
+          50% {
+            opacity: 0.27;
+            transform: scale(1.08);
+          }
+        }
+
+        @keyframes hn-halo-drift {
+          0%, 100% {
+            transform: translateY(0) translateX(0);
+          }
+          50% {
+            transform: translateY(-8px) translateX(5px);
+          }
+        }
+
+        @keyframes hn-halo-rotate {
+          0% {
+            transform: rotate(0deg) scale(1);
+          }
+          50% {
+            transform: rotate(180deg) scale(1.05);
+          }
+          100% {
+            transform: rotate(360deg) scale(1);
+          }
+        }
+
+        @keyframes hn-glow-pulse {
+          0%, 100% {
+            opacity: 0.4;
+            transform: scaleY(1);
+          }
+          50% {
+            opacity: 0.65;
+            transform: scaleY(1.15);
+          }
+        }
+
+        @keyframes hn-shimmer {
+          0%, 100% {
+            transform: translateX(0) scaleX(1);
+            opacity: 0.4;
+          }
+          50% {
+            transform: translateX(3px) scaleX(1.1);
+            opacity: 0.6;
+          }
+        }
+
+        /* Reduce blur on mobile */
+        @media (max-width: 768px) {
+          [data-hn-hero] .hn-slogan-wrap::before {
+            filter: blur(30px);
+            inset: -2rem;
+          }
+          [data-hn-hero] .hn-slogan-wrap::after {
+            filter: blur(25px);
+          }
+          [data-hn-hero] .hn-cta::before {
+            filter: blur(6px);
+          }
+          [data-hn-hero] .hn-cta::after {
+            filter: blur(4px);
+          }
+        }
+
+        /* Respect reduced motion preference */
+        @media (prefers-reduced-motion: reduce) {
+          [data-hn-hero] .hn-slogan-wrap::before,
+          [data-hn-hero] .hn-slogan-wrap::after,
+          [data-hn-hero] .hn-cta::before,
+          [data-hn-hero] .hn-cta::after {
+            animation: none;
+          }
+        }
+
+        /* Disable option */
+        [data-hn-hero].hn-disable .hn-slogan-wrap::before,
+        [data-hn-hero].hn-disable .hn-slogan-wrap::after,
+        [data-hn-hero].hn-disable .hn-cta::before,
+        [data-hn-hero].hn-disable .hn-cta::after {
+          display: none;
+        }
+      `}</style>
     </div>
   )
 }

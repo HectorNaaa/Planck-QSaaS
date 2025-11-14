@@ -44,7 +44,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent Activity */}
-      <Card className="p-6 hover:shadow-lg transition-all duration-300 shadow-lg">
+      <Card className="p-6 hover:shadow-lg transition-all duration-300 shadow-lg bg-secondary">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-foreground">Recent Circuits</h2>
           <Link href="/qsaas/runner">

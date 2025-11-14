@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Zap } from "lucide-react"
+import { Zap, ChevronDown } from 'lucide-react'
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
@@ -31,11 +31,12 @@ export function AutoParser() {
 
   return (
     <Card className="p-6 shadow-lg">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
         <h3 className="text-lg font-bold text-foreground">AutoParser</h3>
-        <button onClick={() => setIsExpanded(!isExpanded)} className="text-primary hover:text-primary/80 transition">
-          {isExpanded ? "−" : "+"}
-        </button>
+        <ChevronDown
+          size={24}
+          className={`text-primary transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
+        />
       </div>
 
       {isExpanded && (

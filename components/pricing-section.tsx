@@ -6,55 +6,54 @@ import { Check } from 'lucide-react'
 
 const plans = [
   {
-    name: "Starter",
-    price: "Free",
-    period: " ",
+    name: "Free",
+    price: "€0",
+    period: "/month",
     description: "For those starting the journey",
     features: [
       "Quantum-inspired executions",
       "Up to 12 qubits",
       "Pre-built circuits",
       "Basic analytics",
-      "Basic support",
+      "Community support",
     ],
     cta: "Get Started",
     popular: false,
   },
   {
-    name: "Growth",
+    name: "Pro",
     price: "€49",
     period: "/month",
-    description: "For intermediate and advanced users",
+    description: "For professionals and teams",
     features: [
-      "QPUs and Quantum-inspired executions",
+      "All Free features",
+      "QPU access (limited)",
       "Up to 56 qubits",
-      "Advanced circuits",
+      "Custom circuits",
       "Advanced analytics",
       "Priority support",
-      "€0.49/credit",
       "Error mitigation",
       "API access",
     ],
-    cta: "Available soon...",
-    popular: true,
+    cta: "Start Free Trial",
+    popular: false,
   },
   {
     name: "Custom",
-    price: "Contact Us",
+    price: "Custom",
     period: "",
-    description: "For custom quantum computing solutions",
+    description: "Enterprise quantum solutions",
     features: [
-      "QPUs and Quantum-inspired executions",
-      "Up to 56 qubits",
-      "Customized circuits",
-      "Customized analytics",
-      "Dedicated support",
-      "€0.44/credit",
-      "Error mitigation",    
-      "API access and stack integration",
-      "Staff training",
+      "All Pro features",
+      "Unlimited QPU access",
+      "Personalized quantum circuits",
+      "Priority queue execution",
+      "Advanced configuration settings",
+      "Dedicated account manager",
+      "Custom integrations",
+      "Consulting & training",
     ],
-    cta: "Contact Us",
+    cta: "Contact Sales",
     popular: false,
   },
 ]
@@ -71,9 +70,9 @@ export function PricingSection() {
         {plans.map((plan, index) => (
           <div
             key={index}
-            className={`rounded-xl border p-8 transition-all duration-300 hover:scale-105 shadow-lg bg-secondary ${
+            className={`rounded-xl border p-8 transition-shadow duration-300 shadow-lg bg-secondary ${
               plan.popular
-                ? "border-primary shadow-xl shadow-primary/20 scale-105"
+                ? "border-primary shadow-xl shadow-primary/20"
                 : "border-border shadow-lg hover:shadow-xl"
             }`}
           >
@@ -97,7 +96,7 @@ export function PricingSection() {
 
             <Link href="/auth/login" className="block mb-6">
               <Button
-                className={`w-full transition-all duration-300 hover:scale-105 shadow-lg ${
+                className={`w-full transition-all duration-300 hover:scale-105 hover:shadow-xl shadow-lg ${
                   plan.popular ? "bg-primary hover:bg-primary/90" : "bg-primary/20 hover:bg-primary/30 text-primary"
                 }`}
               >

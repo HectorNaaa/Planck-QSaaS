@@ -7,9 +7,10 @@ import { CircuitSettings } from "@/components/runner/circuit-settings"
 import { ExecutionSettings } from "@/components/runner/execution-settings"
 import { DatabaseUploader } from "@/components/runner/database-uploader"
 import { AutoParser } from "@/components/runner/autoparser"
-import { ResultsPanel } from "@/components/runner/results-panel"
+import { ExpectedResults } from "@/components/runner/expected-results"
+import { CircuitResults } from "@/components/runner/circuit-results"
 import { LoadingSpinner } from "@/components/loading-spinner"
-import { Save, Play, RotateCcw, Zap } from "lucide-react"
+import { Save, Play, RotateCcw, Zap } from 'lucide-react'
 import { logExecution } from "@/lib/logging"
 
 export default function RunnerPage() {
@@ -102,11 +103,11 @@ export default function RunnerPage() {
           <p className="text-muted-foreground">Build and execute quantum circuits in real-time.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+          <Button variant="outline" className="flex items-center gap-2 bg-secondary">
             <RotateCcw size={18} />
             Reset
           </Button>
-          <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+          <Button variant="outline" className="flex items-center gap-2 bg-secondary">
             <Save size={18} />
             Save
           </Button>
@@ -135,8 +136,8 @@ export default function RunnerPage() {
         {/* Circuit Editor */}
         <div className="lg:col-span-2 space-y-6">
           <Card className="p-6 shadow-lg">
-            <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Builder</h2>
-            <div className="bg-secondary/50 rounded-lg p-8 min-h-96 border border-border flex items-center justify-center">
+            <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Visualizer</h2>
+            <div className="rounded-lg p-8 min-h-96 border border-border flex items-center justify-center bg-secondary">
               <div className="text-center">
                 <Zap className="text-muted-foreground mx-auto mb-4" size={48} />
                 <p className="text-muted-foreground">Quantum circuit visualization appears here</p>
@@ -144,10 +145,10 @@ export default function RunnerPage() {
             </div>
           </Card>
 
-          <Card className="p-6 shadow-lg">
-            <h2 className="text-2xl font-bold text-foreground mb-4">Quantum Code</h2>
-            <pre className="bg-secondary/50 p-4 rounded-lg text-sm text-muted-foreground overflow-x-auto font-mono">
-              {`// Grover's Algorithm Example
+          <Card className="p-6 shadow-lg bg-card">
+            <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Code</h2>
+            <pre className="p-4 rounded-lg text-sm font-mono text-secondary-foreground bg-secondary max-h-96 overflow-auto">
+              {`// Grover's Algorithm Example with 4q
 circuit = QuantumCircuit(4)
 
 # Initialize to superposition
@@ -157,6 +158,12 @@ for i in range(4):
 # Apply oracle
 circuit.cx(0, 3)
 circuit.cx(1, 3)
+circuit.cx(2, 3)
+circuit.cx(3, 3)
+circuit.cx(0, 2)
+circuit.cx(1, 2)
+circuit.cx(2, 2)
+circuit.cx(3, 2)
 
 # Grover diffusion
 for i in range(4):
@@ -167,6 +174,9 @@ circuit.h(3)
 # ... diffusion continues`}
             </pre>
           </Card>
+
+          {/* CircuitResults moved below Circuit Code */}
+          <CircuitResults backend={backend} results={results} />
         </div>
 
         {/* Right Sidebar */}
@@ -178,8 +188,13 @@ circuit.h(3)
             onQubitsChange={setQubits}
             onErrorMitigationChange={setErrorMitigation}
           />
-          <ExecutionSettings onBackendChange={setBackend} currentBackend={backend} />
-          <ResultsPanel results={results} />
+          <ExecutionSettings 
+            onBackendChange={setBackend} 
+            currentBackend={backend}
+            onModeChange={(mode) => console.log("[v0] Execution mode changed to:", mode)}
+          />
+          {/* ExpectedResults replaced ResultsPanel */}
+          <ExpectedResults backend={backend} />
         </div>
       </div>
     </div>

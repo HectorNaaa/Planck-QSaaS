@@ -39,7 +39,7 @@ export function Sidebar() {
   return (
     <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
       {/* Header with Logo */}
-      <div className="p-4 border-b border-sidebar-border flex items-center justify-between">
+      <div className="p-4 border-sidebar-border flex items-center justify-between border-b-0">
         <Link
           href="/"
           className="flex items-center hover:opacity-80 transition-opacity flex-shrink-0"
@@ -80,7 +80,7 @@ export function Sidebar() {
       </nav>
 
       {/* Footer with Logout */}
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-4 border-sidebar-border border-t-[2p0]">
         <button
           onClick={handleLogout}
           disabled={isLoggingOut}

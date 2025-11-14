@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { ChevronDown } from 'lucide-react'
 import { Card } from "@/components/ui/card"
 
 interface ExecutionResult {
@@ -39,10 +40,15 @@ const mockResults: ExecutionResult[] = [
   },
 ]
 
-export function ResultsPanel() {
-  const [expandedResult, setExpandedResult] = useState<string | null>(null)
+interface ResultsPanelProps {
+  results?: any
+}
 
-  const aggregatedStats = mockResults.reduce(
+export function ResultsPanel({ results }: ResultsPanelProps) {
+  const [expandedResult, setExpandedResult] = useState<string | null>(null)
+  const [isExpanded, setIsExpanded] = useState(true)
+
+  const aggregatedStats = (results || mockResults).reduce(
     (acc, result) => ({
       totalExecutions: acc.totalExecutions + 1,
       avgSuccessRate: acc.avgSuccessRate + result.successRate,
@@ -57,54 +63,64 @@ export function ResultsPanel() {
 
   return (
     <Card className="p-6 shadow-lg">
-      <h3 className="text-lg font-bold text-foreground mb-4">Execution Results</h3>
-
-      {/* Aggregated Stats */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <div className="p-4 bg-secondary/50 rounded-lg border border-primary/20">
-          <p className="text-xs text-muted-foreground mb-1">Success Rate (Avg)</p>
-          <p className="text-2xl font-bold text-primary">{aggregatedStats.avgSuccessRate.toFixed(1)}%</p>
-        </div>
-        <div className="p-4 bg-secondary/50 rounded-lg border border-primary/20">
-          <p className="text-xs text-muted-foreground mb-1">Avg Runtime</p>
-          <p className="text-2xl font-bold text-primary">{aggregatedStats.avgRuntime.toFixed(2)}s</p>
-        </div>
-        <div className="p-4 bg-secondary/50 rounded-lg border border-primary/20">
-          <p className="text-xs text-muted-foreground mb-1">Total Qubits (Sum)</p>
-          <p className="text-2xl font-bold text-primary">{aggregatedStats.totalQubits}</p>
-        </div>
+      <div className="flex items-center justify-between mb-4 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
+        <h3 className="text-lg font-bold text-foreground">Execution Results</h3>
+        <ChevronDown
+          size={24}
+          className={`text-primary transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
+        />
       </div>
 
-      {/* Results History */}
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-foreground mb-3">Recent Executions</p>
-        {mockResults.map((result) => (
-          <div
-            key={result.id}
-            onClick={() => setExpandedResult(expandedResult === result.id ? null : result.id)}
-            className="p-4 bg-secondary/30 rounded-lg border border-border hover:border-primary/50 transition cursor-pointer"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <p className="font-medium text-foreground">{result.backend}</p>
-                <p className="text-xs text-muted-foreground">{result.timestamp}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-bold text-primary">{result.successRate}%</p>
-                <p className="text-xs text-muted-foreground">{result.runtime}s</p>
-              </div>
+      {isExpanded && (
+        <>
+          {/* Aggregated Stats */}
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            <div className="p-4 bg-secondary/50 rounded-lg border border-primary/20">
+              <p className="text-xs text-muted-foreground mb-1">Success Rate (Avg)</p>
+              <p className="text-2xl font-bold text-primary">{aggregatedStats.avgSuccessRate.toFixed(1)}%</p>
             </div>
-
-            {expandedResult === result.id && (
-              <div className="mt-3 pt-3 border-t border-border text-sm text-muted-foreground space-y-1">
-                <p>Qubits Used: {result.qubitsUsed}</p>
-                <p>Success Rate: {result.successRate}%</p>
-                <p>Runtime: {result.runtime}s</p>
-              </div>
-            )}
+            <div className="p-4 bg-secondary/50 rounded-lg border border-primary/20">
+              <p className="text-xs text-muted-foreground mb-1">Avg Runtime</p>
+              <p className="text-2xl font-bold text-primary">{aggregatedStats.avgRuntime.toFixed(2)}s</p>
+            </div>
+            <div className="p-4 bg-secondary/50 rounded-lg border border-primary/20">
+              <p className="text-xs text-muted-foreground mb-1">Total Qubits (Sum)</p>
+              <p className="text-2xl font-bold text-primary">{aggregatedStats.totalQubits}</p>
+            </div>
           </div>
-        ))}
-      </div>
+
+          {/* Results History */}
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-foreground mb-3">Recent Executions</p>
+            {(results || mockResults).map((result) => (
+              <div
+                key={result.id}
+                onClick={() => setExpandedResult(expandedResult === result.id ? null : result.id)}
+                className="p-4 bg-secondary/30 rounded-lg border border-border hover:border-primary/50 transition cursor-pointer"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <p className="font-medium text-foreground">{result.backend}</p>
+                    <p className="text-xs text-muted-foreground">{result.timestamp}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-primary">{result.successRate}%</p>
+                    <p className="text-xs text-muted-foreground">{result.runtime}s</p>
+                  </div>
+                </div>
+
+                {expandedResult === result.id && (
+                  <div className="mt-3 pt-3 border-t border-border text-sm text-muted-foreground space-y-1">
+                    <p>Qubits Used: {result.qubitsUsed}</p>
+                    <p>Success Rate: {result.successRate}%</p>
+                    <p>Runtime: {result.runtime}s</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </Card>
   )
 }
