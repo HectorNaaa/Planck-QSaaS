@@ -3,18 +3,19 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Zap, BarChart3, Lock } from "lucide-react"
+import { ArrowRight, Zap, BarChart3, GitBranch } from 'lucide-react'
 import { PricingSection } from "@/components/pricing-section"
 import { HeroAnimation } from "@/components/hero-animation"
+import { FAQSection } from "@/components/faq-section"
 
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
-      <header className="fixed top-3 left-3 right-3 z-50 bg-background/95 backdrop-blur-sm border-b border-border shadow-lg rounded-lg opacity-[0.98]">
+      <header className="fixed top-3 left-3 right-3 z-50 bg-background/95 backdrop-blur-sm border-b border-border shadow-lg rounded-lg opacity-95">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <div>
             <Image
-              src="/images/design-mode/Planck%20Logotype%20no%20bg(1).png"
+              src="/images/design-mode/Planck%20Logotype%20no%20bg(2).png"
               alt="Planck Logo"
               width={140}
               height={45}
@@ -50,11 +51,10 @@ export default function LandingPage() {
           <div className="flex flex-col items-center gap-12 relative z-10">
             <div className="text-center space-y-6">
               <h1 className="text-5xl md:text-7xl font-bold text-foreground text-balance">
-                Quantum Computing <span className="text-primary">Made Simple</span>
+                Effortless <span className="text-primary">Quantum Solutions</span>
               </h1>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-balance">
-                Build and run quantum algorithms without the complexity. Access powerful quantum computing resources
-                with an intuitive interface.
+                Welcome to the new computing era, connect your data and start using quantum computing. AI-Enhanced.
               </p>
               <div className="flex gap-4 justify-center flex-wrap pt-4">
                 <Link href="/auth/login">
@@ -68,7 +68,7 @@ export default function LandingPage() {
                 <Button
                   size="lg"
                   variant="outline"
-                  className="text-lg px-8 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 bg-transparent"
+                  className="text-lg px-8 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 bg-card"
                 >
                   Watch Demo
                 </Button>
@@ -85,17 +85,17 @@ export default function LandingPage() {
               {
                 icon: Zap,
                 title: "Lightning Fast",
-                description: "Run quantum simulations with optimized performance",
+                description: "53x faster executions than quantum market standards",
               },
               {
                 icon: BarChart3,
-                title: "Real-time Analytics",
-                description: "Monitor and analyze quantum circuit results in real-time",
+                title: "Powerful Analytics",
+                description: "Monitor, ask and analyze quantum data",
               },
               {
-                icon: Lock,
-                title: "Secure & Private",
-                description: "Enterprise-grade security for your quantum code",
+                icon: GitBranch,
+                title: "Hybrid Approach",
+                description: "Toggle auto/manual settings. Change between classic/quantum instances",
               },
             ].map((feature, i) => {
               const Icon = feature.icon
@@ -130,10 +130,13 @@ export default function LandingPage() {
           <PricingSection />
         </div>
 
+        {/* FAQ Section */}
+        <FAQSection />
+
         {/* CTA */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
           <h2 className="text-4xl font-bold text-foreground mb-6">Ready to build quantum?</h2>
-          <p className="text-lg text-muted-foreground mb-8">Join developers using Planck to build the quantum future</p>
+          <p className="text-lg text-muted-foreground mb-8">Lets build the computing future</p>
           <Link href="/auth/login">
             <Button
               size="lg"
@@ -147,7 +150,7 @@ export default function LandingPage() {
         {/* Footer */}
         <footer className="border-t border-border shadow-sm bg-background">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center text-muted-foreground">
-            <p>© 2025 Planck. Building the quantum future.</p>
+            <p>© 2025 Planck. Effortless Quantum Solutions.</p>
           </div>
         </footer>
       </div>

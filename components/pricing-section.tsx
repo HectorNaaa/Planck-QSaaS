@@ -2,56 +2,59 @@
 
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Check } from "lucide-react"
+import { Check } from 'lucide-react'
 
 const plans = [
   {
-    name: "Explorer",
-    price: "$29",
-    period: "/month",
-    description: "Perfect for getting started",
+    name: "Starter",
+    price: "Free",
+    period: " ",
+    description: "For those starting the journey",
     features: [
-      "Up to 100 quantum circuits/month",
-      "Access to quantum simulators",
-      "1,000 qubits maximum",
-      "Email support",
+      "Quantum-inspired executions",
+      "Up to 12 qubits",
+      "Pre-built circuits",
       "Basic analytics",
+      "Basic support",
     ],
     cta: "Get Started",
     popular: false,
   },
   {
-    name: "Creator",
-    price: "$99",
+    name: "Growth",
+    price: "€49",
     period: "/month",
-    description: "For active quantum researchers",
+    description: "For intermediate and advanced users",
     features: [
-      "Unlimited quantum circuits",
-      "GPU-accelerated simulators",
-      "10,000 qubits maximum",
-      "Priority email & chat support",
-      "Advanced analytics & exports",
-      "Custom error mitigation",
+      "QPUs and Quantum-inspired executions",
+      "Up to 56 qubits",
+      "Advanced circuits",
+      "Advanced analytics",
+      "Priority support",
+      "€0.49/credit",
+      "Error mitigation",
       "API access",
     ],
-    cta: "Start Free Trial",
+    cta: "Available soon...",
     popular: true,
   },
   {
-    name: "Enterprise",
-    price: "Custom",
-    period: "pricing",
-    description: "For organizations at scale",
+    name: "Custom",
+    price: "Contact Us",
+    period: "",
+    description: "For custom quantum computing solutions",
     features: [
-      "Unlimited everything",
-      "Quantum QPU access",
-      "Dedicated account manager",
-      "Custom integrations",
-      "24/7 priority support",
-      "On-premise deployment",
-      "SLA guarantees",
+      "QPUs and Quantum-inspired executions",
+      "Up to 56 qubits",
+      "Customized circuits",
+      "Customized analytics",
+      "Dedicated support",
+      "€0.44/credit",
+      "Error mitigation",    
+      "API access and stack integration",
+      "Staff training",
     ],
-    cta: "Contact Sales",
+    cta: "Contact Us",
     popular: false,
   },
 ]
@@ -59,24 +62,26 @@ const plans = [
 export function PricingSection() {
   return (
     <section id="pricing" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-      <div className="text-center mb-12">
-        <h2 className="text-4xl font-bold text-foreground mb-4">Simple, Transparent Pricing</h2>
-        <p className="text-xl text-muted-foreground">Choose the plan that fits your quantum computing needs</p>
+      <div className="text-center mb-16">
+        <h2 className="text-4xl font-bold text-foreground mb-4">Pricing</h2>
+        <p className="text-xl text-muted-foreground">Choose the plan that fits your computing needs</p>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
         {plans.map((plan, index) => (
           <div
             key={index}
             className={`rounded-xl border p-8 transition-all duration-300 hover:scale-105 shadow-lg bg-secondary ${
               plan.popular
-                ? "border-primary bg-card shadow-xl shadow-primary/20 scale-105"
-                : "border-border bg-card shadow-lg hover:shadow-xl"
+                ? "border-primary shadow-xl shadow-primary/20 scale-105"
+                : "border-border shadow-lg hover:shadow-xl"
             }`}
           >
             {plan.popular && (
-              <div className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-semibold inline-block mb-4">
-                Most Popular
+              <div className="mb-4 -mt-2">
+                <span className="inline-block bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-semibold">
+                  Best Value
+                </span>
               </div>
             )}
 
@@ -86,8 +91,8 @@ export function PricingSection() {
             </div>
 
             <div className="mb-6">
-              <span className="text-5xl font-bold text-foreground">{plan.price}</span>
-              <span className="text-muted-foreground ml-2">{plan.period}</span>
+              <span className="text-4xl font-bold text-foreground">{plan.price}</span>
+              {plan.period && <span className="text-muted-foreground ml-2">{plan.period}</span>}
             </div>
 
             <Link href="/auth/login" className="block mb-6">
