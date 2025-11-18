@@ -3,15 +3,19 @@
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { ArrowRight, Zap, BarChart3, GitBranch } from 'lucide-react'
+import { ArrowRight, Zap, BarChart3, GitBranch, Menu, X } from 'lucide-react'
 import { PricingSection } from "@/components/pricing-section"
 import { HeroAnimation } from "@/components/hero-animation"
 import { FAQSection } from "@/components/faq-section"
 import { TitleAnimation } from "@/components/title-animation"
+import { LanguageSelector } from "@/components/language-selector"
+import { useLanguage } from "@/contexts/language-context"
 import React from "react"
 
 export default function LandingPage() {
   const [scrollRotation, setScrollRotation] = React.useState(0)
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
+  const { t } = useLanguage()
 
   React.useEffect(() => {
     const handleScroll = () => {
@@ -27,7 +31,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-background">
       <header className="fixed top-3 left-3 right-3 z-50 bg-background/95 backdrop-blur-sm border-b border-border shadow-lg rounded-lg opacity-[0.96]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div>
+          <div className="hidden md:flex items-center gap-8">
             <Image
               src="/images/design-mode/Planck%20Logotype%20no%20bg(2).png"
               alt="Planck Logo"
@@ -35,29 +39,83 @@ export default function LandingPage() {
               height={45}
               className="h-10 w-auto"
             />
+            <nav className="flex gap-8 items-center">
+              <a href="#features" className="text-foreground hover:text-primary transition">
+                {t("nav.features")}
+              </a>
+              <a href="#pricing" className="text-foreground hover:text-primary transition">
+                {t("nav.pricing")}
+              </a>
+              <a href="#faq" className="text-foreground hover:text-primary transition">
+                FAQs
+              </a>
+              <a href="#docs" className="text-foreground hover:text-primary transition">
+                {t("nav.docs")}
+              </a>
+            </nav>
           </div>
-          <nav className="hidden md:flex gap-8">
-            <a href="#features" className="text-foreground hover:text-primary transition">
-              Features
-            </a>
-            <a href="#pricing" className="text-foreground hover:text-primary transition">
-              Pricing
-            </a>
-            <a href="#docs" className="text-foreground hover:text-primary transition">
-              Docs
-            </a>
-          </nav>
-          <Link href="/auth/login">
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 hover:bg-accent rounded-lg transition-colors"
+          >
+            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+          <Link href="/auth/login" className="hidden md:block">
             <Button className="bg-primary hover:bg-primary/90 text-lg transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 px-6 py-2.5">
-              Access
+              {t("hero.access")}
             </Button>
           </Link>
         </div>
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-sm">
+            <div className="px-4 py-6 space-y-4">
+              <div className="flex justify-center mb-4">
+                <Image
+                  src="/images/design-mode/Planck%20Logotype%20no%20bg(2).png"
+                  alt="Planck Logo"
+                  width={120}
+                  height={38}
+                  className="h-8 w-auto"
+                />
+              </div>
+              <a 
+                href="#features" 
+                className="block text-center py-2 text-foreground hover:text-primary transition"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                {t("nav.features")}
+              </a>
+              <a 
+                href="#pricing" 
+                className="block text-center py-2 text-foreground hover:text-primary transition"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                {t("nav.pricing")}
+              </a>
+              <a 
+                href="#faq" 
+                className="block text-center py-2 text-foreground hover:text-primary transition"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                FAQs
+              </a>
+              <a 
+                href="#docs" 
+                className="block text-center py-2 text-foreground hover:text-primary transition"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                {t("nav.docs")}
+              </a>
+              <div className="flex justify-center pt-2">
+                <LanguageSelector />
+              </div>
+            </div>
+          </div>
+        )}
       </header>
 
       <div className="pt-24">
-        {/* Hero Section */}
-        <section data-hn-hero className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 overflow-hidden md:py-32">
+        <section data-hn-hero className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 overflow-hidden md:py-[380px]">
           <div className="absolute inset-0 -z-10">
             <HeroAnimation />
           </div>
@@ -68,10 +126,10 @@ export default function LandingPage() {
           <div className="flex flex-col items-center gap-12 relative z-10">
             <div className="text-center space-y-6">
               <h1 className="hn-slogan-wrap text-5xl md:text-7xl font-bold text-foreground text-balance" style={{ '--scroll-rotation': `${scrollRotation}deg` } as React.CSSProperties}>
-                Effortless <span className="text-primary">Quantum Solutions</span>
+                {t("hero.title")} <span className="text-primary">{t("hero.quantum")}</span>
               </h1>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-balance">
-                Welcome to the new computing era, connect your data and start using quantum computing. AI-Enhanced.
+                {t("hero.subtitle")}
               </p>
               <div className="flex gap-4 justify-center flex-wrap pt-4">
                 <Link href="/auth/login">
@@ -79,7 +137,7 @@ export default function LandingPage() {
                     size="lg"
                     className="hn-cta bg-primary hover:bg-primary/90 text-lg px-8 transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 shadow-xl"
                   >
-                    Access <ArrowRight className="ml-2" size={20} />
+                    {t("hero.access")} <ArrowRight className="ml-2" size={20} />
                   </Button>
                 </Link>
                 <Button
@@ -87,32 +145,31 @@ export default function LandingPage() {
                   variant="outline"
                   className="text-lg px-8 hover:shadow-lg transition-all duration-300 hover:scale-105 bg-secondary shadow-lg"
                 >
-                  Watch Demo
+                  {t("hero.demo")}
                 </Button>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Features */}
-        <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-          <h2 className="text-4xl font-bold text-foreground mb-12 text-center">Features</h2>
+        <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 my-0">
+          <h2 className="text-4xl font-bold text-foreground mb-12 text-center">{t("features.title")}</h2>
           <div className="grid md:grid-cols-3 gap-8">
             {[
               {
                 icon: Zap,
-                title: "Lightning Fast",
-                description: "53x faster executions than quantum market standards",
+                title: t("features.fast.title"),
+                description: t("features.fast.desc"),
               },
               {
                 icon: BarChart3,
-                title: "Powerful Analytics",
-                description: "Monitor, ask and analyze quantum data",
+                title: t("features.analytics.title"),
+                description: t("features.analytics.desc"),
               },
               {
                 icon: GitBranch,
-                title: "Hybrid Approach",
-                description: "Toggle auto/manual settings. Change between classic/quantum instances",
+                title: t("features.hybrid.title"),
+                description: t("features.hybrid.desc"),
               },
             ].map((feature, i) => {
               const Icon = feature.icon
@@ -130,7 +187,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Computing Evolution Image */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex justify-center">
             <Image
@@ -147,39 +203,34 @@ export default function LandingPage() {
           <PricingSection />
         </div>
 
-        {/* FAQ Section */}
         <FAQSection />
 
-        {/* CTA */}
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-          <h2 className="text-4xl font-bold text-foreground mb-6">Ready to build quantum?</h2>
-          <p className="text-lg text-muted-foreground mb-8">Lets build the computing future</p>
+          <h2 className="text-4xl font-bold text-foreground mb-6">{t("cta.title")}</h2>
+          <p className="text-lg text-muted-foreground mb-8">{t("cta.subtitle")}</p>
           <Link href="/auth/login">
             <Button
               size="lg"
               className="bg-primary hover:bg-primary/90 text-lg px-8 transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 shadow-lg"
             >
-              Access <ArrowRight className="ml-2" />
+              {t("hero.access")} <ArrowRight className="ml-2" />
             </Button>
           </Link>
         </section>
 
-        {/* Footer */}
         <footer className="border-t border-border shadow-sm bg-background">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center text-muted-foreground">
-            <p>© 2025 Planck. Effortless Quantum Solutions.</p>
+            <p>{t("footer.copyright")}</p>
           </div>
         </footer>
       </div>
 
       <style jsx>{`
-        /* Scoped hero glow effects */
         [data-hn-hero] .hn-slogan-wrap {
           position: relative;
           display: inline-block;
         }
 
-        /* Halo behind slogan - enhanced with multiple layers and more dynamic movement */
         [data-hn-hero] .hn-slogan-wrap::before {
           content: '';
           position: absolute;
@@ -199,7 +250,6 @@ export default function LandingPage() {
           transition: transform 0.1s ease-out;
         }
 
-        /* Secondary halo layer for more depth */
         [data-hn-hero] .hn-slogan-wrap::after {
           content: '';
           position: absolute;
@@ -222,7 +272,6 @@ export default function LandingPage() {
           position: relative;
         }
 
-        /* CTA glow - enhanced with pulsing and shimmer */
         [data-hn-hero] .hn-cta::before {
           content: '';
           position: absolute;
@@ -241,7 +290,6 @@ export default function LandingPage() {
           animation: hn-glow-pulse 2.5s ease-in-out infinite;
         }
 
-        /* Secondary CTA glow layer */
         [data-hn-hero] .hn-cta::after {
           content: '';
           position: absolute;
@@ -260,7 +308,6 @@ export default function LandingPage() {
           animation: hn-glow-pulse 2.5s ease-in-out infinite 0.3s, hn-shimmer 4s ease-in-out infinite;
         }
 
-        /* Enhanced animations */
         @keyframes hn-halo-pulse {
           0%, 100% {
             opacity: 0.18;
@@ -315,7 +362,6 @@ export default function LandingPage() {
           }
         }
 
-        /* Reduce blur on mobile */
         @media (max-width: 768px) {
           [data-hn-hero] .hn-slogan-wrap::before {
             filter: blur(30px);
@@ -332,7 +378,6 @@ export default function LandingPage() {
           }
         }
 
-        /* Respect reduced motion preference */
         @media (prefers-reduced-motion: reduce) {
           [data-hn-hero] .hn-slogan-wrap::before,
           [data-hn-hero] .hn-slogan-wrap::after,
@@ -342,7 +387,6 @@ export default function LandingPage() {
           }
         }
 
-        /* Disable option */
         [data-hn-hero].hn-disable .hn-slogan-wrap::before,
         [data-hn-hero].hn-disable .hn-slogan-wrap::after,
         [data-hn-hero].hn-disable .hn-cta::before,

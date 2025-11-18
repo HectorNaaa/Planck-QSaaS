@@ -12,6 +12,9 @@ import { CircuitResults } from "@/components/runner/circuit-results"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { Save, Play, RotateCcw, Zap } from 'lucide-react'
 import { logExecution } from "@/lib/logging"
+import Image from "next/image"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { PageHeader } from "@/components/page-header"
 
 export default function RunnerPage() {
   const [isRunning, setIsRunning] = useState(false)
@@ -95,41 +98,11 @@ export default function RunnerPage() {
   }, [circuitName, executionType, backend, shots, qubits, errorMitigation])
 
   return (
-    <div className="p-8 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-4xl font-bold mb-2 text-foreground">Quantum Runner</h1>
-          <p className="text-muted-foreground">Build and execute quantum circuits in real-time.</p>
-        </div>
-        <div className="flex gap-3">
-          <Button variant="outline" className="flex items-center gap-2 bg-secondary">
-            <RotateCcw size={18} />
-            Reset
-          </Button>
-          <Button variant="outline" className="flex items-center gap-2 bg-secondary">
-            <Save size={18} />
-            Save
-          </Button>
-          <Button
-            onClick={handleRunCircuit}
-            disabled={isRunning}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2"
-          >
-            {isRunning ? (
-              <>
-                <LoadingSpinner size="sm" />
-                Running...
-              </>
-            ) : (
-              <>
-                <Play size={18} />
-                Run Circuit
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
+    <div className="p-8 space-y-6 px-4">
+      <PageHeader 
+        title="Runner" 
+        description="Build and execute quantum circuits"
+      />
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -175,7 +148,6 @@ circuit.h(3)
             </pre>
           </Card>
 
-          {/* CircuitResults moved below Circuit Code */}
           <CircuitResults backend={backend} results={results} />
         </div>
 
@@ -193,9 +165,36 @@ circuit.h(3)
             currentBackend={backend}
             onModeChange={(mode) => console.log("[v0] Execution mode changed to:", mode)}
           />
-          {/* ExpectedResults replaced ResultsPanel */}
           <ExpectedResults backend={backend} />
         </div>
+      </div>
+
+      <div className="flex justify-center gap-3 pt-6 border-border border-t-2">
+        <Button variant="outline" className="flex items-center gap-2 bg-secondary">
+          <RotateCcw size={18} />
+          Reset
+        </Button>
+        <Button variant="outline" className="flex items-center gap-2 bg-secondary">
+          <Save size={18} />
+          Save
+        </Button>
+        <Button
+          onClick={handleRunCircuit}
+          disabled={isRunning}
+          className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2"
+        >
+          {isRunning ? (
+            <>
+              <LoadingSpinner size="sm" />
+              Running...
+            </>
+          ) : (
+            <>
+              <Play size={18} />
+              Run
+            </>
+          )}
+        </Button>
       </div>
     </div>
   )

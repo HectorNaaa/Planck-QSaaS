@@ -1,45 +1,26 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
-import { LayoutDashboard, Zap, BookOpen, Settings, CreditCard, LogOut } from "lucide-react"
+import { usePathname } from 'next/navigation'
+import { LayoutDashboard, Zap, BookOpen, Settings } from 'lucide-react'
 import { ThemeToggle } from "@/components/theme-toggle"
 import Image from "next/image"
-import { createClient } from "@/lib/supabase/client"
-import { useState } from "react"
-import { LoadingSpinner } from "@/components/loading-spinner"
-
-const navItems = [
-  { href: "/qsaas/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/qsaas/runner", label: "Quantum Runner", icon: Zap },
-  { href: "/qsaas/templates", label: "Templates", icon: BookOpen },
-  { href: "/qsaas/settings", label: "Settings", icon: Settings },
-  { href: "/qsaas/billing", label: "Billing", icon: CreditCard },
-]
+import { useLanguage } from "@/contexts/language-context"
 
 export function Sidebar() {
   const pathname = usePathname()
-  const router = useRouter()
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const { t } = useLanguage()
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true)
-    const supabase = createClient()
-
-    try {
-      await supabase.auth.signOut()
-      router.push("/auth/login")
-    } catch (error) {
-      console.error("Logout error:", error)
-    } finally {
-      setIsLoggingOut(false)
-    }
-  }
+  const navItems = [
+    { href: "/qsaas/dashboard", label: t("sidebar.dashboard"), icon: LayoutDashboard },
+    { href: "/qsaas/runner", label: "Runner", icon: Zap },
+    { href: "/qsaas/templates", label: t("sidebar.templates"), icon: BookOpen },
+    { href: "/qsaas/settings", label: t("sidebar.settings"), icon: Settings },
+  ]
 
   return (
     <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
-      {/* Header with Logo */}
-      <div className="p-4 border-sidebar-border flex items-center justify-between border-b-0">
+      <div className="p-4 border-sidebar-border flex items-center justify-between border-b gap-2">
         <Link
           href="/"
           className="flex items-center hover:opacity-80 transition-opacity flex-shrink-0"
@@ -78,27 +59,6 @@ export function Sidebar() {
           )
         })}
       </nav>
-
-      {/* Footer with Logout */}
-      <div className="p-4 border-sidebar-border border-t-[2p0]">
-        <button
-          onClick={handleLogout}
-          disabled={isLoggingOut}
-          className="flex items-center gap-3 px-4 py-3 rounded-lg text-sidebar-foreground hover:bg-sidebar-accent w-full transition-colors disabled:opacity-50"
-        >
-          {isLoggingOut ? (
-            <>
-              <LoadingSpinner size="sm" />
-              <span className="font-medium">Signing out...</span>
-            </>
-          ) : (
-            <>
-              <LogOut size={20} />
-              <span className="font-medium">Sign Out</span>
-            </>
-          )}
-        </button>
-      </div>
     </aside>
   )
 }

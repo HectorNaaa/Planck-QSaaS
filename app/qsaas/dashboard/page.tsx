@@ -1,7 +1,8 @@
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { BarChart3, Zap, TrendingUp, Clock } from "lucide-react"
+import { BarChart3, Zap, TrendingUp, Clock } from 'lucide-react'
 import Link from "next/link"
+import { PageHeader } from "@/components/page-header"
 
 export default function DashboardPage() {
   const stats = [
@@ -19,12 +20,12 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-8 space-y-8 px-4">
       {/* Header */}
-      <div>
-        <h1 className="text-4xl font-bold text-foreground mb-2">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back! Here's your quantum computing activity.</p>
-      </div>
+      <PageHeader 
+        title="Dashboard" 
+        description="Welcome back! Here's your quantum computing activity."
+      />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

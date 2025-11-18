@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { BookOpen, Copy } from "lucide-react"
+import { BookOpen, Copy } from 'lucide-react'
+import { PageHeader } from "@/components/page-header"
 
 const templates = [
   {
@@ -42,11 +43,11 @@ const templates = [
 
 export default function TemplatesPage() {
   return (
-    <div className="p-8 space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold text-foreground mb-2">Quantum Templates</h1>
-        <p className="text-muted-foreground">Explore pre-built quantum algorithms and circuits.</p>
-      </div>
+    <div className="p-8 space-y-8 px-4">
+      <PageHeader 
+        title="Quantum Templates" 
+        description="Explore pre-built quantum algorithms and circuits."
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {templates.map((template) => (
