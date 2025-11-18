@@ -30,8 +30,9 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="fixed top-3 left-3 right-3 z-50 bg-background/95 backdrop-blur-sm border-b border-border shadow-lg rounded-lg opacity-[0.96]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-          <div className="hidden md:flex items-center gap-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          {/* Desktop Layout */}
+          <div className="hidden md:flex justify-between items-center">
             <Image
               src="/images/design-mode/Planck%20Logotype%20no%20bg(2).png"
               alt="Planck Logo"
@@ -39,7 +40,7 @@ export default function LandingPage() {
               height={45}
               className="h-10 w-auto"
             />
-            <nav className="flex gap-8 items-center">
+            <nav className="flex gap-8 items-center justify-center">
               <a href="#features" className="text-foreground hover:text-primary transition">
                 {t("nav.features")}
               </a>
@@ -53,31 +54,34 @@ export default function LandingPage() {
                 {t("nav.docs")}
               </a>
             </nav>
+            <Link href="/auth/login">
+              <Button className="bg-primary hover:bg-primary/90 text-lg transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 px-6 py-2.5">
+                {t("hero.access")}
+              </Button>
+            </Link>
           </div>
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 hover:bg-accent rounded-lg transition-colors"
-          >
-            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
-          <Link href="/auth/login" className="hidden md:block">
-            <Button className="bg-primary hover:bg-primary/90 text-lg transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 px-6 py-2.5">
-              {t("hero.access")}
-            </Button>
-          </Link>
+
+          {/* Mobile Layout */}
+          <div className="md:hidden flex justify-between items-center">
+            <Image
+              src="/images/design-mode/Planck%20Logotype%20no%20bg(2).png"
+              alt="Planck Logo"
+              width={120}
+              height={38}
+              className="h-8 w-auto"
+            />
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 hover:bg-accent rounded-lg transition-colors"
+            >
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
+
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-sm">
             <div className="px-4 py-6 space-y-4">
-              <div className="flex justify-center mb-4">
-                <Image
-                  src="/images/design-mode/Planck%20Logotype%20no%20bg(2).png"
-                  alt="Planck Logo"
-                  width={120}
-                  height={38}
-                  className="h-8 w-auto"
-                />
-              </div>
               <a 
                 href="#features" 
                 className="block text-center py-2 text-foreground hover:text-primary transition"
@@ -108,6 +112,16 @@ export default function LandingPage() {
               </a>
               <div className="flex justify-center pt-2">
                 <LanguageSelector />
+              </div>
+              <div className="pt-4 border-t border-border">
+                <Link href="/auth/login">
+                  <Button 
+                    className="w-full bg-primary hover:bg-primary/90 transition-transform duration-300 hover:scale-105"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {t("hero.access")}
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>

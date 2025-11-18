@@ -14,8 +14,8 @@ export function MainLayout({ children }: { children: ReactNode }) {
       {!isMobile && <Sidebar />}
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden pb-20 md:pb-0">
-        <div className="flex-1 overflow-auto p-4 md:p-8 py-0">{children}</div>
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-auto p-4 md:p-8 pb-20 md:pb-4">{children}</div>
       </main>
 
       {/* Mobile Bottom Navigation */}
