@@ -235,7 +235,7 @@ export default function LandingPage() {
 
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
           <h2 className="text-4xl font-bold text-foreground mb-6">Welcome to the new computing era</h2>
-          <p className="text-lg text-muted-foreground mb-8">Start now</p>
+          
           <Link href="/auth/login">
             <Button
               size="lg"
