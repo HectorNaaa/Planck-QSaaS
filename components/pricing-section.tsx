@@ -70,7 +70,7 @@ export function PricingSection() {
         {plans.map((plan, index) => (
           <div
             key={index}
-            className={`rounded-xl border p-8 transition-shadow duration-300 shadow-lg bg-secondary ${
+            className={`rounded-xl border p-8 transition-shadow duration-300 shadow-lg bg-card ${
               plan.popular
                 ? "border-primary shadow-xl shadow-primary/20"
                 : "border-border shadow-lg hover:shadow-xl"

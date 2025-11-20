@@ -1,8 +1,6 @@
 "use client"
 
 import type React from "react"
-
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,7 +10,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { LoadingSpinner } from "@/components/loading-spinner"
-import { COUNTRY_CODES, getCountryCode } from "@/lib/country-codes"
+import { createSession } from "@/lib/auth-session"
 
 const COUNTRIES = [
   "Argentina",
@@ -50,7 +48,7 @@ const COUNTRIES = [
 const OCCUPATIONS = [
   { value: "student", label: "Student" },
   { value: "researcher", label: "Researcher" },
-  { value: "company_employee", label: "Company Employee" },
+  { value: "employee", label: "Company Employee" },
   { value: "other", label: "Other" },
 ]
 
@@ -59,22 +57,14 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("")
   const [repeatPassword, setRepeatPassword] = useState("")
   const [country, setCountry] = useState("")
-  const [countryCode, setCountryCode] = useState("+1")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [occupation, setOccupation] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
-  const handleCountryChange = (selectedCountry: string) => {
-    setCountry(selectedCountry)
-    const code = getCountryCode(selectedCountry)
-    setCountryCode(code)
-  }
-
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
@@ -97,42 +87,9 @@ export default function SignUpPage() {
     }
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-      })
-
-      if (authError) throw authError
-
-      if (authData.user) {
-        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
-
-        const { error: codeError } = await supabase.from("verification_codes").insert({
-          user_id: authData.user.id,
-          email,
-          phone_number: phoneNumber,
-          code: verificationCode,
-          code_type: "email",
-          expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
-        })
-
-        if (codeError) throw codeError
-
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .update({
-            country,
-            occupation,
-            phone_number: phoneNumber,
-            country_code: countryCode,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", authData.user.id)
-
-        if (profileError) throw profileError
-
-        router.push(`/auth/verify-code?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phoneNumber)}`)
-      }
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+      createSession()
+      router.push("/qsaas/dashboard")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
@@ -191,7 +148,7 @@ export default function SignUpPage() {
 
             <div className="space-y-2">
               <Label htmlFor="country">Country of Residence</Label>
-              <Select value={country} onValueChange={handleCountryChange} disabled={isLoading}>
+              <Select value={country} onValueChange={setCountry} disabled={isLoading}>
                 <SelectTrigger className="bg-input border-border">
                   <SelectValue placeholder="Select country" />
                 </SelectTrigger>
@@ -207,36 +164,20 @@ export default function SignUpPage() {
 
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
-              <div className="flex gap-2">
-                <div className="w-20">
-                  <Select value={countryCode} onValueChange={setCountryCode} disabled={isLoading || !country}>
-                    <SelectTrigger className="bg-input border-border">
-                      <SelectValue placeholder="Code" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      {COUNTRY_CODES.map((cc) => (
-                        <SelectItem key={cc.code} value={cc.code}>
-                          {cc.flag} {cc.code}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="1234567890"
-                  required
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
-                  disabled={isLoading}
-                  className="bg-input border-border flex-1"
-                />
-              </div>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="1234567890"
+                required
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
+                disabled={isLoading}
+                className="bg-input border-border"
+              />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="occupation">What's your role?</Label>
+              <Label htmlFor="occupation">{"What's your role?"}</Label>
               <Select value={occupation} onValueChange={setOccupation} disabled={isLoading}>
                 <SelectTrigger className="bg-input border-border">
                   <SelectValue placeholder="Select your role" />

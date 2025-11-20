@@ -43,7 +43,7 @@ export function FAQSection() {
           >
             <button
               onClick={() => toggleFAQ(index)}
-              className="w-full px-6 py-4 flex justify-between items-center text-left hover:bg-secondary/50 transition-colors rounded-lg"
+              className="w-full px-6 py-4 flex justify-between items-center text-left hover:bg-secondary/50 transition-colors rounded-lg bg-secondary shadow-lg"
             >
               <h3 className="text-lg font-semibold text-foreground pr-8">{faq.question}</h3>
               {openIndex === index ? (

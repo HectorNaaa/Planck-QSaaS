@@ -1,8 +1,7 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Lora } from 'next/font/google'
-import { Geist_Mono } from 'next/font/google'
-import { Analytics } from "@vercel/analytics/next"
+import { Lora } from "next/font/google"
+import { Geist_Mono } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
 import { LanguageProvider } from "@/contexts/language-context"
 import "./globals.css"
@@ -43,11 +42,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-          <LanguageProvider>
-            {children}
-          </LanguageProvider>
+          <LanguageProvider>{children}</LanguageProvider>
         </ThemeProvider>
-        <Analytics />
       </body>
     </html>
   )

@@ -3,13 +3,14 @@
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Save, Sun, Moon, Check, LogOut } from 'lucide-react'
+import { Save, Sun, Moon, Check, LogOut } from "lucide-react"
 import { useTheme } from "next-themes"
 import { PageHeader } from "@/components/page-header"
 import { createClient } from "@/lib/supabase/client"
-import { useRouter } from 'next/navigation'
+import { useRouter } from "next/navigation"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { LanguageSelector } from "@/components/language-selector"
+import { clearSession } from "@/lib/auth-session"
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
@@ -29,9 +30,12 @@ export default function SettingsPage() {
 
     try {
       await supabase.auth.signOut()
+      clearSession()
       router.push("/auth/login")
     } catch (error) {
       console.error("Logout error:", error)
+      clearSession()
+      router.push("/auth/login")
     } finally {
       setIsLoggingOut(false)
     }
@@ -78,10 +82,7 @@ export default function SettingsPage() {
 
   return (
     <div className="p-8 px-4 space-y-4 py-4">
-      <PageHeader 
-        title="Settings" 
-        description="Manage your account and preferences."
-      />
+      <PageHeader title="Settings" description="Manage your account and preferences." />
 
       {/* Account Settings */}
       <Card className="p-6 shadow-lg">
@@ -192,10 +193,7 @@ export default function SettingsPage() {
         <h2 className="text-2xl font-bold text-foreground mb-6">Billing & Plans</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {plans.map((plan, i) => (
-            <div
-              key={i}
-              className="p-6 border border-border rounded-lg flex flex-col shadow-md"
-            >
+            <div key={i} className="p-6 border border-border rounded-lg flex flex-col shadow-md">
               <h3 className="text-2xl font-bold text-foreground mb-2">{plan.name}</h3>
               <p className="text-muted-foreground text-sm mb-4">{plan.description}</p>
               <div className="mb-6">
@@ -250,11 +248,11 @@ export default function SettingsPage() {
           <Save size={18} />
           Save Changes
         </Button>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           onClick={handleLogout}
           disabled={isLoggingOut}
-          className="flex items-center gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+          className="flex items-center gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 bg-transparent"
         >
           {isLoggingOut ? (
             <>

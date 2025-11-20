@@ -1,12 +1,11 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import type React from "react"
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { useRouter, usePathname } from "next/navigation"
 import { MainLayout } from "@/components/layout/main-layout"
-import { LoadingSpinner } from "@/components/loading-spinner"
-import { useState } from "react"
+import { QuantumLoadingScreen } from "@/components/quantum-loading-screen"
+import { hasActiveSession } from "@/lib/auth-session"
 
 export default function QsaasLayout({
   children,
@@ -14,37 +13,32 @@ export default function QsaasLayout({
   children: React.ReactNode
 }) {
   const [isLoading, setIsLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+    // Always show loading screen for smooth transition
+    const randomDuration = Math.floor(Math.random() * 2000) + 5000 // Random between 5000-7000ms
 
-      if (!user) {
-        router.push("/auth/login")
-      } else {
-        setIsAuthenticated(true)
-      }
+    const timer = setTimeout(() => {
       setIsLoading(false)
-    }
 
-    checkAuth()
-  }, [router])
+      // Check if user has active session after loading
+      // Skip auth check if already on auth pages
+      if (!pathname.startsWith("/auth/")) {
+        const hasSession = hasActiveSession()
+        if (!hasSession) {
+          // Redirect to login if no active session
+          router.push("/auth/login")
+        }
+      }
+    }, randomDuration)
+
+    return () => clearTimeout(timer)
+  }, [router, pathname])
 
   if (isLoading) {
-    return (
-      <div className="w-full h-screen flex items-center justify-center bg-background">
-        <LoadingSpinner size="lg" />
-      </div>
-    )
-  }
-
-  if (!isAuthenticated) {
-    return null
+    return <QuantumLoadingScreen />
   }
 
   return <MainLayout>{children}</MainLayout>

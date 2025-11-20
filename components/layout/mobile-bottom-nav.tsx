@@ -15,7 +15,7 @@ export function MobileBottomNav() {
   ]
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-sidebar border-sidebar-border flex justify-around items-center h-16 z-50 px-2 py-2 border-t-0 shadow-lg opacity-90" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
+    <nav className="fixed bottom-0 left-0 right-0 bg-sidebar border-sidebar-border flex justify-around items-center h-16 z-50 px-2 py-2 border-t-0 shadow-lg opacity-95" style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}>
       {navItems.map((item) => {
         const Icon = item.icon
         const isActive = pathname === item.href
