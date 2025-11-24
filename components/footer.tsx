@@ -8,7 +8,7 @@ export function Footer() {
   const { t } = useLanguage()
 
   return (
-    <footer className="border-t border-border bg-background">
+    <footer className="border-border bg-background border-t-[0p0]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-9">
         <div className="grid md:grid-cols-3 gap-8 mb-8">
           <div>
@@ -74,7 +74,7 @@ export function Footer() {
         </div>
 
         <div className="pt-8 border-border text-center text-sm text-muted-foreground border-t-[3px]">
-          <p className="text-secondary">{t("© 2025 Planck Technologies")}</p>
+          <p className="text-secondary-foreground">{t("© 2025 Planck Technologies")}</p>
         </div>
       </div>
     </footer>

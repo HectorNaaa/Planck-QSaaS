@@ -10,7 +10,9 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { LoadingSpinner } from "@/components/loading-spinner"
-import { createSession } from "@/lib/auth-session"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { LanguageSelector } from "@/components/language-selector"
+import Image from "next/image"
 
 const COUNTRIES = [
   "Argentina",
@@ -88,8 +90,7 @@ export default function SignUpPage() {
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000))
-      createSession()
-      router.push("/qsaas/dashboard")
+      router.push(`/auth/verify-code?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phoneNumber)}`)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
@@ -99,6 +100,22 @@ export default function SignUpPage() {
 
   return (
     <div className="w-full max-w-md px-4">
+      <div className="flex items-center justify-between mb-6">
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src="/images/isotipo-20planck-20png.png"
+            alt="Planck"
+            width={40}
+            height={40}
+            className="object-contain"
+          />
+        </Link>
+        <div className="flex items-center gap-2">
+          <LanguageSelector />
+          <ThemeToggle />
+        </div>
+      </div>
+
       <Card className="border-border">
         <CardHeader>
           <CardTitle className="text-2xl">Create Account</CardTitle>

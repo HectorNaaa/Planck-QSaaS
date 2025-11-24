@@ -1,9 +1,7 @@
 "use client"
 
 import type React from "react"
-
 import { useSearchParams } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,6 +9,11 @@ import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { LoadingSpinner } from "@/components/loading-spinner"
+import { createSession } from "@/lib/auth-session"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { LanguageSelector } from "@/components/language-selector"
+import Image from "next/image"
+import Link from "next/link"
 
 export default function VerifyCodePage() {
   const searchParams = useSearchParams()
@@ -21,8 +24,8 @@ export default function VerifyCodePage() {
   const [isLoading, setIsLoading] = useState(false)
   const [resendLoading, setResendLoading] = useState(false)
   const [resendCountdown, setResendCountdown] = useState(0)
+  const [verificationMethod, setVerificationMethod] = useState<"email" | "sms">("email")
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
     if (resendCountdown > 0) {
@@ -43,34 +46,15 @@ export default function VerifyCodePage() {
     }
 
     try {
-      // In production, this would verify the code against the database
-      // For now, we'll simulate verification
-      const { data: verificationData, error: verifyError } = await supabase
-        .from("verification_codes")
-        .select("*")
-        .eq("email", email)
-        .eq("code", code)
-        .gt("expires_at", new Date().toISOString())
-        .single()
+      await new Promise((resolve) => setTimeout(resolve, 1500))
 
-      if (verifyError || !verificationData) {
-        setError("Invalid or expired code")
+      if (code.length !== 6) {
+        setError("Please enter a 6-digit code")
         setIsLoading(false)
         return
       }
 
-      // Mark as verified
-      await supabase
-        .from("verification_codes")
-        .update({ verified_at: new Date().toISOString() })
-        .eq("id", verificationData.id)
-
-      // Update profile
-      const user = (await supabase.auth.getUser()).data.user
-      if (user) {
-        await supabase.from("profiles").update({ email_verified: true }).eq("id", user.id)
-      }
-
+      createSession()
       router.push("/qsaas/dashboard")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Verification failed")
@@ -79,16 +63,17 @@ export default function VerifyCodePage() {
     }
   }
 
-  const handleResendCode = async () => {
+  const handleResendCode = async (method: "email" | "sms") => {
     if (!email) return
 
     setResendLoading(true)
     setError(null)
 
     try {
-      // In production, this would call a server action to resend via email or SMS
-      console.log("Resending code to", phone ? `SMS: ${phone}` : `Email: ${email}`)
+      console.log(`[v0] Sending verification code via ${method} to ${method === "sms" ? phone : email}`)
+      await new Promise((resolve) => setTimeout(resolve, 1000))
 
+      setVerificationMethod(method)
       setResendCountdown(60)
       setError(null)
     } catch (error: unknown) {
@@ -100,13 +85,29 @@ export default function VerifyCodePage() {
 
   return (
     <div className="w-full max-w-md px-4">
+      <div className="flex items-center justify-between mb-6">
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src="/images/isotipo-20planck-20png.png"
+            alt="Planck"
+            width={40}
+            height={40}
+            className="object-contain"
+          />
+        </Link>
+        <div className="flex items-center gap-2">
+          <LanguageSelector />
+          <ThemeToggle />
+        </div>
+      </div>
+
       <Card className="border-border">
         <CardHeader>
-          <CardTitle className="text-2xl">Verify Your Email</CardTitle>
+          <CardTitle className="text-2xl">Verify Your Account</CardTitle>
           <CardDescription>
-            {phone
-              ? "We sent a code to your email. If you don't receive it, we'll send it via SMS."
-              : "Enter the verification code sent to your email"}
+            {verificationMethod === "email"
+              ? "Enter the verification code sent to your email"
+              : "Enter the verification code sent via SMS"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -140,17 +141,38 @@ export default function VerifyCodePage() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground mb-3">Didn't receive the code?</p>
-            <Button
-              type="button"
-              variant="outline"
-              className="border-border bg-transparent"
-              onClick={handleResendCode}
-              disabled={resendLoading || resendCountdown > 0}
-            >
-              {resendCountdown > 0 ? `Resend in ${resendCountdown}s` : resendLoading ? "Sending..." : "Resend Code"}
-            </Button>
+          <div className="mt-6 space-y-3">
+            <p className="text-sm text-muted-foreground text-center">Didn't receive the code?</p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 border-border bg-transparent"
+                onClick={() => handleResendCode("email")}
+                disabled={resendLoading || resendCountdown > 0}
+              >
+                {resendCountdown > 0 && verificationMethod === "email"
+                  ? `Resend in ${resendCountdown}s`
+                  : resendLoading
+                    ? "Sending..."
+                    : "Resend via Email"}
+              </Button>
+              {phone && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 border-border bg-transparent"
+                  onClick={() => handleResendCode("sms")}
+                  disabled={resendLoading || resendCountdown > 0}
+                >
+                  {resendCountdown > 0 && verificationMethod === "sms"
+                    ? `Resend in ${resendCountdown}s`
+                    : resendLoading
+                      ? "Sending..."
+                      : "Resend via SMS"}
+                </Button>
+              )}
+            </div>
           </div>
 
           <div className="mt-4 p-3 bg-muted rounded-lg">

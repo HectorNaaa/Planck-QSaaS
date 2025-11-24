@@ -47,8 +47,8 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="fixed top-3 left-3 right-3 z-50 bg-background/95 backdrop-blur-sm border-b border-border shadow-lg rounded-lg opacity-[0.96]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 shadow-xl">
+      <header className="fixed top-3 left-3 right-3 z-50 bg-background/95 backdrop-blur-sm border-b border-border rounded-lg opacity-[0.98] shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 shadow-none opacity-[0.98]">
           <div className="hidden md:flex justify-between items-center">
             <Image
               src="/images/design-mode/Planck%20Logotype%20no%20bg(2).png"
@@ -180,9 +180,20 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 my-0">
-          <h2 className="text-4xl font-bold text-foreground mb-12 text-center">Features</h2>
-          <div className="grid md:grid-cols-3 gap-8">
+        <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 my-0 relative z-10">
+          <div className="absolute -top-16 sm:-top-32 lg:-top-44 -right-12 w-[293px] h-[293px] sm:w-[390px] sm:h-[390px] lg:w-[582px] lg:h-[582px] opacity-20 pointer-events-none z-0">
+            <Image
+              src="/images/schrodinger-20planck-20landing.png"
+              alt=""
+              width={582}
+              height={582}
+              className="w-full h-full object-contain"
+              style={{ transform: "rotate(-18deg)" }}
+            />
+          </div>
+
+          <h2 className="text-4xl font-bold text-foreground mb-12 text-center relative z-10">Features</h2>
+          <div className="grid md:grid-cols-3 gap-8 relative z-10">
             {[
               {
                 icon: Zap,
@@ -215,31 +226,61 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 z-10">
           <div className="flex justify-center">
             <Image
               src="/images/computing-20evolution-20no-20slogan.png"
               alt="Computing Evolution"
               width={600}
               height={180}
-              className="rounded-lg"
+              className="rounded-lg opacity-60"
             />
           </div>
         </section>
 
-        <div id="pricing">
+        <div id="pricing" className="relative z-10">
           <PricingSection />
         </div>
 
-        <FAQSection />
+        <div className="relative z-0 pointer-events-none h-0">
+          <div className="absolute left-0 right-0 top-[-200px]">
+            <div className="relative max-w-7xl mx-auto">
+              <div className="absolute -right-4 sm:-right-8 top-16 sm:top-0 w-[228px] h-[228px] sm:w-[325px] sm:h-[325px] lg:w-[468px] lg:h-[468px] opacity-15">
+                <Image
+                  src="/images/feynman-20planck-20landing.png"
+                  alt=""
+                  width={468}
+                  height={468}
+                  className="w-full h-full object-contain"
+                  style={{ transform: "rotate(23deg)" }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
 
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
-          <h2 className="text-4xl font-bold text-foreground mb-6">Welcome to the new computing era</h2>
-          
+        <div className="relative z-10">
+          <FAQSection />
+        </div>
+
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center relative z-10">
+          <div className="absolute -left-8 sm:-left-16 bottom-12 w-[195px] h-[195px] sm:w-[260px] sm:h-[260px] lg:w-[364px] lg:h-[364px] opacity-20 pointer-events-none z-0">
+            <Image
+              src="/images/graph-20planck-20landing.png"
+              alt=""
+              width={364}
+              height={364}
+              className="w-full h-full object-contain"
+              style={{ transform: "rotate(-12deg)" }}
+            />
+          </div>
+
+          <h2 className="text-4xl font-bold text-foreground mb-6 relative z-10">Welcome to the new computing era</h2>
+
           <Link href="/auth/login">
             <Button
               size="lg"
-              className="bg-primary hover:bg-primary/90 text-lg px-8 transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 shadow-lg"
+              className="bg-primary hover:bg-primary/90 text-lg px-8 transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 shadow-lg relative z-10"
             >
               Access <ArrowRight className="ml-2" />
             </Button>

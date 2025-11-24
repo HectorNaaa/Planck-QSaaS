@@ -66,7 +66,7 @@ export function PricingSection() {
         <p className="text-xl text-muted-foreground">Choose the plan that fits your computing needs</p>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+      <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto opacity-100">
         {plans.map((plan, index) => (
           <div
             key={index}
