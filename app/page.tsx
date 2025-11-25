@@ -47,7 +47,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="fixed top-3 left-3 right-3 z-50 bg-background/95 backdrop-blur-sm border-b border-border rounded-lg opacity-[0.98] shadow-lg">
+      <header className="md:fixed md:top-3 md:left-3 md:right-3 z-50 bg-background/95 backdrop-blur-sm border-b border-border md:rounded-lg opacity-[0.98] shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 shadow-none opacity-[0.98]">
           <div className="hidden md:flex justify-between items-center">
             <Image
@@ -134,7 +134,7 @@ export default function LandingPage() {
         )}
       </header>
 
-      <div className="pt-24">
+      <div className="md:pt-24">
         <section
           ref={heroRef}
           data-hn-hero
