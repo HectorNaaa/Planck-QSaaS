@@ -82,7 +82,27 @@ export default function TermsPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold mb-3">6. Modificaciones</h2>
+                <h2 className="text-2xl font-semibold mb-3">6. Recopilación de Datos para Mejora de Modelos</h2>
+                <p className="text-muted-foreground">
+                  Por defecto, Planck recopila datos anonimizados de benchmarks, patrones de uso y métricas de ejecución
+                  de circuitos para mejorar nuestros algoritmos cuánticos y optimizar la experiencia de usuario. Esto
+                  incluye:
+                </p>
+                <ul className="list-disc pl-6 text-muted-foreground space-y-1">
+                  <li>Tiempos de ejecución de circuitos y mediciones de fidelidad</li>
+                  <li>Benchmarks de rendimiento de backends</li>
+                  <li>Patrones de optimización de algoritmos</li>
+                  <li>Estadísticas agregadas de uso</li>
+                </ul>
+                <p className="text-muted-foreground mt-3">
+                  Los usuarios pueden desactivar esta recopilación de datos en cualquier momento a través del
+                  interruptor "Improve Models" en Configuración → Preferencias. No se recopila información de
+                  identificación personal y todos los datos se tratan de acuerdo con nuestra Política de Privacidad.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-semibold mb-3">7. Modificaciones</h2>
                 <p className="text-muted-foreground">
                   Nos reservamos el derecho de modificar las Condiciones de Uso en cualquier momento. Los cambios se
                   publicarán en esta página y entrarán en vigor inmediatamente.
@@ -90,15 +110,15 @@ export default function TermsPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold mb-3">7. Legislación Aplicable</h2>
+                <h2 className="text-2xl font-semibold mb-3">8. Legislación Aplicable</h2>
                 <p className="text-muted-foreground">
                   Las presentes condiciones se rigen por la legislación española. Para cualquier controversia, las
-                  partes se someten a los tribunales de Madrid.
+                  partes se someten a los tribunales de Barcelona.
                 </p>
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold mb-3">8. Contacto</h2>
+                <h2 className="text-2xl font-semibold mb-3">9. Contacto</h2>
                 <p className="text-muted-foreground">
                   Para consultas sobre este Aviso Legal:
                   <br />
@@ -162,7 +182,26 @@ export default function TermsPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold mb-3">6. Modifications</h2>
+                <h2 className="text-2xl font-semibold mb-3">6. Data Collection for Model Improvement</h2>
+                <p className="text-muted-foreground">
+                  By default, Planck collects anonymized benchmark data, usage patterns, and circuit execution metrics
+                  to improve our quantum algorithms and enhance user experience. This includes:
+                </p>
+                <ul className="list-disc pl-6 text-muted-foreground space-y-1">
+                  <li>Circuit execution times and fidelity measurements</li>
+                  <li>Backend performance benchmarks</li>
+                  <li>Algorithm optimization patterns</li>
+                  <li>Aggregated usage statistics</li>
+                </ul>
+                <p className="text-muted-foreground mt-3">
+                  Users may opt-out of this data collection at any time through the "Improve Models" toggle in Settings
+                  → Preferences. No personally identifiable information is collected, and all data is handled in
+                  accordance with our Privacy Policy.
+                </p>
+              </section>
+
+              <section>
+                <h2 className="text-2xl font-semibold mb-3">7. Modifications</h2>
                 <p className="text-muted-foreground">
                   We reserve the right to modify the Terms of Use at any time. Changes will be published on this page
                   and take effect immediately.
@@ -170,7 +209,7 @@ export default function TermsPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold mb-3">7. Applicable Law</h2>
+                <h2 className="text-2xl font-semibold mb-3">8. Applicable Law</h2>
                 <p className="text-muted-foreground">
                   These conditions are governed by Spanish law. For any dispute, the parties submit to the courts of
                   Madrid.
@@ -178,7 +217,7 @@ export default function TermsPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold mb-3">8. Contact</h2>
+                <h2 className="text-2xl font-semibold mb-3">9. Contact</h2>
                 <p className="text-muted-foreground">
                   For inquiries about this Legal Notice:
                   <br />

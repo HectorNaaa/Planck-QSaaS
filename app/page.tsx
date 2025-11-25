@@ -203,7 +203,7 @@ export default function LandingPage() {
               {
                 icon: BarChart3,
                 title: "Powerful Analytics",
-                description: "Monitor, ask and analyze quantum data",
+                description: "Monitor, analyze and ask about quantum data",
               },
               {
                 icon: GitBranch,

@@ -42,6 +42,10 @@ const esTranslations: Record<string, string> = {
   Terms: "Términos",
   "© 2025 Planck Technologies": "© 2025 Planck Technologies",
 
+  "Improve Models": "Mejorar Modelos",
+  "Help us improve algorithms by sharing your benchmarks and usage data":
+    "Ayúdanos a mejorar los algoritmos compartiendo tus benchmarks y datos de uso",
+
   // QSaaS Navigation
   Dashboard: "Panel",
   Runner: "Ejecutor",

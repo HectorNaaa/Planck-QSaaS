@@ -51,7 +51,7 @@ const plans = [
       "Error mitigation",
       "API access",
       "Queue priority",
-      "Staff education",
+      "Team education",
     ],
     cta: "Contact Sales",
     popular: false,

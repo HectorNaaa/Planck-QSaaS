@@ -17,11 +17,16 @@ export default function SettingsPage() {
   const router = useRouter()
   const [darkModeEnabled, setDarkModeEnabled] = useState(theme === "dark")
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [improveModelsEnabled, setImproveModelsEnabled] = useState(true)
 
   const handleDarkModeToggle = () => {
     const newMode = !darkModeEnabled
     setDarkModeEnabled(newMode)
     setTheme(newMode ? "dark" : "light")
+  }
+
+  const handleImproveModelsToggle = () => {
+    setImproveModelsEnabled(!improveModelsEnabled)
   }
 
   const handleLogout = async () => {
@@ -181,6 +186,26 @@ export default function SettingsPage() {
               <span
                 className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
                   darkModeEnabled ? "translate-x-7" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+          <div className="flex items-center justify-between pt-4 border-t border-border">
+            <div>
+              <p className="font-medium text-foreground">Improve Models</p>
+              <p className="text-sm text-muted-foreground">
+                Help us improve algorithms by sharing your benchmarks and usage data
+              </p>
+            </div>
+            <button
+              onClick={handleImproveModelsToggle}
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
+                improveModelsEnabled ? "bg-primary" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                  improveModelsEnabled ? "translate-x-7" : "translate-x-1"
                 }`}
               />
             </button>
