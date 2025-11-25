@@ -246,9 +246,9 @@ export default function LandingPage() {
         <div className="relative z-0 pointer-events-none h-0">
           <div className="absolute left-0 right-0 top-[-200px]">
             <div className="relative max-w-7xl mx-auto">
-              <div className="absolute -right-4 sm:-right-8 top-16 sm:top-0 w-[228px] h-[228px] sm:w-[325px] sm:h-[325px] lg:w-[468px] lg:h-[468px] opacity-15">
+              <div className="absolute -right-4 sm:-right-8 top-36 sm:top-20 w-[228px] h-[228px] sm:w-[325px] sm:h-[325px] lg:w-[468px] lg:h-[468px] opacity-15">
                 <Image
-                  src="/images/feynman-20planck-20landing.png"
+                  src="/images/normalization-20planck-20landing.png"
                   alt=""
                   width={468}
                   height={468}

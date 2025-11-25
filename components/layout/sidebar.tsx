@@ -12,10 +12,10 @@ export function Sidebar() {
   const { t } = useLanguage()
 
   const navItems = [
-    { href: "/qsaas/dashboard", label: t("sidebar.dashboard"), icon: LayoutDashboard },
+    { href: "/qsaas/dashboard", label: t("Dashboard"), icon: LayoutDashboard },
     { href: "/qsaas/runner", label: "Runner", icon: Zap },
-    { href: "/qsaas/templates", label: t("sidebar.templates"), icon: BookOpen },
-    { href: "/qsaas/settings", label: t("sidebar.settings"), icon: Settings },
+    { href: "/qsaas/templates", label: t("Templates"), icon: BookOpen },
+    { href: "/qsaas/settings", label: t("Settings"), icon: Settings },
   ]
 
   return (

@@ -7,17 +7,17 @@ const faqs = [
   {
     question: "What type of quantum processors (QPUs) does Planck use?",
     answer:
-      "Planck leverages gate-based quantum processors with maximum fidelity optimization. Our infrastructure is built on universal quantum computing architectures that utilize logical quantum gates to perform computations. We prioritize high-fidelity operations, meaning we minimize error rates and maximize the accuracy of quantum operations. This approach ensures reliable execution of complex quantum circuits, making our platform suitable for both research and production-level quantum applications. Our systems support various quantum gate operations including single-qubit gates (Hadamard, Pauli, Phase) and multi-qubit gates (CNOT, Toffoli), all calibrated for optimal performance.",
+      "Planck leverages gate-based quantum processors with maximum fidelity optimization. Our infrastructure is built on universal quantum computing architectures that utilize logical quantum gates to perform computations, prioritazing high-fidelity operations (i.e. >99.5% fidelity on 1-qubit gate) among other benchmarks. Meaning we minimize error rates and maximize the accuracy of quantum operations at the lowest price, ensuring the optimal tradeoff options based on user needs. This approach makes our platform suitable for both research and enterprise-level quantum applications.",
   },
   {
     question: "How does quantum computing differ from classical computing?",
     answer:
-      "Quantum computing operates on fundamentally different principles than classical computing. While classical computers use bits (0s and 1s), quantum computers use qubits that can exist in superposition—being both 0 and 1 simultaneously. This allows quantum computers to explore multiple solutions in parallel. Additionally, quantum entanglement enables qubits to be correlated in ways impossible for classical bits, providing exponential computational advantages for specific problem types like optimization, cryptography, molecular simulation, and machine learning.",
+      "Quantum computing operates on fundamentally different principles than classical computing. While classical computers use bits (0s and 1s), quantum computers use qubits that can exist in superposition—being both 0 and 1 simultaneously. This allows quantum computers to explore multiple solutions in parallel. Additionally, quantum entanglement enables qubits to be correlated in ways impossible for classical bits, providing exponential computational advantages for specific problem types like financial optimization, molecular simulation, machine learning for AI systems....",
   },
   {
-    question: "Do I need quantum physics expertise to use Planck?",
+    question: "Do I need quantum expertise to start?",
     answer:
-      "No, you don't need to be a quantum physicist to start using Planck. Our platform is designed with accessibility in mind. We provide pre-built quantum circuit templates, an intuitive drag-and-drop circuit builder, and AI-powered assistance to help you construct and optimize quantum algorithms. Whether you're a researcher exploring quantum applications, a developer integrating quantum computing into your workflow, or a business looking to leverage quantum advantages, Planck's user-friendly interface and comprehensive documentation make quantum computing approachable for users at all experience levels.",
+      "No, you don't need to be a quantum physicist to start using Planck. Our platform is designed with accessibility in mind. We provide pre-built quantum circuit templates, an intuitive drag-and-drop circuit builder, and AI-powered assistance to help you construct and optimize quantum algorithms. Whether you're a researcher exploring quantum applications, a developer integrating quantum computing into your workflow, or a business looking to leverage quantum advantages, Planck's user-friendly interface despite having high performance modules to avoid bottlenecks make quantum computing approachable for users at all experience levels.",
   },
 ]
 
