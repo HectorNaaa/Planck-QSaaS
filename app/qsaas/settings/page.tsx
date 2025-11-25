@@ -161,7 +161,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between pt-4 border-t border-border">
             <div>
               <p className="font-medium text-foreground">Email Notifications</p>
-              <p className="text-sm text-muted-foreground">Get updates about circuit runs</p>
+              <p className="text-sm text-muted-foreground">Get major updates to leverage your computing</p>
             </div>
             <input type="checkbox" defaultChecked className="w-6 h-6" />
           </div>

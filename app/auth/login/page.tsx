@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { LoadingSpinner } from "@/components/loading-spinner"
 import { createSession } from "@/lib/auth-session"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSelector } from "@/components/language-selector"
@@ -18,22 +17,17 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
     setError(null)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      createSession()
+      await createSession(email)
       router.push("/qsaas/dashboard")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -71,7 +65,6 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
                 className="bg-input border-border"
               />
             </div>
@@ -83,20 +76,12 @@ export default function LoginPage() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
                 className="bg-input border-border"
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading}>
-              {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <LoadingSpinner size="sm" />
-                  Signing in...
-                </div>
-              ) : (
-                "Sign In"
-              )}
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90">
+              Sign In
             </Button>
           </form>
 

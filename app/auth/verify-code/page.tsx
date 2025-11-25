@@ -9,11 +9,15 @@ import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { LoadingSpinner } from "@/components/loading-spinner"
-import { createSession } from "@/lib/auth-session"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSelector } from "@/components/language-selector"
 import Image from "next/image"
 import Link from "next/link"
+import {
+  verifyCode as checkVerificationCode,
+  sendVerificationEmail,
+  sendVerificationSMS,
+} from "@/lib/verification-service"
 
 export default function VerifyCodePage() {
   const searchParams = useSearchParams()
@@ -46,15 +50,15 @@ export default function VerifyCodePage() {
     }
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const isValid = checkVerificationCode(code, email)
 
-      if (code.length !== 6) {
-        setError("Please enter a 6-digit code")
+      if (!isValid) {
+        setError("Invalid or expired verification code")
         setIsLoading(false)
         return
       }
 
-      createSession()
+      // Code is valid, redirect to dashboard
       router.push("/qsaas/dashboard")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "Verification failed")
@@ -70,8 +74,11 @@ export default function VerifyCodePage() {
     setError(null)
 
     try {
-      console.log(`[v0] Sending verification code via ${method} to ${method === "sms" ? phone : email}`)
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      if (method === "email") {
+        await sendVerificationEmail(email)
+      } else if (method === "sms" && phone) {
+        await sendVerificationSMS(phone, email)
+      }
 
       setVerificationMethod(method)
       setResendCountdown(60)

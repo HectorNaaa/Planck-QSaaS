@@ -13,6 +13,41 @@ import { LoadingSpinner } from "@/components/loading-spinner"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSelector } from "@/components/language-selector"
 import Image from "next/image"
+import { createSession } from "@/lib/auth-session"
+import { sendVerificationEmail } from "@/lib/verification-service"
+
+const COUNTRY_CODES: { [key: string]: string } = {
+  Argentina: "+54",
+  Australia: "+61",
+  Austria: "+43",
+  Belgium: "+32",
+  Brazil: "+55",
+  Canada: "+1",
+  Chile: "+56",
+  Colombia: "+57",
+  Denmark: "+45",
+  France: "+33",
+  Germany: "+49",
+  India: "+91",
+  Ireland: "+353",
+  Italy: "+39",
+  Japan: "+81",
+  Mexico: "+52",
+  Netherlands: "+31",
+  "New Zealand": "+64",
+  Norway: "+47",
+  Poland: "+48",
+  Portugal: "+351",
+  Russia: "+7",
+  Singapore: "+65",
+  "South Korea": "+82",
+  Spain: "+34",
+  Sweden: "+46",
+  Switzerland: "+41",
+  "United Kingdom": "+44",
+  "United States": "+1",
+  Other: "+1",
+}
 
 const COUNTRIES = [
   "Argentina",
@@ -65,6 +100,8 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
+  const phonePrefix = country ? COUNTRY_CODES[country] : ""
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -89,8 +126,13 @@ export default function SignUpPage() {
     }
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      router.push(`/auth/verify-code?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phoneNumber)}`)
+      await sendVerificationEmail(email)
+
+      await createSession(email)
+
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      const fullPhone = `${phonePrefix}${phoneNumber}`
+      router.push(`/auth/verify-code?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(fullPhone)}`)
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")
     } finally {
@@ -181,16 +223,24 @@ export default function SignUpPage() {
 
             <div className="space-y-2">
               <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="1234567890"
-                required
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
-                disabled={isLoading}
-                className="bg-input border-border"
-              />
+              <div className="flex gap-2">
+                <Input
+                  value={phonePrefix}
+                  disabled
+                  className="w-20 bg-muted border-border text-center"
+                  placeholder="+X"
+                />
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="1234567890"
+                  required
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
+                  disabled={isLoading || !country}
+                  className="flex-1 bg-input border-border"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">

@@ -13,29 +13,33 @@ export default function QsaasLayout({
   children: React.ReactNode
 }) {
   const [isLoading, setIsLoading] = useState(true)
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
 
   useEffect(() => {
-    // Always show loading screen for smooth transition
-    const randomDuration = Math.floor(Math.random() * 2000) + 5000 // Random between 5000-7000ms
+    const hasSession = hasActiveSession()
 
+    // If no session and not on auth page, redirect immediately
+    if (!hasSession && !pathname.startsWith("/auth/")) {
+      router.push("/auth/login")
+      return
+    }
+
+    setIsCheckingAuth(false)
+
+    // Show loading screen for exactly 7 seconds
+    const loadingDuration = 7000
     const timer = setTimeout(() => {
       setIsLoading(false)
-
-      // Check if user has active session after loading
-      // Skip auth check if already on auth pages
-      if (!pathname.startsWith("/auth/")) {
-        const hasSession = hasActiveSession()
-        if (!hasSession) {
-          // Redirect to login if no active session
-          router.push("/auth/login")
-        }
-      }
-    }, randomDuration)
+    }, loadingDuration)
 
     return () => clearTimeout(timer)
   }, [router, pathname])
+
+  if (isCheckingAuth) {
+    return null
+  }
 
   if (isLoading) {
     return <QuantumLoadingScreen />
