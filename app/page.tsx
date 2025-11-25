@@ -48,7 +48,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="fixed top-2 left-2 right-2 md:top-3 md:left-3 md:right-3 z-50 bg-background/95 backdrop-blur-sm border-b border-border rounded-lg opacity-[0.98] shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 shadow-none opacity-[0.98]">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3 md:py-4 shadow-none opacity-[0.98]">
           <div className="hidden md:flex justify-between items-center">
             <Image
               src="/images/design-mode/Planck%20Logotype%20no%20bg(2).png"
@@ -79,15 +79,15 @@ export default function LandingPage() {
             <Image
               src="/images/design-mode/Planck%20Logotype%20no%20bg(2).png"
               alt="Planck Logo"
-              width={120}
-              height={38}
-              className="h-8 w-auto"
+              width={100}
+              height={32}
+              className="h-7 w-auto"
             />
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 hover:bg-accent rounded-lg transition-colors"
             >
-              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
           </div>
         </div>
