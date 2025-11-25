@@ -46,9 +46,9 @@ export default function LandingPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="fixed top-2 left-2 right-2 md:top-3 md:left-3 md:right-3 z-50 bg-background/95 backdrop-blur-sm border-b border-border rounded-lg opacity-[0.98] shadow-lg">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-3 md:py-4 shadow-none opacity-[0.98]">
+    <div className="min-h-screen bg-background overflow-x-hidden">
+      <header className="fixed top-2 left-2 right-2 md:top-3 md:left-3 md:right-3 z-50 bg-background/95 backdrop-blur-sm border-b border-border rounded-lg shadow-lg">
+        <div className="mx-auto px-3 md:px-4 lg:px-8 py-3 md:py-4">
           <div className="hidden md:flex justify-between items-center">
             <Image
               src="/images/design-mode/Planck%20Logotype%20no%20bg(2).png"
@@ -75,17 +75,18 @@ export default function LandingPage() {
             </Link>
           </div>
 
-          <div className="md:hidden flex justify-between items-center">
+          <div className="md:hidden flex justify-between items-center gap-2">
             <Image
               src="/images/design-mode/Planck%20Logotype%20no%20bg(2).png"
               alt="Planck Logo"
-              width={100}
-              height={32}
-              className="h-7 w-auto"
+              width={90}
+              height={29}
+              className="h-6 w-auto flex-shrink-0"
             />
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 hover:bg-accent rounded-lg transition-colors"
+              className="p-2 hover:bg-accent rounded-lg transition-colors flex-shrink-0"
+              aria-label="Toggle menu"
             >
               {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -134,11 +135,11 @@ export default function LandingPage() {
         )}
       </header>
 
-      <div className="pt-[80px] md:pt-24">
+      <div className="pt-[80px] md:pt-24 overflow-x-hidden">
         <section
           ref={heroRef}
           data-hn-hero
-          className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 overflow-hidden md:py-[380px]"
+          className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-[380px]"
           style={{ "--scroll-rotation": `${scrollRotation}deg`, "--glow-opacity": glowOpacity } as React.CSSProperties}
         >
           <div className="absolute inset-0 -z-10">
