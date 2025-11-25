@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Save, Sun, Moon, Check, LogOut } from "lucide-react"
@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { LoadingSpinner } from "@/components/loading-spinner"
 import { LanguageSelector } from "@/components/language-selector"
-import { clearSession } from "@/lib/auth-session"
+import { clearSession, getSessionData } from "@/lib/auth-session"
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
@@ -18,6 +18,20 @@ export default function SettingsPage() {
   const [darkModeEnabled, setDarkModeEnabled] = useState(theme === "dark")
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [improveModelsEnabled, setImproveModelsEnabled] = useState(true)
+  const [userEmail, setUserEmail] = useState("")
+  const [userName, setUserName] = useState("")
+  const [userOrg, setUserOrg] = useState("")
+
+  useEffect(() => {
+    // Load real session data
+    const sessionData = getSessionData()
+    if (sessionData) {
+      setUserEmail(sessionData.email)
+      // Parse name from email
+      const namePart = sessionData.email.split("@")[0]
+      setUserName(namePart.charAt(0).toUpperCase() + namePart.slice(1))
+    }
+  }, [])
 
   const handleDarkModeToggle = () => {
     const newMode = !darkModeEnabled
@@ -98,6 +112,8 @@ export default function SettingsPage() {
               <label className="block text-sm font-medium text-muted-foreground mb-2">Full Name</label>
               <input
                 type="text"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
                 placeholder="John Quantum"
                 className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground"
               />
@@ -106,6 +122,8 @@ export default function SettingsPage() {
               <label className="block text-sm font-medium text-muted-foreground mb-2">Email</label>
               <input
                 type="email"
+                value={userEmail}
+                onChange={(e) => setUserEmail(e.target.value)}
                 placeholder="john@planck.com"
                 className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground"
               />
@@ -115,6 +133,8 @@ export default function SettingsPage() {
             <label className="block text-sm font-medium text-muted-foreground mb-2">Organization</label>
             <input
               type="text"
+              value={userOrg}
+              onChange={(e) => setUserOrg(e.target.value)}
               placeholder="Quantum Research Lab"
               className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground"
             />

@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { BarChart3, Zap, TrendingUp, Clock } from 'lucide-react'
+import { BarChart3, Zap, TrendingUp, Clock } from "lucide-react"
 import Link from "next/link"
 import { PageHeader } from "@/components/page-header"
 
@@ -13,19 +13,30 @@ export default function DashboardPage() {
   ]
 
   const recentCircuits = [
-    { id: 1, name: "Grover's Algorithm", status: "success", qubits: 8, runtime: "156ms" },
-    { id: 2, name: "Shor's Algorithm", status: "success", qubits: 16, runtime: "234ms" },
-    { id: 3, name: "VQE Optimization", status: "running", qubits: 12, runtime: "89ms" },
-    { id: 4, name: "Quantum Teleportation", status: "success", qubits: 3, runtime: "45ms" },
+    {
+      id: 1,
+      name: "Grover's Algorithm",
+      status: "success",
+      qubits: 8,
+      runtime: "156ms",
+      timestamp: "2025-01-20 14:32",
+    },
+    { id: 2, name: "Shor's Algorithm", status: "success", qubits: 16, runtime: "234ms", timestamp: "2025-01-20 13:15" },
+    { id: 3, name: "VQE Optimization", status: "running", qubits: 12, runtime: "89ms", timestamp: "2025-01-20 12:48" },
+    {
+      id: 4,
+      name: "Quantum Teleportation",
+      status: "success",
+      qubits: 3,
+      runtime: "45ms",
+      timestamp: "2025-01-20 11:22",
+    },
   ]
 
   return (
     <div className="p-8 space-y-8 px-4">
       {/* Header */}
-      <PageHeader 
-        title="Dashboard" 
-        description="Welcome back! Here's your quantum computing activity."
-      />
+      <PageHeader title="Dashboard" description="Welcome back! Here's your quantum computing activity." />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -60,6 +71,7 @@ export default function DashboardPage() {
                 <th className="text-left py-3 px-4 text-muted-foreground font-medium">Status</th>
                 <th className="text-left py-3 px-4 text-muted-foreground font-medium">Qubits</th>
                 <th className="text-left py-3 px-4 text-muted-foreground font-medium">Runtime</th>
+                <th className="text-left py-3 px-4 text-muted-foreground font-medium">Timestamp</th>
               </tr>
             </thead>
             <tbody>
@@ -77,6 +89,7 @@ export default function DashboardPage() {
                   </td>
                   <td className="py-3 px-4 text-foreground">{circuit.qubits}</td>
                   <td className="py-3 px-4 text-foreground">{circuit.runtime}</td>
+                  <td className="py-3 px-4 text-muted-foreground text-sm">{circuit.timestamp}</td>
                 </tr>
               ))}
             </tbody>
@@ -85,7 +98,6 @@ export default function DashboardPage() {
       </Card>
 
       {/* Quick Links */}
-      
     </div>
   )
 }

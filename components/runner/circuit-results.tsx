@@ -1,15 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown } from "lucide-react"
 import { Card } from "@/components/ui/card"
 
 interface CircuitResultsProps {
   backend: string
   results?: any
+  qubits: number
 }
 
-export function CircuitResults({ backend, results }: CircuitResultsProps) {
+export function CircuitResults({ backend, results, qubits }: CircuitResultsProps) {
   const [isExpanded, setIsExpanded] = useState(true)
 
   // Backend display names
@@ -32,7 +33,7 @@ export function CircuitResults({ backend, results }: CircuitResultsProps) {
   const benchmarks = results || {
     successRate: 96.4,
     runtime: 1.45,
-    qubitsUsed: 7,
+    qubitsUsed: qubits,
     shots: 1024,
     fidelity: 98.2,
   }
@@ -88,10 +89,7 @@ export function CircuitResults({ backend, results }: CircuitResultsProps) {
                   <code className="text-sm font-mono text-foreground">{item.bitstring}</code>
                   <div className="flex items-center gap-3">
                     <div className="w-32 bg-secondary rounded-full h-2">
-                      <div
-                        className="bg-primary h-2 rounded-full"
-                        style={{ width: `${item.probability * 100}%` }}
-                      />
+                      <div className="bg-primary h-2 rounded-full" style={{ width: `${item.probability * 100}%` }} />
                     </div>
                     <span className="text-sm font-medium text-primary w-12 text-right">
                       {(item.probability * 100).toFixed(1)}%

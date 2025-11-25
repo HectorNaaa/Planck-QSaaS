@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown } from "lucide-react"
 import { Card } from "@/components/ui/card"
 
 type ExecutionBackend = "quantum_inspired_gpu" | "hpc_gpu" | "quantum_qpu"
@@ -10,9 +10,17 @@ interface ExecutionSettingsProps {
   onBackendChange?: (backend: ExecutionBackend) => void
   currentBackend?: ExecutionBackend
   onModeChange?: (mode: "auto" | "manual") => void
+  qubits: number
+  depth: number
 }
 
-export function ExecutionSettings({ onBackendChange, currentBackend, onModeChange }: ExecutionSettingsProps) {
+export function ExecutionSettings({
+  onBackendChange,
+  currentBackend,
+  onModeChange,
+  qubits,
+  depth,
+}: ExecutionSettingsProps) {
   const [backend, setBackend] = useState<ExecutionBackend>(currentBackend || "quantum_inspired_gpu")
   const [isExpanded, setIsExpanded] = useState(false)
   const [mode, setMode] = useState<"auto" | "manual">("auto")
@@ -47,6 +55,19 @@ export function ExecutionSettings({ onBackendChange, currentBackend, onModeChang
       icon: "🔬",
     },
   ]
+
+  // Function to select the optimal backend based on qubits, depth, and gateCount
+  const selectOptimalBackend = ({ qubits, depth, gateCount }: { qubits: number; depth: number; gateCount: number }) => {
+    if (qubits <= 10 && gateCount <= 100) {
+      return "quantum_inspired_gpu"
+    } else if (qubits <= 20 && gateCount <= 500) {
+      return "hpc_gpu"
+    } else {
+      return "quantum_qpu"
+    }
+  }
+
+  const recommendedBackend = selectOptimalBackend({ qubits, depth, gateCount: depth })
 
   return (
     <Card className="p-6 shadow-lg">
@@ -85,7 +106,9 @@ export function ExecutionSettings({ onBackendChange, currentBackend, onModeChang
               </button>
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {mode === "auto" ? "Optimal backend selected automatically" : "Manually select execution backend"}
+              {mode === "auto"
+                ? `Recommended: ${backends.find((b) => b.id === recommendedBackend)?.label}`
+                : "Manually select execution backend"}
             </p>
           </div>
 
