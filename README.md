@@ -1,30 +1,11 @@
-# Quantum computing SaaS
+# Planck-QSaaS — Short Overview
 
-*Automatically synced with your [v0.app](https://v0.app) deployments*
+Planck-QSaaS is Planck’s hybrid orchestration platform to run and integrate quantum workflows into real product pipelines. It prioritizes **local-first** execution (micro-LLM on client when possible) with safe **server fallback** to managed backends (vLLM/TGI, QPU, HPC). The platform provides reproducible pipelines (CSV → RAG → inference → dispatcher), queueing and quota controls, privacy-minded logging with user-deletions (GDPR-ready), observable metrics and alerting, and simple APIs for pilots and production rollout.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/proyectohector04-2958s-projects/v0-quantum-computing-saa-s)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/ivzPGbrllJ6)
+**For teams:** use Planck-QSaaS to accelerate simulations, optimizations and ML workloads without rearchitecting your stack — validate with a pilot (upload a sample dataset) and get a short report with time, cost and integration recommendations.
 
-## Overview
+**Core ideas:** local-first execution, safe fallback, modular RAG + inference, privacy-first logging, observable ops, and smooth path from PoC to production.
 
-This repository will stay in sync with your deployed chats on [v0.app](https://v0.app).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.app](https://v0.app).
+**Get started (dev):** clone the repo, copy the example env, start the provided dev compose, run tests, and use the sample demo script to submit a CSV and retrieve a benchmark report.
 
-## Deployment
-
-Your project is live at:
-
-**[https://vercel.com/proyectohector04-2958s-projects/v0-quantum-computing-saa-s](https://vercel.com/proyectohector04-2958s-projects/v0-quantum-computing-saa-s)**
-
-## Build your app
-
-Continue building your app on:
-
-**[https://v0.app/chat/ivzPGbrllJ6](https://v0.app/chat/ivzPGbrllJ6)**
-
-## How It Works
-
-1. Create and modify your project using [v0.app](https://v0.app)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+**Contact:** hello@plancktechnologies.io — request a pilot to validate on your dataset.
