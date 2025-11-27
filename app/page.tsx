@@ -135,7 +135,7 @@ export default function LandingPage() {
         )}
       </header>
 
-      <div className="pt-[80px] md:pt-24 overflow-x-hidden">
+      <div className="pt-[80px] md:pt-24 overflow-x-hidden bg-background">
         <section
           ref={heroRef}
           data-hn-hero
@@ -155,10 +155,10 @@ export default function LandingPage() {
                 className="hn-slogan-wrap text-5xl md:text-7xl font-bold text-foreground text-balance"
                 style={{ "--scroll-rotation": `${scrollRotation}deg` } as React.CSSProperties}
               >
-                Effortless <span className="text-primary">Quantum Solutions</span>
+                Effortless <span className="text-primary">Quantum Computing</span>
               </h1>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-balance">
-                Welcome to the new computing era, connect your data and start using quantum computing. AI-Enhanced.
+                Boost your performance with quantum computing, AI-Enhanced.
               </p>
               <div className="flex gap-4 justify-center flex-wrap pt-4">
                 <Link href="/auth/login">

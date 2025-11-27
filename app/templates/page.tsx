@@ -34,13 +34,6 @@ const templates = [
   },
   {
     id: 5,
-    name: "Quantum Teleportation",
-    description: "Teleport quantum state between qubits",
-    qubits: 3,
-    difficulty: "Beginner",
-  },
-  {
-    id: 6,
     name: "QAOA Circuit",
     description: "Quantum Approximate Optimization Algorithm",
     qubits: 10,

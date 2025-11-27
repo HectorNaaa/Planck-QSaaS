@@ -16,7 +16,6 @@ export default function DashboardPage() {
     { id: 1, name: "Grover's Algorithm", status: "success", qubits: 8, runtime: "156ms" },
     { id: 2, name: "Shor's Algorithm", status: "success", qubits: 16, runtime: "234ms" },
     { id: 3, name: "VQE Optimization", status: "running", qubits: 12, runtime: "89ms" },
-    { id: 4, name: "Quantum Teleportation", status: "success", qubits: 3, runtime: "45ms" },
   ]
 
   return (

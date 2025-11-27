@@ -3,14 +3,13 @@
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Save, Sun, Moon, Check, LogOut } from "lucide-react"
+import { Save, Sun, Moon, Check, LogOut, Trash2, Edit, Copy, RefreshCw } from "lucide-react"
 import { useTheme } from "next-themes"
 import { PageHeader } from "@/components/page-header"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
-import { LoadingSpinner } from "@/components/loading-spinner"
 import { LanguageSelector } from "@/components/language-selector"
-import { clearSession, getSessionData } from "@/lib/auth-session"
+import { deleteUserAccount } from "./actions"
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
@@ -18,19 +17,51 @@ export default function SettingsPage() {
   const [darkModeEnabled, setDarkModeEnabled] = useState(theme === "dark")
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [improveModelsEnabled, setImproveModelsEnabled] = useState(true)
+  const [stayLoggedIn, setStayLoggedIn] = useState(true)
   const [userEmail, setUserEmail] = useState("")
   const [userName, setUserName] = useState("")
+  const [userFirstName, setUserFirstName] = useState("")
+  const [userLastName, setUserLastName] = useState("")
   const [userOrg, setUserOrg] = useState("")
+  const [userCountry, setUserCountry] = useState("")
+  const [userPhone, setUserPhone] = useState("")
+  const [userOccupation, setUserOccupation] = useState("")
+  const [isEditingAccount, setIsEditingAccount] = useState(false)
+  const [isSavingAccount, setIsSavingAccount] = useState(false)
+  const [apiKey, setApiKey] = useState("sk_live_4f8b2a9c1e6d3h7k")
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
-    // Load real session data
-    const sessionData = getSessionData()
-    if (sessionData) {
-      setUserEmail(sessionData.email)
-      // Parse name from email
-      const namePart = sessionData.email.split("@")[0]
-      setUserName(namePart.charAt(0).toUpperCase() + namePart.slice(1))
+    const loadUserData = async () => {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        setUserEmail(user.email || "")
+
+        const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
+
+        if (profile) {
+          const fullName = profile.name || ""
+          const [first, ...rest] = fullName.split(" ")
+          setUserFirstName(first || "")
+          setUserLastName(rest.join(" ") || "")
+          setUserName(fullName)
+          setUserOrg(profile.org || "")
+          setUserCountry(profile.country || "")
+          setUserPhone(profile.phone_number || "")
+          setUserOccupation(profile.occupation || "")
+        }
+      }
+
+      const stayLoggedInPref = localStorage.getItem("planck_stay_logged_in")
+      setStayLoggedIn(stayLoggedInPref !== "false")
     }
+
+    loadUserData()
   }, [])
 
   const handleDarkModeToggle = () => {
@@ -43,43 +74,127 @@ export default function SettingsPage() {
     setImproveModelsEnabled(!improveModelsEnabled)
   }
 
+  const handleStayLoggedInToggle = () => {
+    const newValue = !stayLoggedIn
+    setStayLoggedIn(newValue)
+    localStorage.setItem("planck_stay_logged_in", String(newValue))
+  }
+
   const handleLogout = async () => {
     setIsLoggingOut(true)
     const supabase = createClient()
 
     try {
       await supabase.auth.signOut()
-      clearSession()
+      document.cookie = "planck_session=; max-age=0; path=/"
+      localStorage.removeItem("planck_stay_logged_in")
       router.push("/auth/login")
     } catch (error) {
       console.error("Logout error:", error)
-      clearSession()
       router.push("/auth/login")
     } finally {
       setIsLoggingOut(false)
     }
   }
 
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true)
+
+    try {
+      const result = await deleteUserAccount()
+
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      localStorage.removeItem("planck_stay_logged_in")
+      localStorage.clear()
+
+      router.push("/")
+    } catch (error: any) {
+      console.error("Delete account error:", error)
+      alert("Error deleting account. Please contact support at hello@plancktechnologies.xyz")
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteConfirm(false)
+    }
+  }
+
+  const handleSaveAccount = async () => {
+    setIsSavingAccount(true)
+    try {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        const fullName = `${userFirstName} ${userLastName}`.trim()
+
+        const { error } = await supabase
+          .from("profiles")
+          .update({
+            name: fullName,
+            org: userOrg,
+            country: userCountry,
+            phone_number: userPhone,
+            occupation: userOccupation,
+          })
+          .eq("id", user.id)
+
+        if (error) throw error
+
+        setUserName(fullName)
+        setIsEditingAccount(false)
+        alert("Account details saved successfully!")
+      }
+    } catch (error) {
+      console.error("Error saving account:", error)
+      alert("Error saving account details. Please try again.")
+    } finally {
+      setIsSavingAccount(false)
+    }
+  }
+
+  const handleCopyApiKey = () => {
+    navigator.clipboard.writeText(apiKey)
+    alert("API key copied to clipboard!")
+  }
+
+  const handleRegenerateApiKey = () => {
+    const newKey = `sk_live_${Math.random().toString(36).substring(2, 18)}`
+    setApiKey(newKey)
+    alert("New API key generated!")
+  }
+
   const plans = [
     {
-      name: "Free",
+      name: "Starter",
       price: "€0",
       period: "/month",
-      description: "Perfect for learning",
-      features: ["100 circuit runs/month", "Up to 4 qubits", "Community support", "Basic analytics"],
+      description: "For those beginning the journey",
+      features: [
+        "Quantum-inspired executions",
+        "Up to 12 qubits",
+        "Pre-built circuits",
+        "Basic analytics",
+        "Community support",
+      ],
       current: false,
     },
     {
       name: "Pro",
       price: "€49",
       period: "/month",
-      description: "For active researchers",
+      description: "For professionals and teams",
       features: [
-        "50,000 circuit runs/month",
-        "Up to 20 qubits",
-        "Priority support",
+        "QPUs and quantum-inspired",
+        "Up to 56 qubits",
+        "Pre-built circuits",
         "Advanced analytics",
-        "Custom templates",
+        "Priority support",
+        "Error Mitigation",
+        "API access",
       ],
       current: true,
     },
@@ -87,13 +202,17 @@ export default function SettingsPage() {
       name: "Custom",
       price: "Contact",
       period: "us",
-      description: "Quantum consulting",
+      description: "Enterprise quantum solutions",
       features: [
-        "Unlimited circuit runs",
-        "Custom quantum circuits",
-        "Priority queue execution",
-        "Advanced settings",
-        "Dedicated support",
+        "QPUs and quantum-inspired",
+        "Up to 56 qubits",
+        "Custom circuits",
+        "Custom analytics",
+        "Priority support",
+        "Error Mitigation",
+        "API access",
+        "Queue priority",
+        "Team education",
       ],
       current: false,
     },
@@ -105,39 +224,115 @@ export default function SettingsPage() {
 
       {/* Account Settings */}
       <Card className="p-6 shadow-lg">
-        <h2 className="text-2xl font-bold text-foreground mb-6">Account</h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-foreground">Account</h2>
+          {!isEditingAccount ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditingAccount(true)}
+              className="flex items-center gap-2"
+            >
+              <Edit size={16} />
+              Edit
+            </Button>
+          ) : (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setIsEditingAccount(false)} disabled={isSavingAccount}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleSaveAccount}
+                disabled={isSavingAccount}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {isSavingAccount ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          )}
+        </div>
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">Full Name</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">First Name</label>
               <input
                 type="text"
-                value={userName}
-                onChange={(e) => setUserName(e.target.value)}
-                placeholder="John Quantum"
-                className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground"
+                value={userFirstName}
+                onChange={(e) => setUserFirstName(e.target.value)}
+                placeholder="John"
+                disabled={!isEditingAccount}
+                className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">Email</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Last Name</label>
               <input
-                type="email"
-                value={userEmail}
-                onChange={(e) => setUserEmail(e.target.value)}
-                placeholder="john@planck.com"
-                className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground"
+                type="text"
+                value={userLastName}
+                onChange={(e) => setUserLastName(e.target.value)}
+                placeholder="Quantum"
+                disabled={!isEditingAccount}
+                className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-2">Organization</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-2">Email</label>
             <input
-              type="text"
-              value={userOrg}
-              onChange={(e) => setUserOrg(e.target.value)}
-              placeholder="Quantum Research Lab"
-              className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground"
+              type="email"
+              value={userEmail}
+              disabled
+              className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground opacity-50 cursor-not-allowed"
             />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Country</label>
+              <input
+                type="text"
+                value={userCountry}
+                onChange={(e) => setUserCountry(e.target.value)}
+                placeholder="United States"
+                disabled={!isEditingAccount}
+                className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Phone Number</label>
+              <input
+                type="tel"
+                value={userPhone}
+                onChange={(e) => setUserPhone(e.target.value)}
+                placeholder="+1234567890"
+                disabled={!isEditingAccount}
+                className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Organization</label>
+              <input
+                type="text"
+                value={userOrg}
+                onChange={(e) => setUserOrg(e.target.value)}
+                placeholder="Quantum Research Lab"
+                disabled={!isEditingAccount}
+                className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">Occupation</label>
+              <input
+                type="text"
+                value={userOccupation}
+                onChange={(e) => setUserOccupation(e.target.value)}
+                placeholder="Researcher"
+                disabled={!isEditingAccount}
+                className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+            </div>
           </div>
         </div>
       </Card>
@@ -147,22 +342,30 @@ export default function SettingsPage() {
         <h2 className="text-2xl font-bold text-foreground mb-6">API Keys</h2>
         <div className="space-y-4">
           <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg border border-border">
-            <div>
+            <div className="flex-1">
               <p className="font-medium text-foreground">Production Key</p>
-              <p className="text-sm text-muted-foreground">sk_live_••••••••••••••••</p>
+              <p className="text-sm text-muted-foreground font-mono">{apiKey}</p>
             </div>
-            <Button variant="outline" size="sm">
-              Copy
-            </Button>
-          </div>
-          <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg border border-border">
-            <div>
-              <p className="font-medium text-foreground">Development Key</p>
-              <p className="text-sm text-muted-foreground">sk_test_••••••••••••••••</p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyApiKey}
+                className="flex items-center gap-2 bg-transparent"
+              >
+                <Copy size={16} />
+                Copy
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRegenerateApiKey}
+                className="flex items-center gap-2 bg-transparent"
+              >
+                <RefreshCw size={16} />
+                Regenerate
+              </Button>
             </div>
-            <Button variant="outline" size="sm">
-              Copy
-            </Button>
           </div>
         </div>
       </Card>
@@ -230,6 +433,26 @@ export default function SettingsPage() {
               />
             </button>
           </div>
+          <div className="flex items-center justify-between pt-4 border-t border-border">
+            <div>
+              <p className="font-medium text-foreground">Stay Logged In</p>
+              <p className="text-sm text-muted-foreground">
+                Keep me signed in on this device without requiring login each time
+              </p>
+            </div>
+            <button
+              onClick={handleStayLoggedInToggle}
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
+                stayLoggedIn ? "bg-primary" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                  stayLoggedIn ? "translate-x-7" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
         </div>
       </Card>
 
@@ -293,25 +516,67 @@ export default function SettingsPage() {
           <Save size={18} />
           Save Changes
         </Button>
-        <Button
-          variant="outline"
-          onClick={handleLogout}
-          disabled={isLoggingOut}
-          className="flex items-center gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 bg-transparent"
-        >
-          {isLoggingOut ? (
-            <>
-              <LoadingSpinner size="sm" />
-              Signing out...
-            </>
-          ) : (
-            <>
-              <LogOut size={18} />
-              Sign Out
-            </>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowDeleteConfirm(true)}
+            className="flex items-center gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 bg-transparent border-destructive"
+          >
+            <Trash2 size={18} />
+            Delete Account
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground bg-transparent"
+          >
+            {isLoggingOut ? (
+              <>
+                <span className="inline-block w-4 h-4 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                Signing out...
+              </>
+            ) : (
+              <>
+                <LogOut size={18} />
+                Sign Out
+              </>
+            )}
+          </Button>
+        </div>
       </div>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="max-w-md w-full mx-4 p-6">
+            <h3 className="text-xl font-bold text-foreground mb-4">Delete Account</h3>
+            <p className="text-muted-foreground mb-6">
+              Are you sure you want to delete your account? This action cannot be undone and will permanently delete all
+              your data, including execution logs and circuit history.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>
+                Cancel
+              </Button>
+              <Button
+                variant="default"
+                onClick={handleDeleteAccount}
+                disabled={isDeleting}
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              >
+                {isDeleting ? (
+                  <>
+                    <span className="inline-block w-4 h-4 border-4 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete Account"
+                )}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }

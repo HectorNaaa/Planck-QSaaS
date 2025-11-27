@@ -23,14 +23,6 @@ export default function DashboardPage() {
     },
     { id: 2, name: "Shor's Algorithm", status: "success", qubits: 16, runtime: "234ms", timestamp: "2025-01-20 13:15" },
     { id: 3, name: "VQE Optimization", status: "running", qubits: 12, runtime: "89ms", timestamp: "2025-01-20 12:48" },
-    {
-      id: 4,
-      name: "Quantum Teleportation",
-      status: "success",
-      qubits: 3,
-      runtime: "45ms",
-      timestamp: "2025-01-20 11:22",
-    },
   ]
 
   return (

@@ -30,7 +30,7 @@ export function QuantumLoadingScreen() {
         </div>
 
         {/* Tagline */}
-        <h2 className="text-2xl font-serif text-[#3d3d3d]">Effortless Quantum Solutions</h2>
+        <h2 className="text-2xl font-serif text-[#3d3d3d]">Effortless Quantum Computing</h2>
 
         {/* Loading Spinner */}
         <div className="relative w-16 h-16">
