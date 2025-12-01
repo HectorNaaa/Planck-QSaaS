@@ -10,7 +10,7 @@ import { AutoParser } from "@/components/runner/autoparser"
 import { ExpectedResults } from "@/components/runner/expected-results"
 import { CircuitResults } from "@/components/runner/circuit-results"
 import { LoadingSpinner } from "@/components/loading-spinner"
-import { Save, Play, RotateCcw } from "lucide-react"
+import { Save, Play, RotateCcw, Download } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { PageHeader } from "@/components/page-header"
 import { generateQASM2, parseUploadedData, type CircuitData } from "@/lib/qasm-generator"
@@ -126,6 +126,41 @@ export default function RunnerPage() {
     }
   }, [circuitName, executionType, backend, shots, qubits, errorMitigation])
 
+  const handleDownloadCircuitImage = useCallback(() => {
+    const link = document.createElement("a")
+    link.href = "/circuit-q4-example-planck.png"
+    link.download = `${circuitName.replace(/\s+/g, "_")}_circuit.jpg`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }, [circuitName])
+
+  const handleDownloadCircuitCode = useCallback(() => {
+    const blob = new Blob([circuitCode || 'OPENQASM 2.0;\ninclude "qelib1.inc";'], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `${circuitName.replace(/\s+/g, "_")}_code.qasm`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }, [circuitCode, circuitName])
+
+  const handleDownloadResults = useCallback(() => {
+    if (!results) return
+    const resultsData = JSON.stringify(results, null, 2)
+    const blob = new Blob([resultsData], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `${circuitName.replace(/\s+/g, "_")}_results.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }, [results, circuitName])
+
   return (
     <div className="p-8 space-y-6 px-4">
       <PageHeader title="Runner" description="Build and execute quantum circuits" />
@@ -133,7 +168,18 @@ export default function RunnerPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Card className="p-6 shadow-lg">
-            <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Visualizer</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold text-foreground">Circuit Visualizer</h2>
+              <Button
+                onClick={handleDownloadCircuitImage}
+                size="sm"
+                variant="outline"
+                className="flex items-center gap-2 bg-transparent"
+              >
+                <Download size={16} />
+                Download
+              </Button>
+            </div>
             <div className="rounded-lg min-h-96 border border-border flex items-center justify-center bg-secondary overflow-hidden">
               <img
                 src="/circuit-q4-example-planck.png"
@@ -147,6 +193,15 @@ export default function RunnerPage() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold text-foreground">Circuit Code</h2>
               <div className="flex gap-2">
+                <Button
+                  onClick={handleDownloadCircuitCode}
+                  size="sm"
+                  variant="outline"
+                  className="flex items-center gap-2 bg-transparent"
+                >
+                  <Download size={16} />
+                  Download
+                </Button>
                 {isCodeEditable ? (
                   <Button onClick={handleSaveCode} size="sm" className="bg-primary">
                     Save
@@ -192,7 +247,7 @@ measure q[3] -> c[3];`}
             )}
           </Card>
 
-          <CircuitResults backend={backend} results={results} qubits={qubits} />
+          <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} />
         </div>
 
         <div className="space-y-6">

@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/page-header"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { LanguageSelector } from "@/components/language-selector"
-import { deleteUserAccount } from "./actions"
+import { deleteUserAccount, updateUserAccount } from "./actions"
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
@@ -19,6 +19,7 @@ export default function SettingsPage() {
   const [improveModelsEnabled, setImproveModelsEnabled] = useState(true)
   const [stayLoggedIn, setStayLoggedIn] = useState(true)
   const [userEmail, setUserEmail] = useState("")
+  const [originalEmail, setOriginalEmail] = useState("")
   const [userName, setUserName] = useState("")
   const [userFirstName, setUserFirstName] = useState("")
   const [userLastName, setUserLastName] = useState("")
@@ -41,6 +42,7 @@ export default function SettingsPage() {
 
       if (user) {
         setUserEmail(user.email || "")
+        setOriginalEmail(user.email || "")
 
         const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
 
@@ -123,34 +125,28 @@ export default function SettingsPage() {
   const handleSaveAccount = async () => {
     setIsSavingAccount(true)
     try {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      const result = await updateUserAccount({
+        email: userEmail !== originalEmail ? userEmail : undefined,
+        firstName: userFirstName,
+        lastName: userLastName,
+        country: userCountry,
+        phone: userPhone,
+        occupation: userOccupation,
+        org: userOrg,
+      })
 
-      if (user) {
-        const fullName = `${userFirstName} ${userLastName}`.trim()
-
-        const { error } = await supabase
-          .from("profiles")
-          .update({
-            name: fullName,
-            org: userOrg,
-            country: userCountry,
-            phone_number: userPhone,
-            occupation: userOccupation,
-          })
-          .eq("id", user.id)
-
-        if (error) throw error
-
-        setUserName(fullName)
-        setIsEditingAccount(false)
-        alert("Account details saved successfully!")
+      if (result.error) {
+        throw new Error(result.error)
       }
-    } catch (error) {
+
+      const fullName = `${userFirstName} ${userLastName}`.trim()
+      setUserName(fullName)
+      setOriginalEmail(userEmail)
+      setIsEditingAccount(false)
+      alert("Account details saved successfully!")
+    } catch (error: any) {
       console.error("Error saving account:", error)
-      alert("Error saving account details. Please try again.")
+      alert(`Error saving account details: ${error.message}`)
     } finally {
       setIsSavingAccount(false)
     }
@@ -255,7 +251,9 @@ export default function SettingsPage() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">First Name</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                First Name <span className="text-destructive">*</span>
+              </label>
               <input
                 type="text"
                 value={userFirstName}
@@ -266,7 +264,9 @@ export default function SettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">Last Name</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Last Name <span className="text-destructive">*</span>
+              </label>
               <input
                 type="text"
                 value={userLastName}
@@ -278,17 +278,26 @@ export default function SettingsPage() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-2">Email</label>
+            <label className="block text-sm font-medium text-muted-foreground mb-2">
+              Email <span className="text-destructive">*</span>
+            </label>
             <input
               type="email"
               value={userEmail}
-              disabled
-              className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground opacity-50 cursor-not-allowed"
+              onChange={(e) => setUserEmail(e.target.value)}
+              placeholder="user@example.com"
+              disabled={!isEditingAccount}
+              className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
             />
+            {isEditingAccount && userEmail !== originalEmail && (
+              <p className="text-xs text-amber-500 mt-1">Note: Changing your email will require re-verification</p>
+            )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">Country</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Country <span className="text-destructive">*</span>
+              </label>
               <input
                 type="text"
                 value={userCountry}
@@ -299,7 +308,9 @@ export default function SettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">Phone Number</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Phone Number <span className="text-destructive">*</span>
+              </label>
               <input
                 type="tel"
                 value={userPhone}
@@ -312,7 +323,9 @@ export default function SettingsPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">Organization</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Organization <span className="text-xs text-muted-foreground">(Optional)</span>
+              </label>
               <input
                 type="text"
                 value={userOrg}
@@ -323,7 +336,9 @@ export default function SettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-2">Occupation</label>
+              <label className="block text-sm font-medium text-muted-foreground mb-2">
+                Occupation <span className="text-destructive">*</span>
+              </label>
               <input
                 type="text"
                 value={userOccupation}

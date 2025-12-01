@@ -104,6 +104,7 @@ export default function SignUpPage() {
   const [country, setCountry] = useState("")
   const [phoneNumber, setPhoneNumber] = useState("")
   const [occupation, setOccupation] = useState("")
+  const [organization, setOrganization] = useState("")
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [hasScrolledTerms, setHasScrolledTerms] = useState(false)
   const termsRef = useRef<HTMLDivElement>(null)
@@ -170,7 +171,7 @@ export default function SignUpPage() {
       const fullPhone = `${phonePrefix}${phoneNumber}`
       const fullName = `${firstName} ${lastName}`
 
-      const { data, error: authError } = await supabase.auth.signUp({
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -182,13 +183,14 @@ export default function SignUpPage() {
             last_name: lastName,
             country,
             country_code: phonePrefix,
-            phone_number: fullPhone,
+            phone_number: phoneNumber,
             occupation,
+            organization,
           },
         },
       })
 
-      if (authError) throw authError
+      if (signUpError) throw signUpError
 
       document.cookie = `planck_session=active; max-age=${30 * 24 * 60 * 60}; path=/; SameSite=Strict`
 
@@ -235,7 +237,9 @@ export default function SignUpPage() {
           <form onSubmit={handleSignUp} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="firstName">{language === "es" ? "Nombre" : "First Name"}</Label>
+                <Label htmlFor="firstName">
+                  {language === "es" ? "Nombre" : "First Name"} <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="firstName"
                   type="text"
@@ -248,7 +252,9 @@ export default function SignUpPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="lastName">{language === "es" ? "Apellido" : "Last Name"}</Label>
+                <Label htmlFor="lastName">
+                  {language === "es" ? "Apellido" : "Last Name"} <span className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="lastName"
                   type="text"
@@ -263,7 +269,9 @@ export default function SignUpPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">{language === "es" ? "Correo Electrónico" : "Email"}</Label>
+              <Label htmlFor="email">
+                {language === "es" ? "Correo Electrónico" : "Email"} <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -277,7 +285,9 @@ export default function SignUpPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">{language === "es" ? "Contraseña" : "Password"}</Label>
+              <Label htmlFor="password">
+                {language === "es" ? "Contraseña" : "Password"} <span className="text-destructive">*</span>
+              </Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -299,7 +309,10 @@ export default function SignUpPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="repeat-password">{language === "es" ? "Confirmar Contraseña" : "Confirm Password"}</Label>
+              <Label htmlFor="repeat-password">
+                {language === "es" ? "Confirmar Contraseña" : "Confirm Password"}{" "}
+                <span className="text-destructive">*</span>
+              </Label>
               <div className="relative">
                 <Input
                   id="repeat-password"
@@ -321,8 +334,11 @@ export default function SignUpPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="country">{language === "es" ? "País de Residencia" : "Country of Residence"}</Label>
-              <Select value={country} onValueChange={setCountry} disabled={isLoading}>
+              <Label htmlFor="country">
+                {language === "es" ? "País de Residencia" : "Country of Residence"}{" "}
+                <span className="text-destructive">*</span>
+              </Label>
+              <Select value={country} onValueChange={setCountry} disabled={isLoading} required>
                 <SelectTrigger className="bg-input border-border">
                   <SelectValue placeholder={language === "es" ? "Selecciona país" : "Select country"} />
                 </SelectTrigger>
@@ -337,7 +353,9 @@ export default function SignUpPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">{language === "es" ? "Número de Teléfono" : "Phone Number"}</Label>
+              <Label htmlFor="phone">
+                {language === "es" ? "Número de Teléfono" : "Phone Number"} <span className="text-destructive">*</span>
+              </Label>
               <div className="flex gap-2">
                 <Input
                   value={phonePrefix}
@@ -359,8 +377,11 @@ export default function SignUpPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="occupation">{language === "es" ? "¿Cuál es tu rol?" : "What's your role?"}</Label>
-              <Select value={occupation} onValueChange={setOccupation} disabled={isLoading}>
+              <Label htmlFor="occupation">
+                {language === "es" ? "¿Cuál es tu rol?" : "What's your role?"}{" "}
+                <span className="text-destructive">*</span>
+              </Label>
+              <Select value={occupation} onValueChange={setOccupation} disabled={isLoading} required>
                 <SelectTrigger className="bg-input border-border">
                   <SelectValue placeholder={language === "es" ? "Selecciona tu rol" : "Select your role"} />
                 </SelectTrigger>
@@ -374,6 +395,24 @@ export default function SignUpPage() {
               </Select>
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="organization">
+                {language === "es" ? "Nombre de Organización" : "Organization Name"}
+                <span className="text-muted-foreground text-xs ml-2">
+                  ({language === "es" ? "Opcional" : "Optional"})
+                </span>
+              </Label>
+              <Input
+                id="organization"
+                type="text"
+                placeholder={language === "es" ? "Universidad de Barcelona" : "Stanford University"}
+                value={organization}
+                onChange={(e) => setOrganization(e.target.value)}
+                disabled={isLoading}
+                className="bg-input border-border"
+              />
+            </div>
+
             <div className="space-y-3 pt-4 border-t border-border">
               <Label>{language === "es" ? "Términos y Condiciones" : "Terms and Conditions"}</Label>
               <div
@@ -382,9 +421,9 @@ export default function SignUpPage() {
               >
                 {language === "es" ? (
                   <>
-                    <p className="font-semibold text-foreground">Aviso Legal - Planck Computing SaaS</p>
+                    <p className="font-semibold text-foreground">Aviso Legal - Planck Quantum SaaS</p>
                     <p>
-                      <strong>1. Identificación:</strong> Planck Computing SaaS - Email: hello@plancktechnologies.xyz -
+                      <strong>1. Identificación:</strong> Planck Quantum SaaS - Email: hello@plancktechnologies.xyz -
                       Actividad: Plataforma SaaS de computación cuántica en la nube
                     </p>
                     <p>

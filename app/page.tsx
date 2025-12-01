@@ -17,6 +17,7 @@ export default function LandingPage() {
   const [scrollRotation, setScrollRotation] = React.useState(0)
   const [glowOpacity, setGlowOpacity] = React.useState(1)
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false)
+  const [videoModalOpen, setVideoModalOpen] = React.useState(false)
   const { t } = useLanguage()
   const heroRef = React.useRef<HTMLElement>(null)
 
@@ -173,8 +174,9 @@ export default function LandingPage() {
                   size="lg"
                   variant="outline"
                   className="text-lg px-8 hover:shadow-lg transition-all duration-300 hover:scale-105 bg-secondary shadow-lg"
+                  onClick={() => setVideoModalOpen(true)}
                 >
-                  Watch Demo
+                  Watch Video
                 </Button>
               </div>
             </div>
@@ -290,6 +292,29 @@ export default function LandingPage() {
 
         <Footer />
       </div>
+
+      {videoModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+          onClick={() => setVideoModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-5xl aspect-video bg-black rounded-lg overflow-hidden shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setVideoModalOpen(false)}
+              className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white rounded-full p-2 transition-colors"
+              aria-label="Close video"
+            >
+              <X size={24} />
+            </button>
+            <video controls autoPlay className="w-full h-full" src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Quantum%20Runner%20Planck%20video-4ihsOTBtNu8Y6NEYaQ1bv3fh7dQSdc.mp4">
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         [data-hn-hero] .hn-slogan-wrap {

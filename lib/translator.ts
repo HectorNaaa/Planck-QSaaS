@@ -9,7 +9,7 @@ const esTranslations: Record<string, string> = {
   "Welcome to the new computing era, connect your data and start using quantum computing. AI-Enhanced.":
     "Bienvenido a la nueva era de la computación, conecta tus datos y comienza a usar computación cuántica. Mejorado con IA.",
   Access: "Acceder",
-  "Watch Demo": "Ver Demo",
+  "Watch Video": "Ver Vídeo",
 
   // Navigation
   Features: "Características",

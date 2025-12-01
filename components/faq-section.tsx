@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp } from "lucide-react"
 
 const faqs = [
   {
@@ -19,6 +19,11 @@ const faqs = [
     answer:
       "No, you don't need to be a quantum physicist to start using Planck. Our platform is designed with accessibility in mind. We provide pre-built quantum circuit templates, an intuitive drag-and-drop circuit builder, and AI-powered assistance to help you construct and optimize quantum algorithms. Whether you're a researcher exploring quantum applications, a developer integrating quantum computing into your workflow, or a business looking to leverage quantum advantages, Planck's user-friendly interface despite having high performance modules to avoid bottlenecks make quantum computing approachable for users at all experience levels.",
   },
+  {
+    question: "Why does runner sometimes recommend quantum-inspired?",
+    answer:
+      "Our intelligent execution orchestrator analyzes your circuit characteristics to recommend the optimal backend. For small instances with fewer than 12 qubits and low circuit depth, we recommend quantum-inspired classical computing running locally—this provides faster results without quantum overhead. For medium-complexity circuits, we leverage real quantum processors (QPUs) where quantum advantage is clear. For very large and deep circuits, we recommend HPC quantum-inspired computing with multiple GPUs, as real quantum processors would suffer from excessive decoherence as the algorithm scale. This hybrid approach ensures you get the best performance and cost-efficiency for each specific workload in case you do not set manual backend configuration.",
+  },
 ]
 
 export function FAQSection() {
@@ -32,7 +37,9 @@ export function FAQSection() {
     <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
       <div className="text-center mb-20 mt-16">
         <h2 className="text-4xl font-bold text-foreground mb-4">Frequently Asked Questions</h2>
-        <p className="text-xl text-muted-foreground">Everything you need to know about quantum computing and our software</p>
+        <p className="text-xl text-muted-foreground">
+          Everything you need to know about quantum computing and our software
+        </p>
       </div>
 
       <div className="space-y-4">

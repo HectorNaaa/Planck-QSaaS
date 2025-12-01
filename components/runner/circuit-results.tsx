@@ -1,16 +1,18 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, Download } from "lucide-react"
 import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 
 interface CircuitResultsProps {
   backend: string
   results?: any
   qubits: number
+  onDownload?: () => void
 }
 
-export function CircuitResults({ backend, results, qubits }: CircuitResultsProps) {
+export function CircuitResults({ backend, results, qubits, onDownload }: CircuitResultsProps) {
   const [isExpanded, setIsExpanded] = useState(true)
 
   // Backend display names
@@ -40,12 +42,20 @@ export function CircuitResults({ backend, results, qubits }: CircuitResultsProps
 
   return (
     <Card className="p-6 shadow-lg">
-      <div className="flex items-center justify-between mb-4 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-        <h3 className="text-lg font-bold text-foreground">Results</h3>
-        <ChevronDown
-          size={24}
-          className={`text-primary transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
-        />
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
+          <h2 className="text-2xl font-bold text-foreground">Circuit Results</h2>
+          <ChevronDown
+            size={24}
+            className={`text-primary transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
+          />
+        </div>
+        {onDownload && results && (
+          <Button onClick={onDownload} size="sm" variant="outline" className="flex items-center gap-2 bg-transparent">
+            <Download size={16} />
+            Download
+          </Button>
+        )}
       </div>
 
       {isExpanded && (
@@ -80,7 +90,7 @@ export function CircuitResults({ backend, results, qubits }: CircuitResultsProps
           {/* Bitstring Probabilities */}
           <div className="mt-4">
             <p className="text-sm font-medium text-foreground mb-3">Measurement Probabilities</p>
-            <div className="space-y-2 max-h-64 overflow-auto">
+            <div className="space-y-2 min-h-64 max-h-96 overflow-auto">
               {bitstringProbs.map((item, idx) => (
                 <div
                   key={idx}
