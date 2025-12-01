@@ -39,6 +39,8 @@ export default function LoginPage() {
       // Set browser cookie for session persistence
       document.cookie = `planck_session=active; max-age=${30 * 24 * 60 * 60}; path=/; SameSite=Strict`
 
+      sessionStorage.setItem("planck_nav_source", "auth")
+
       router.push("/qsaas/dashboard")
     } catch (error: unknown) {
       setError(error instanceof Error ? error.message : "An error occurred")

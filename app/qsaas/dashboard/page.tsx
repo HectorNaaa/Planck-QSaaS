@@ -47,7 +47,6 @@ export default function DashboardPage() {
     const supabase = createBrowserClient()
 
     try {
-      // Calculate time threshold based on selected range
       const now = new Date()
       const timeThreshold = new Date()
       switch (timeRange) {
@@ -70,21 +69,23 @@ export default function DashboardPage() {
         .order("created_at", { ascending: false })
 
       if (error) {
-        console.error("Error fetching dashboard data:", error)
+        console.error("[v0] Error fetching dashboard data:", error)
         return
       }
 
       if (logs && logs.length > 0) {
+        const completedOrSavedLogs = logs.filter((log) => log.status === "completed" || log.status === "saved")
+
         // Calculate averages
-        const totalCircuits = logs.length
-        const successfulCircuits = logs.filter((log) => log.status === "completed").length
-        const avgSuccessRate = (successfulCircuits / totalCircuits) * 100
+        const totalCircuits = completedOrSavedLogs.length
+        const successfulCircuits = completedOrSavedLogs.filter((log) => log.status === "completed").length
+        const avgSuccessRate = totalCircuits > 0 ? (successfulCircuits / totalCircuits) * 100 : 0
 
-        const totalRuntime = logs.reduce((sum, log) => sum + (log.runtime_ms || 0), 0)
-        const avgRuntime = totalRuntime / totalCircuits
+        const totalRuntime = completedOrSavedLogs.reduce((sum, log) => sum + (log.runtime_ms || 0), 0)
+        const avgRuntime = totalCircuits > 0 ? totalRuntime / totalCircuits : 0
 
-        const totalQubits = logs.reduce((sum, log) => sum + (log.qubits_used || 0), 0)
-        const avgQubits = totalQubits / totalCircuits
+        const totalQubits = completedOrSavedLogs.reduce((sum, log) => sum + (log.qubits_used || 0), 0)
+        const avgQubits = totalCircuits > 0 ? totalQubits / totalCircuits : 0
 
         setStats({
           avgCircuitsRun: totalCircuits,
@@ -95,9 +96,17 @@ export default function DashboardPage() {
 
         // Set recent circuits (top 5)
         setRecentCircuits(logs.slice(0, 5) as RecentCircuit[])
+      } else {
+        setStats({
+          avgCircuitsRun: 0,
+          avgSuccessRate: 0,
+          avgRuntime: 0,
+          avgQubits: 0,
+        })
+        setRecentCircuits([])
       }
     } catch (error) {
-      console.error("Error loading dashboard data:", error)
+      console.error("[v0] Error loading dashboard data:", error)
     } finally {
       setLoading(false)
     }

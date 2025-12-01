@@ -135,12 +135,14 @@ export async function deleteUserAccount() {
       return { error: deleteError.message }
     }
 
-    // Clear session cookies
     const cookieStore = await cookies()
     const allCookies = cookieStore.getAll()
     allCookies.forEach((cookie) => {
       cookieStore.delete(cookie.name)
     })
+
+    // Clear localStorage
+    window.localStorage.clear()
 
     return { success: true }
   } catch (error: any) {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown } from "lucide-react"
 import { Card } from "@/components/ui/card"
 
 interface CircuitSettingsProps {
@@ -10,13 +10,12 @@ interface CircuitSettingsProps {
   onErrorMitigationChange?: (level: "none" | "low" | "medium" | "high") => void
 }
 
-export function CircuitSettings({ 
+export function CircuitSettings({
   onExecutionTypeChange,
   onQubitsChange,
-  onErrorMitigationChange 
+  onErrorMitigationChange,
 }: CircuitSettingsProps) {
   const [isAutomatic, setIsAutomatic] = useState(true)
-  const [qubits, setQubits] = useState(4)
   const [shots, setShots] = useState(1024)
   const [errorMitigation, setErrorMitigation] = useState<"none" | "low" | "medium" | "high">("none")
   const [isExpanded, setIsExpanded] = useState(false)
@@ -24,11 +23,6 @@ export function CircuitSettings({
   const handleModeChange = (auto: boolean) => {
     setIsAutomatic(auto)
     onExecutionTypeChange?.(auto ? "auto" : "manual")
-  }
-
-  const handleQubitsChange = (value: number) => {
-    setQubits(value)
-    onQubitsChange?.(value)
   }
 
   const handleErrorMitigationChange = (value: "none" | "low" | "medium" | "high") => {
@@ -54,7 +48,9 @@ export function CircuitSettings({
               <button
                 onClick={() => handleModeChange(true)}
                 className={`flex-1 py-2 px-3 rounded-lg transition font-medium ${
-                  isAutomatic ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground hover:bg-secondary/70"
+                  isAutomatic
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-foreground hover:bg-secondary/70"
                 }`}
               >
                 Automatic
@@ -62,7 +58,9 @@ export function CircuitSettings({
               <button
                 onClick={() => handleModeChange(false)}
                 className={`flex-1 py-2 px-3 rounded-lg transition font-medium ${
-                  !isAutomatic ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground hover:bg-secondary/70"
+                  !isAutomatic
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-foreground hover:bg-secondary/70"
                 }`}
               >
                 Manual
@@ -74,26 +72,11 @@ export function CircuitSettings({
             <div className="space-y-3">
               <div className="p-3 bg-secondary/50 rounded-lg border border-primary/20">
                 <p className="text-sm text-foreground font-medium">Automatic mode enabled</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Optimal settings: 4 Qubits, 1024 Shots, No Error Mitigation
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">Optimal settings: 1024 Shots, No Error Mitigation</p>
               </div>
             </div>
           ) : (
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Qubits: {qubits}</label>
-                <input
-                  type="range"
-                  min="1"
-                  max="15"
-                  value={qubits}
-                  onChange={(e) => handleQubitsChange(Number(e.target.value))}
-                  className="w-full"
-                />
-                <p className="text-xs text-muted-foreground mt-1">1-15 qubits available</p>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">Shots: {shots}</label>
                 <select
@@ -117,15 +100,15 @@ export function CircuitSettings({
                   className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground"
                 >
                   <option value="none">None (Default)</option>
-                  <option value="low">Low - Basic noise suppression</option>
-                  <option value="medium">Medium - Standard calibration</option>
-                  <option value="high">High - Full error correction</option>
+                  <option value="low">Low - Basic mitigation</option>
+                  <option value="medium">Medium - Standard mitigation</option>
+                  <option value="high">High - Maximum mitigation</option>
                 </select>
                 <p className="text-xs text-muted-foreground mt-2">
                   {errorMitigation === "none" && "No error mitigation applied"}
-                  {errorMitigation === "low" && "Basic noise suppression techniques applied"}
-                  {errorMitigation === "medium" && "Standard calibration and noise suppression"}
-                  {errorMitigation === "high" && "Full quantum error correction enabled"}
+                  {errorMitigation === "low" && "Low error mitigation applied"}
+                  {errorMitigation === "medium" && "Medium error mitigation applied"}
+                  {errorMitigation === "high" && "High error mitigation applied"}
                 </p>
               </div>
             </div>

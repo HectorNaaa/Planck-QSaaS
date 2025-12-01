@@ -12,6 +12,7 @@ import { LanguageSelector } from "@/components/language-selector"
 import { useLanguage } from "@/contexts/language-context"
 import React from "react"
 import { Footer } from "@/components/footer"
+import { createBrowserClient } from "@/lib/supabase/client"
 
 export default function LandingPage() {
   const [scrollRotation, setScrollRotation] = React.useState(0)
@@ -20,6 +21,31 @@ export default function LandingPage() {
   const [videoModalOpen, setVideoModalOpen] = React.useState(false)
   const { t } = useLanguage()
   const heroRef = React.useRef<HTMLElement>(null)
+
+  React.useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const supabase = createBrowserClient()
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        if (session) {
+          // User is logged in, cache their info
+          sessionStorage.setItem("planck_user_id", session.user.id)
+          sessionStorage.setItem("planck_user_email", session.user.email || "")
+        }
+      } catch (error) {
+        // Silently handle Supabase connection errors in preview environment
+        console.log("[v0] Supabase connection skipped in preview mode")
+      }
+    }
+
+    checkSession()
+
+    // Mark navigation source as "landing"
+    sessionStorage.setItem("planck_nav_source", "landing")
+  }, [])
 
   React.useEffect(() => {
     const handleScroll = () => {
@@ -285,7 +311,7 @@ export default function LandingPage() {
               size="lg"
               className="bg-primary hover:bg-primary/90 text-lg px-8 transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 shadow-lg relative z-10"
             >
-              Access <ArrowRight className="ml-2" />
+              Try It Now    <ArrowRight className="ml-2" />
             </Button>
           </Link>
         </section>

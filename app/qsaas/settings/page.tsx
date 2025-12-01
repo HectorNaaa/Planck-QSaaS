@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Save, Sun, Moon, Check, LogOut, Trash2, Edit, Copy, RefreshCw } from "lucide-react"
 import { useTheme } from "next-themes"
 import { PageHeader } from "@/components/page-header"
-import { createClient } from "@/lib/supabase/client"
+import { createClient, createBrowserClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { LanguageSelector } from "@/components/language-selector"
 import { deleteUserAccount, updateUserAccount } from "./actions"
@@ -56,6 +56,7 @@ export default function SettingsPage() {
           setUserCountry(profile.country || "")
           setUserPhone(profile.phone_number || "")
           setUserOccupation(profile.occupation || "")
+          setStayLoggedIn(profile.stay_logged_in !== false)
         }
       }
 
@@ -76,10 +77,29 @@ export default function SettingsPage() {
     setImproveModelsEnabled(!improveModelsEnabled)
   }
 
-  const handleStayLoggedInToggle = () => {
+  const handleStayLoggedInToggle = async () => {
     const newValue = !stayLoggedIn
     setStayLoggedIn(newValue)
     localStorage.setItem("planck_stay_logged_in", String(newValue))
+
+    try {
+      const supabase = createBrowserClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        await supabase
+          .from("profiles")
+          .update({
+            stay_logged_in: newValue,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", user.id)
+      }
+    } catch (error) {
+      console.error("[v0] Error saving stay logged in preference:", error)
+    }
   }
 
   const handleLogout = async () => {
@@ -185,7 +205,7 @@ export default function SettingsPage() {
       description: "For professionals and teams",
       features: [
         "QPUs and quantum-inspired",
-        "Up to 56 qubits",
+        "Up to 36 qubits",
         "Pre-built circuits",
         "Advanced analytics",
         "Priority support",
@@ -201,7 +221,7 @@ export default function SettingsPage() {
       description: "Enterprise quantum solutions",
       features: [
         "QPUs and quantum-inspired",
-        "Up to 56 qubits",
+        "Up to 36 qubits",
         "Custom circuits",
         "Custom analytics",
         "Priority support",

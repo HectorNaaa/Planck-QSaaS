@@ -5,7 +5,7 @@ import type React from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { MainLayout } from "@/components/layout/main-layout"
 import { QuantumLoadingScreen } from "@/components/quantum-loading-screen"
-import { createClient } from "@/lib/supabase/client"
+import { createBrowserClient } from "@/lib/supabase/client"
 
 export default function QsaasLayout({
   children,
@@ -19,48 +19,70 @@ export default function QsaasLayout({
 
   useEffect(() => {
     const checkAuth = async () => {
-      const stayLoggedIn = localStorage.getItem("planck_stay_logged_in") !== "false"
+      try {
+        const supabase = createBrowserClient()
 
-      if (!stayLoggedIn) {
-        // User doesn't want to stay logged in, check session each time
-        const supabase = createClient()
         const {
           data: { session },
+          error: sessionError,
         } = await supabase.auth.getSession()
 
-        if (!session && !pathname.startsWith("/auth/")) {
-          router.push("/auth/login")
-          return
+        if (sessionError) {
+          console.error("[v0] Session check error:", sessionError)
         }
-      } else {
-        // User wants to stay logged in, check for valid session
-        const supabase = createClient()
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
 
-        if (!user && !pathname.startsWith("/auth/")) {
-          router.push("/auth/login")
-          return
+        if (!session) {
+          const stayLoggedIn = localStorage.getItem("planck_stay_logged_in") !== "false"
+
+          if (!stayLoggedIn || !pathname.startsWith("/qsaas")) {
+            // User doesn't want to stay logged in or trying to access qsaas without session
+            if (pathname.startsWith("/qsaas")) {
+              router.push("/auth/login")
+              return
+            }
+          }
+        } else {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser()
+
+          if (user) {
+            // Store user info for quick access
+            sessionStorage.setItem("planck_user_id", user.id)
+            sessionStorage.setItem("planck_user_email", user.email || "")
+          }
         }
+
+        setIsCheckingAuth(false)
+
+        const navigationSource = sessionStorage.getItem("planck_nav_source") || "landing"
+
+        let loadingDuration = 7000 // Default: 7 seconds from landing/auth → qsaas
+
+        // If returning to qsaas from landing (user already in system)
+        if (navigationSource === "qsaas" || sessionStorage.getItem("planck_user_id")) {
+          loadingDuration = 3000 // 3 seconds when returning
+        }
+
+        sessionStorage.setItem("planck_nav_source", "qsaas")
+
+        const timer = setTimeout(() => {
+          setIsLoading(false)
+        }, loadingDuration)
+
+        return () => clearTimeout(timer)
+      } catch (error) {
+        console.error("[v0] Auth check error:", error)
+        setIsCheckingAuth(false)
+        setTimeout(() => setIsLoading(false), 3000)
       }
-
-      setIsCheckingAuth(false)
-
-      // Show loading screen for exactly 7 seconds
-      const loadingDuration = 7000
-      const timer = setTimeout(() => {
-        setIsLoading(false)
-      }, loadingDuration)
-
-      return () => clearTimeout(timer)
     }
 
     checkAuth()
   }, [router, pathname])
 
   if (isCheckingAuth) {
-    return null
+    return <QuantumLoadingScreen />
   }
 
   if (isLoading) {

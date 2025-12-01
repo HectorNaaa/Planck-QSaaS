@@ -332,10 +332,10 @@ export default function TermsPage() {
                 </p>
                 <ul className="list-disc pl-6 text-muted-foreground space-y-1">
                   <li>TLS/SSL encryption for all communications</li>
-                  <li>Encryption of data at rest in databases</li>
+                  <li>Encryption of data in databases</li>
                   <li>Role-based access controls (RBAC)</li>
                   <li>Auditing and logging of sensitive data access</li>
-                  <li>Automatic backups and geographic redundancy</li>
+                  <li>Automatic backups and geographic redundancies across eu-west providersS</li>
                 </ul>
                 <p className="text-muted-foreground mt-3">
                   Data may be processed across multiple geographic regions to optimize performance and availability. For
@@ -346,7 +346,7 @@ export default function TermsPage() {
               <section>
                 <h2 className="text-2xl font-semibold mb-3">7. Data Collection for Model Improvement</h2>
                 <p className="text-muted-foreground">
-                  By default, Planck collects anonymized benchmark data, usage patterns, and quantum circuit execution
+                  By default, Planck collects benchmark data, usage patterns, and quantum circuit execution
                   metrics for the exclusive purpose of improving our algorithms, optimizing backends, and enhancing user
                   experience. This collection includes:
                 </p>

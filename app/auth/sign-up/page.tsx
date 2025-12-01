@@ -15,7 +15,6 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSelector } from "@/components/language-selector"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/client"
-import { sendVerificationEmail } from "@/lib/verification-service"
 import { useLanguage } from "@/contexts/language-context"
 import { Eye, EyeOff } from "lucide-react"
 
@@ -194,10 +193,10 @@ export default function SignUpPage() {
 
       document.cookie = `planck_session=active; max-age=${30 * 24 * 60 * 60}; path=/; SameSite=Strict`
 
-      await sendVerificationEmail(email)
+      sessionStorage.setItem("planck_nav_source", "auth")
 
       await new Promise((resolve) => setTimeout(resolve, 500))
-      router.push(`/auth/verify-code?email=${encodeURIComponent(email)}&phone=${encodeURIComponent(fullPhone)}`)
+      router.push("/qsaas/dashboard")
     } catch (error: unknown) {
       console.error("Sign up error:", error)
       setError(error instanceof Error ? error.message : language === "es" ? "Ocurrió un error" : "An error occurred")
