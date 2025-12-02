@@ -140,7 +140,7 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div className="p-8 space-y-8 px-4">
+    <div className="p-8 space-y-8 px-0">
       {/* Header with Time Range Selector */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <PageHeader title="Dashboard" description="Welcome back! Here's your quantum computing activity." />

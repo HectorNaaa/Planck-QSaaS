@@ -251,7 +251,7 @@ export default function SettingsPage() {
   ]
 
   return (
-    <div className="p-8 px-4 space-y-4 py-4">
+    <div className="p-8 space-y-4 py-4 px-0">
       <PageHeader title="Settings" description="Manage your account and preferences." />
 
       {/* Account Settings */}
@@ -449,7 +449,7 @@ export default function SettingsPage() {
                 )}
                 {darkModeEnabled ? "Dark Mode" : "Light Mode"}
               </p>
-              <p className="text-sm text-muted-foreground">Toggle between light and dark themes</p>
+              <p className="text-sm text-muted-foreground">Toggle between light and dark</p>
             </div>
             <button
               onClick={handleDarkModeToggle}
@@ -468,7 +468,7 @@ export default function SettingsPage() {
             <div>
               <p className="font-medium text-foreground">Improve Models</p>
               <p className="text-sm text-muted-foreground">
-                Help us improve algorithms by sharing your benchmarks and usage data
+                {"Share benchmarks"}
               </p>
             </div>
             <button
@@ -488,7 +488,7 @@ export default function SettingsPage() {
             <div>
               <p className="font-medium text-foreground">Stay Logged In</p>
               <p className="text-sm text-muted-foreground">
-                Keep me signed in on this device without requiring login each time
+                Keep me signed in on this device.
               </p>
             </div>
             <button

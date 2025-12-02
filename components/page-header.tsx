@@ -1,8 +1,7 @@
-'use client'
+"use client"
 
 import Image from "next/image"
 import Link from "next/link"
-import { ThemeToggle } from "@/components/theme-toggle"
 
 interface PageHeaderProps {
   title: string
@@ -15,15 +14,8 @@ export function PageHeader({ title, description }: PageHeaderProps) {
       {/* Mobile-only header - hidden on desktop */}
       <div className="lg:hidden flex items-center border-secondary justify-between mb-8">
         <Link href="/" className="hover:opacity-80 transition-opacity">
-          <Image
-            src="/logo-isotipo.png"
-            alt="Planck"
-            width={32}
-            height={32}
-            className="w-8 h-8 object-contain"
-          />
+          <Image src="/logo-isotipo.png" alt="Planck" width={32} height={32} className="w-8 h-8 object-contain" />
         </Link>
-        <ThemeToggle />
       </div>
 
       {/* Page title section */}

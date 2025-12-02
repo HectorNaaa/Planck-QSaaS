@@ -229,7 +229,7 @@ export default function RunnerPage() {
   }, [circuitName, executionType, backend, shots, qubits, errorMitigation, circuitCode, circuitData, results])
 
   return (
-    <div className="p-8 space-y-6 px-4">
+    <div className="p-8 space-y-6 px-0">
       <PageHeader title="Runner" description="Build and execute quantum circuits" />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

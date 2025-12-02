@@ -24,6 +24,11 @@ const faqs = [
     answer:
       "Our intelligent execution orchestrator analyzes your circuit characteristics to recommend the optimal backend. For small instances with fewer than 12 qubits and low circuit depth, we recommend quantum-inspired classical computing running locally—this provides faster results without quantum overhead. For medium-complexity circuits, we leverage real quantum processors (QPUs) where quantum advantage is clear. For very large and deep circuits, we recommend HPC quantum-inspired computing with multiple GPUs, as real quantum processors would suffer from excessive decoherence as the algorithm scale. This hybrid approach ensures you get the best performance and cost-efficiency for each specific workload in case you do not set manual backend configuration.",
   },
+  {
+    question: "Why use quantum-inspired methods instead of classical solvers?",
+    answer:
+      "They offer a low-risk path to practical gains—better problem representations, new exploration heuristics and reduced sampling variance on classical hardware among other less relevant benefits. All that for free and ensuring minimum latency.",
+  },
 ]
 
 export function FAQSection() {
