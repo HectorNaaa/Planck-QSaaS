@@ -13,6 +13,7 @@ import { useLanguage } from "@/contexts/language-context"
 import React from "react"
 import { Footer } from "@/components/footer"
 import { createBrowserClient } from "@/lib/supabase/client"
+import { useTheme } from "next-themes"
 
 export default function LandingPage() {
   const [scrollRotation, setScrollRotation] = React.useState(0)
@@ -21,8 +22,11 @@ export default function LandingPage() {
   const [videoModalOpen, setVideoModalOpen] = React.useState(false)
   const { t } = useLanguage()
   const heroRef = React.useRef<HTMLElement>(null)
+  const { setTheme } = useTheme()
 
   React.useEffect(() => {
+    setTheme("light")
+
     const checkSession = async () => {
       try {
         const supabase = createBrowserClient()
@@ -31,46 +35,18 @@ export default function LandingPage() {
         } = await supabase.auth.getSession()
 
         if (session) {
-          // User is logged in, cache their info
           sessionStorage.setItem("planck_user_id", session.user.id)
           sessionStorage.setItem("planck_user_email", session.user.email || "")
         }
       } catch (error) {
-        // Silently handle Supabase connection errors in preview environment
         console.log("[v0] Supabase connection skipped in preview mode")
       }
     }
 
     checkSession()
 
-    // Mark navigation source as "landing"
     sessionStorage.setItem("planck_nav_source", "landing")
-  }, [])
-
-  React.useEffect(() => {
-    const handleScroll = () => {
-      const scrollY = window.scrollY
-      setScrollRotation(scrollY * 0.2)
-
-      if (heroRef.current) {
-        const heroRect = heroRef.current.getBoundingClientRect()
-        const heroCenter = heroRect.top + heroRect.height / 2
-        const viewportCenter = window.innerHeight / 2
-
-        const distance = Math.abs(heroCenter - viewportCenter)
-
-        const fadeDistance = window.innerHeight * 0.5
-
-        const opacity = Math.max(0, 1 - distance / fadeDistance)
-
-        setGlowOpacity(opacity)
-      }
-    }
-
-    window.addEventListener("scroll", handleScroll)
-    handleScroll()
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
+  }, [setTheme])
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
@@ -311,7 +287,7 @@ export default function LandingPage() {
               size="lg"
               className="bg-primary hover:bg-primary/90 text-lg px-8 transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 shadow-lg relative z-10"
             >
-              Try It Now    <ArrowRight className="ml-2" />
+              Try It Now <ArrowRight className="ml-2" />
             </Button>
           </Link>
         </section>

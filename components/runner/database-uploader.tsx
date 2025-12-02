@@ -5,18 +5,13 @@ import type React from "react"
 import { useState } from "react"
 import { Upload, X, ChevronDown, AlertCircle } from "lucide-react"
 import { Card } from "@/components/ui/card"
+import { QUANTUM_TEMPLATES } from "@/lib/constants"
 
 interface DatabaseConfig {
   name: string
   format: string
   description: string
 }
-
-const mockConfigs: DatabaseConfig[] = [
-  { name: "Bell States", format: "QASM", description: "Quantum entanglement patterns" },
-  { name: "VQE Ansatz", format: "Qiskit", description: "Variational quantum eigensolver" },
-  { name: "QAOA Circuit", format: "QASM", description: "Quantum approximate optimization" },
-]
 
 interface DatabaseUploaderProps {
   onDataUpload?: (data: any) => void
@@ -89,12 +84,16 @@ export function DatabaseUploader({ onDataUpload }: DatabaseUploaderProps) {
   }
 
   const handleTemplateSelect = (configName: string) => {
-    const config = mockConfigs.find((c) => c.name === configName)
-    setSelectedConfig(config || null)
-
+    const config = QUANTUM_TEMPLATES.find((c) => c.name === configName)
     if (config) {
+      setSelectedConfig({
+        name: config.name,
+        format: config.format,
+        description: config.shortDescription,
+      })
+
       const templateData = {
-        qubits: 4,
+        qubits: config.minQubits,
         gates: [
           { type: "h", targets: [0, 1, 2, 3] },
           { type: "cx", targets: [1], control: 0 },
@@ -143,9 +142,9 @@ export function DatabaseUploader({ onDataUpload }: DatabaseUploaderProps) {
               className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground hover:border-primary/50 transition"
             >
               <option value="">Select a template...</option>
-              {mockConfigs.map((config) => (
-                <option key={config.name} value={config.name}>
-                  {config.name} - {config.description}
+              {QUANTUM_TEMPLATES.map((config) => (
+                <option key={config.id} value={config.name}>
+                  {config.name}
                 </option>
               ))}
             </select>

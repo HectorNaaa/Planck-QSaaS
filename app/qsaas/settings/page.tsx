@@ -57,6 +57,7 @@ export default function SettingsPage() {
           setUserPhone(profile.phone_number || "")
           setUserOccupation(profile.occupation || "")
           setStayLoggedIn(profile.stay_logged_in !== false)
+          setDarkModeEnabled(profile.theme_preference === "dark")
         }
       }
 
@@ -67,10 +68,25 @@ export default function SettingsPage() {
     loadUserData()
   }, [])
 
-  const handleDarkModeToggle = () => {
+  const handleDarkModeToggle = async () => {
     const newMode = !darkModeEnabled
     setDarkModeEnabled(newMode)
-    setTheme(newMode ? "dark" : "light")
+    const newTheme = newMode ? "dark" : "light"
+    setTheme(newTheme)
+
+    // Save theme preference to Supabase
+    try {
+      const supabase = createBrowserClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (user) {
+        await supabase.from("profiles").update({ theme_preference: newTheme }).eq("id", user.id)
+      }
+    } catch (error) {
+      console.error("[v0] Failed to save theme preference:", error)
+    }
   }
 
   const handleImproveModelsToggle = () => {

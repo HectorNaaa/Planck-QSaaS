@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { MainLayout } from "@/components/layout/main-layout"
 import { QuantumLoadingScreen } from "@/components/quantum-loading-screen"
 import { createBrowserClient } from "@/lib/supabase/client"
+import { useTheme } from "next-themes"
 
 export default function QsaasLayout({
   children,
@@ -16,6 +17,7 @@ export default function QsaasLayout({
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
+  const { setTheme } = useTheme()
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -35,7 +37,6 @@ export default function QsaasLayout({
           const stayLoggedIn = localStorage.getItem("planck_stay_logged_in") !== "false"
 
           if (!stayLoggedIn || !pathname.startsWith("/qsaas")) {
-            // User doesn't want to stay logged in or trying to access qsaas without session
             if (pathname.startsWith("/qsaas")) {
               router.push("/auth/login")
               return
@@ -47,9 +48,18 @@ export default function QsaasLayout({
           } = await supabase.auth.getUser()
 
           if (user) {
-            // Store user info for quick access
             sessionStorage.setItem("planck_user_id", user.id)
             sessionStorage.setItem("planck_user_email", user.email || "")
+
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("theme_preference")
+              .eq("id", user.id)
+              .single()
+
+            if (profile?.theme_preference) {
+              setTheme(profile.theme_preference)
+            }
           }
         }
 
@@ -57,11 +67,10 @@ export default function QsaasLayout({
 
         const navigationSource = sessionStorage.getItem("planck_nav_source") || "landing"
 
-        let loadingDuration = 7000 // Default: 7 seconds from landing/auth → qsaas
+        let loadingDuration = 7000
 
-        // If returning to qsaas from landing (user already in system)
         if (navigationSource === "qsaas" || sessionStorage.getItem("planck_user_id")) {
-          loadingDuration = 3000 // 3 seconds when returning
+          loadingDuration = 3000
         }
 
         sessionStorage.setItem("planck_nav_source", "qsaas")
@@ -79,7 +88,7 @@ export default function QsaasLayout({
     }
 
     checkAuth()
-  }, [router, pathname])
+  }, [router, pathname, setTheme])
 
   if (isCheckingAuth) {
     return <QuantumLoadingScreen />

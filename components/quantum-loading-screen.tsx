@@ -41,7 +41,7 @@ export function QuantumLoadingScreen() {
         {/* Device Recommendation */}
         <div className="bg-[#f5ecd5] border border-[#578e7e]/20 rounded-lg p-4 max-w-md">
           <p className="text-sm text-[#3d3d3d] leading-relaxed">
-            <strong>Recommendation:</strong> For the best experience, access this platform from a laptop or desktop
+            We suggest accessing from a laptop or desktop
             computer.
           </p>
         </div>

@@ -18,7 +18,7 @@ import { selectOptimalBackend, calculateFidelity, estimateRuntime } from "@/lib/
 
 export default function RunnerPage() {
   const [isRunning, setIsRunning] = useState(false)
-  const [circuitName, setCircuitName] = useState("Grover's Algorithm")
+  const [circuitName, setCircuitName] = useState("Grover") // Updated default circuit name to short version
   const [executionType, setExecutionType] = useState<"auto" | "manual">("auto")
   const [backend, setBackend] = useState<"quantum_inspired_gpu" | "hpc_gpu" | "quantum_qpu">("quantum_inspired_gpu")
   const [shots, setShots] = useState(1024)
