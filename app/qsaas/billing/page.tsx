@@ -10,6 +10,7 @@ const plans = [
     description: "Perfect for learning",
     features: ["1,000 circuit runs/month", "Up to 8 qubits", "Community support", "Basic analytics"],
     current: false,
+    cta: "Choose Plan",
   },
   {
     name: "Professional",
@@ -25,6 +26,7 @@ const plans = [
     ],
     current: true,
     highlighted: true,
+    cta: "Current Plan",
   },
   {
     name: "Enterprise",
@@ -40,10 +42,40 @@ const plans = [
       "SSO & security",
     ],
     current: false,
+    cta: "Contact Us",
   },
 ]
 
 export default function BillingPage() {
+  const contactEmail = "hello@plancktechnologies.xyz"
+  const emailSubject = "Enterprise Quantum Computing Plan Inquiry"
+  const emailBody = `Hello Planck Technologies Team,
+
+I am interested in learning more about your Enterprise quantum computing plan.
+
+Company Information:
+- Company Name: [Your Company Name]
+- Industry: [Your Industry]
+- Team Size: [Number of Team Members]
+
+Requirements:
+- Expected Circuit Runs: [Estimated monthly volume]
+- Required Qubits: [Number of qubits needed]
+- Specific Use Cases: [Describe your quantum computing needs]
+
+Please provide information about:
+- Custom pricing options
+- Enterprise features and capabilities
+- Onboarding and support process
+- Security and compliance details
+
+Best regards,
+[Your Name]
+[Your Title]
+[Your Contact Information]`
+
+  const mailtoLink = `mailto:${contactEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`
+
   return (
     <div className="p-8 space-y-8">
       <div>
@@ -74,12 +106,23 @@ export default function BillingPage() {
                 </li>
               ))}
             </ul>
-            <Button
-              className={`w-full ${plan.highlighted ? "bg-primary hover:bg-primary/90 text-primary-foreground" : ""}`}
-              variant={plan.highlighted ? undefined : "outline"}
-            >
-              {plan.current ? "Current Plan" : "Choose Plan"}
-            </Button>
+            {plan.name === "Enterprise" ? (
+              <a href={mailtoLink}>
+                <Button
+                  className={`w-full ${plan.highlighted ? "bg-primary hover:bg-primary/90 text-primary-foreground" : ""}`}
+                  variant={plan.highlighted ? undefined : "outline"}
+                >
+                  {plan.cta}
+                </Button>
+              </a>
+            ) : (
+              <Button
+                className={`w-full ${plan.highlighted ? "bg-primary hover:bg-primary/90 text-primary-foreground" : ""}`}
+                variant={plan.highlighted ? undefined : "outline"}
+              >
+                {plan.cta}
+              </Button>
+            )}
           </Card>
         ))}
       </div>

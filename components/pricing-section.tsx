@@ -38,10 +38,10 @@ const plans = [
     popular: false,
   },
   {
-    name: "Custom",
+    name: "Enterprise",
     price: "Custom",
     period: "",
-    description: "Enterprise quantum solutions",
+    description: "Commercial-grade quantum solutions",
     features: [
       "QPUs and quantum-inspired",
       "Up to 36 qubits",
@@ -63,14 +63,28 @@ export function PricingSection() {
   const emailSubject = "Enterprise Quantum Solutions Inquiry"
   const emailBody = `Hello Planck Technologies Team,
 
-I am interested in learning more about your Custom enterprise quantum solutions.
+I am interested in learning more about your Enterprise quantum computing solutions.
 
-Please provide additional information about:
-- Custom circuit development
-- Team education programs
-- Pricing and implementation timeline
+Company Information:
+- Company Name: [Your Company Name]
+- Industry: [Your Industry]
+- Team Size: [Number of Team Members]
 
-Best regards,`
+Requirements:
+- Expected Circuit Runs: [Estimated monthly volume]
+- Required Qubits: [Number of qubits needed]
+- Specific Use Cases: [Describe your quantum computing needs]
+
+Please provide information about:
+- Custom circuit development capabilities
+- Team education and training programs
+- Enterprise pricing options
+- Security and compliance features
+
+Best regards,
+[Your Name]
+[Your Title]
+[Your Contact Information]`
 
   const mailtoLink = `mailto:${contactEmail}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`
 
@@ -85,7 +99,7 @@ Best regards,`
         {plans.map((plan, index) => {
           const isStarter = plan.name === "Starter"
           const isPro = plan.name === "Pro"
-          const isCustom = plan.name === "Custom"
+          const isEnterprise = plan.name === "Enterprise"
 
           return (
             <div
@@ -126,7 +140,7 @@ Best regards,`
                   >
                     {plan.cta}
                   </Button>
-                ) : isCustom ? (
+                ) : isEnterprise ? (
                   <a href={mailtoLink} className="block">
                     <Button className="w-full transition-all duration-300 hover:scale-105 hover:shadow-xl shadow-lg bg-primary/20 hover:bg-primary/30 text-primary">
                       {plan.cta}

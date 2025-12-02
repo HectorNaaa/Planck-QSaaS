@@ -215,10 +215,10 @@ export default function SettingsPage() {
       current: true,
     },
     {
-      name: "Custom",
+      name: "Enterprise",
       price: "Contact",
-      period: "us",
-      description: "Enterprise quantum solutions",
+      period: "Us",
+      description: "Commercial-grade quantum solutions",
       features: [
         "QPUs and quantum-inspired",
         "Up to 36 qubits",

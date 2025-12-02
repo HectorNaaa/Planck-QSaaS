@@ -80,7 +80,7 @@ export function DatabaseUploader({ onDataUpload }: DatabaseUploaderProps) {
           onDataUpload?.({ qubits, gates, depth: gates.length })
         } catch (error) {
           console.error("[v0] Failed to parse uploaded file:", error)
-          setParseError("Uploaded file could not be parsed, consider adapting it.")
+          setParseError("Uploaded file can not be parsed, consider adapting it.")
           setUploadedFile(null)
         }
       }
@@ -118,7 +118,7 @@ export function DatabaseUploader({ onDataUpload }: DatabaseUploaderProps) {
       {isExpanded && (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Upload Database</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Upload Structured Dataset</label>
             <div className="relative">
               <input
                 type="file"
