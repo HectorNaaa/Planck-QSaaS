@@ -51,8 +51,8 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <header className="fixed top-2 left-2 right-2 md:top-3 md:left-3 md:right-3 z-50 bg-background/95 backdrop-blur-sm border-b border-border rounded-lg shadow-lg">
-        <div className="mx-auto px-3 md:px-4 lg:px-8 py-3 md:py-4">
-          <div className="hidden md:flex justify-between items-center">
+        <div className="mx-auto px-3 md:px-4 lg:px-8 py-3 md:py-4 opacity-[0.92]">
+          <div className="hidden md:flex justify-between items-center opacity-[0.92]">
             <Image
               src="/images/design-mode/Planck%20Logotype%20no%20bg(2).png"
               alt="Planck Logo"
