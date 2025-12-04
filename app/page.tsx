@@ -311,7 +311,12 @@ export default function LandingPage() {
             >
               <X size={24} />
             </button>
-            <video controls autoPlay className="w-full h-full" src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Quantum%20Runner%20Planck%20video-4ihsOTBtNu8Y6NEYaQ1bv3fh7dQSdc.mp4">
+            <video
+              controls
+              autoPlay
+              className="w-full h-full"
+              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Animaci%C3%B3n_de_Micro_circuito_Cu%C3%A1ntico%20Planck-RU4qdkJ2pGP2flehxFGXePn7y5i1Qm.mp4"
+            >
               Your browser does not support the video tag.
             </video>
           </div>

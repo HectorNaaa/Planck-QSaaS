@@ -1,9 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Zap, BookOpen, Settings } from 'lucide-react'
-import { ThemeToggle } from "@/components/theme-toggle"
+import { usePathname } from "next/navigation"
+import { LayoutDashboard, Zap, BookOpen, Settings } from "lucide-react"
 import Image from "next/image"
 import { useLanguage } from "@/contexts/language-context"
 
@@ -20,12 +19,8 @@ export function Sidebar() {
 
   return (
     <aside className="w-64 bg-sidebar border-r border-sidebar-border flex flex-col">
-      <div className="p-4 border-sidebar-border flex items-center justify-between border-b gap-2">
-        <Link
-          href="/"
-          className="flex items-center hover:opacity-80 transition-opacity flex-shrink-0"
-          title="Back to home"
-        >
+      <div className="p-4 border-sidebar-border flex items-center border-b">
+        <Link href="/" className="flex items-center hover:opacity-80 transition-opacity" title="Back to home">
           <Image
             src="/logo-isotipo.png"
             alt="Planck Logo"
@@ -35,7 +30,6 @@ export function Sidebar() {
             priority
           />
         </Link>
-        <ThemeToggle />
       </div>
 
       {/* Navigation */}
