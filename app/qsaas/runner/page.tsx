@@ -29,9 +29,13 @@ export default function RunnerPage() {
   const [circuitData, setCircuitData] = useState<CircuitData | null>(null)
   const [isCodeEditable, setIsCodeEditable] = useState(false)
   const [dataUploaded, setDataUploaded] = useState(false)
+  const [uploadedData, setUploadedData] = useState<any>(null)
+  const [circuitImageUrl, setCircuitImageUrl] = useState<string | null>(null)
 
   const handleDataUpload = useCallback(
     async (uploadedData: any) => {
+      setUploadedData(uploadedData)
+
       try {
         const response = await fetch("/api/quantum/generate-circuit", {
           method: "POST",
@@ -55,6 +59,17 @@ export default function RunnerPage() {
           })
           setQubits(data.qubits)
           setDataUploaded(true)
+
+          const vizResponse = await fetch("/api/quantum/visualize", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ qasm: data.qasm }),
+          })
+
+          const vizData = await vizResponse.json()
+          if (vizData.success) {
+            setCircuitImageUrl(`data:image/png;base64,${vizData.image_data}`)
+          }
 
           if (executionType === "auto") {
             const optimal = selectOptimalBackend({
@@ -138,12 +153,12 @@ export default function RunnerPage() {
 
   const handleDownloadCircuitImage = useCallback(() => {
     const link = document.createElement("a")
-    link.href = "/circuit-q4-example-planck.png"
+    link.href = circuitImageUrl || "/placeholder.svg"
     link.download = `${circuitName.replace(/\s+/g, "_")}_circuit.jpg`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-  }, [circuitName])
+  }, [circuitName, circuitImageUrl])
 
   const handleDownloadCircuitCode = useCallback(() => {
     const blob = new Blob([circuitCode || 'OPENQASM 2.0;\ninclude "qelib1.inc";'], { type: "text/plain" })
@@ -230,7 +245,6 @@ export default function RunnerPage() {
         qubits_used: qubits,
         shots,
         error_mitigation: errorMitigation,
-        // Store the complete circuit snapshot as JSONB
         circuit_data: circuitSnapshot,
       })
 
@@ -244,13 +258,23 @@ export default function RunnerPage() {
     }
   }, [circuitName, executionType, backend, shots, qubits, errorMitigation, circuitCode, circuitData, results])
 
+  const handleReset = useCallback(() => {
+    setCircuitCode("")
+    setCircuitData(null)
+    setResults(null)
+    setCircuitImageUrl(null)
+    setDataUploaded(false)
+    setUploadedData(null)
+    setIsCodeEditable(false)
+  }, [])
+
   return (
     <div className="p-8 space-y-6 px-0">
       <PageHeader title="Runner" description="Build and execute quantum circuits" />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {dataUploaded && (
+          {dataUploaded && circuitImageUrl ? (
             <Card className="p-6 shadow-lg">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold text-foreground">Circuit Visualizer</h2>
@@ -266,15 +290,22 @@ export default function RunnerPage() {
               </div>
               <div className="rounded-lg min-h-96 border border-border flex items-center justify-center bg-secondary overflow-hidden">
                 <img
-                  src="/circuit-q4-example-planck.png"
-                  alt="Quantum Circuit with 4 Qubits"
+                  src={circuitImageUrl || "/placeholder.svg"}
+                  alt="Generated Quantum Circuit"
                   className="w-full h-auto object-contain"
                 />
               </div>
             </Card>
+          ) : (
+            <Card className="p-6 shadow-lg">
+              <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Visualizer</h2>
+              <div className="rounded-lg min-h-96 border border-border border-dashed flex items-center justify-center bg-secondary/30">
+                <p className="text-muted-foreground">Upload data and select an algorithm to generate circuit</p>
+              </div>
+            </Card>
           )}
 
-          {dataUploaded && (
+          {dataUploaded && circuitCode ? (
             <Card className="p-6 shadow-lg bg-card">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold text-foreground">Circuit Code</h2>
@@ -332,14 +363,30 @@ measure q[3] -> c[3];`}
                 </pre>
               )}
             </Card>
+          ) : (
+            <Card className="p-6 shadow-lg bg-card">
+              <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Code</h2>
+              <div className="rounded-lg min-h-96 border border-border border-dashed flex items-center justify-center bg-secondary/30">
+                <p className="text-muted-foreground">Circuit code will appear here after generation</p>
+              </div>
+            </Card>
           )}
 
-          <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} />
+          {results ? (
+            <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} />
+          ) : (
+            <Card className="p-6 shadow-lg">
+              <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Results</h2>
+              <div className="rounded-lg min-h-96 border border-border border-dashed flex items-center justify-center bg-secondary/30">
+                <p className="text-muted-foreground">Results will appear here after execution</p>
+              </div>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-6">
           <DatabaseUploader onDataUpload={handleDataUpload} />
-          <AutoParser />
+          <AutoParser inputData={uploadedData} algorithm={circuitName} />
           <CircuitSettings
             onExecutionTypeChange={setExecutionType}
             onQubitsChange={setQubits}
@@ -362,7 +409,7 @@ measure q[3] -> c[3];`}
       </div>
 
       <div className="flex justify-center gap-3 pt-6 border-border border-t-2">
-        <Button variant="outline" className="flex items-center gap-2 bg-secondary">
+        <Button onClick={handleReset} variant="outline" className="flex items-center gap-2 bg-secondary">
           <RotateCcw size={18} />
           Reset
         </Button>

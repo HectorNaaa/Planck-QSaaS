@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Zap, ChevronDown } from 'lucide-react'
+import { Zap, ChevronDown } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
@@ -11,22 +11,66 @@ interface ParsedCircuit {
   qubitsUsed: number
 }
 
-export function AutoParser() {
+interface AutoParserProps {
+  onParsed?: (data: ParsedCircuit) => void
+  inputData?: any
+  algorithm?: string
+}
+
+export function AutoParser({ onParsed, inputData, algorithm }: AutoParserProps) {
   const [isParsing, setIsParsing] = useState(false)
   const [parsedData, setParsedData] = useState<ParsedCircuit | null>(null)
   const [isExpanded, setIsExpanded] = useState(false)
 
-  const handleParse = () => {
+  const handleParse = async () => {
+    if (!inputData || !algorithm) {
+      console.log("[v0] No input data or algorithm selected")
+      return
+    }
+
     setIsParsing(true)
-    // Simulate parsing
-    setTimeout(() => {
-      setParsedData({
-        gates: 12,
-        depth: 5,
-        qubitsUsed: 4,
-      })
+
+    try {
+      const dataSize = Array.isArray(inputData) ? inputData.length : Object.keys(inputData).length || 10
+      const qubitsNeeded = Math.max(2, Math.ceil(Math.log2(dataSize)))
+
+      // Algorithm-specific depth estimation
+      const depthEstimates: Record<string, (q: number) => number> = {
+        Bell: () => 3,
+        Grover: (q) => Math.ceil((Math.PI / 4) * Math.sqrt(Math.pow(2, q))),
+        Shor: (q) => q * 3,
+        VQE: (q) => q * 5,
+        QAOA: (q) => q * 4,
+      }
+
+      const estimateDepth = depthEstimates[algorithm] || ((q) => q * 2)
+      const circuitDepth = estimateDepth(qubitsNeeded)
+
+      // Estimate gate count based on algorithm
+      const gateMultipliers: Record<string, number> = {
+        Bell: 3,
+        Grover: 8,
+        Shor: 12,
+        VQE: 15,
+        QAOA: 10,
+      }
+      const gateCount = (gateMultipliers[algorithm] || 5) * qubitsNeeded
+
+      const parsed: ParsedCircuit = {
+        gates: gateCount,
+        depth: circuitDepth,
+        qubitsUsed: qubitsNeeded,
+      }
+
+      setParsedData(parsed)
+      onParsed?.(parsed)
+
+      console.log("[v0] Parsed circuit from input data:", parsed)
+    } catch (error) {
+      console.error("[v0] Parsing error:", error)
+    } finally {
       setIsParsing(false)
-    }, 1500)
+    }
   }
 
   return (
@@ -46,7 +90,7 @@ export function AutoParser() {
           </p>
           <Button
             onClick={handleParse}
-            disabled={isParsing}
+            disabled={isParsing || !inputData || !algorithm}
             className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             <Zap size={18} className="mr-2" />
