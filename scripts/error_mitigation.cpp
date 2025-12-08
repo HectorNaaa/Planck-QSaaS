@@ -44,14 +44,14 @@ private:
             case MitigationLevel::NONE:
                 return logical_qubits;
             case MitigationLevel::LOW:
-                // Simple repetition code: 3x overhead
-                return logical_qubits * 3;
+                // Simple repetition code: 2x overhead
+                return logical_qubits * 2;
             case MitigationLevel::MEDIUM:
-                // Steane code: 7x overhead
-                return logical_qubits * 7;
+                // Steane code: 5x overhead
+                return logical_qubits * 5;
             case MitigationLevel::HIGH:
-                // Surface code: ~13x overhead for logical error rate 10^-3
-                return logical_qubits * 13;
+                // Surface code: ~10x overhead for logical error rate 10^-3
+                return logical_qubits * 10;
             default:
                 return logical_qubits;
         }
