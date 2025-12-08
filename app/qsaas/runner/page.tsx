@@ -100,6 +100,13 @@ export default function RunnerPage() {
           }),
         })
 
+        // Check if response is ok before parsing JSON
+        if (!response.ok) {
+          const errorText = await response.text()
+          console.error("[v0] API error response:", errorText)
+          throw new Error(`API returned ${response.status}: ${errorText}`)
+        }
+
         const data = await response.json()
 
         if (data.success) {
@@ -117,9 +124,13 @@ export default function RunnerPage() {
             body: JSON.stringify({ qasm: data.qasm }),
           })
 
-          const vizData = await vizResponse.json()
-          if (vizData.success) {
-            setCircuitImageUrl(`data:image/png;base64,${vizData.image_data}`)
+          if (vizResponse.ok) {
+            const vizData = await vizResponse.json()
+            if (vizData.success) {
+              setCircuitImageUrl(`data:image/png;base64,${vizData.image_data}`)
+            }
+          } else {
+            console.error("[v0] Visualization API error:", await vizResponse.text())
           }
 
           if (executionType === "auto") {
@@ -130,9 +141,13 @@ export default function RunnerPage() {
             })
             setBackend(optimal)
           }
+        } else {
+          console.error("[v0] Circuit generation failed:", data.error)
         }
       } catch (error) {
         console.error("[v0] Failed to generate circuit:", error)
+        // Still set some default state so user can continue
+        setDataUploaded(false)
       }
     },
     [circuitName, executionType, qubits, shots, errorMitigation],

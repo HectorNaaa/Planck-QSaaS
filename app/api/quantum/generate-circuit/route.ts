@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from "next/server"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    console.log("[v0] Generate circuit request:", body)
     const { algorithm, inputData, qubits, shots, errorMitigation } = body
 
     const pythonScript = `
@@ -35,7 +36,13 @@ print(json.dumps(circuit_data))
     })
   } catch (error) {
     console.error("[v0] Circuit generation error:", error)
-    return NextResponse.json({ success: false, error: "Failed to generate circuit" }, { status: 500 })
+    return NextResponse.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to generate circuit",
+      },
+      { status: 500 },
+    )
   }
 }
 
