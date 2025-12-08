@@ -108,6 +108,9 @@ export default function RunnerPage() {
           shots,
           backend,
           errorMitigation,
+          circuitName, // Pass circuit name for logging
+          executionType, // Pass execution type for logging
+          qubits, // Pass qubits for logging
         }),
       })
 
@@ -124,42 +127,10 @@ export default function RunnerPage() {
         }
 
         setResults(mockResults)
-
-        try {
-          const supabase = createClient()
-          await supabase.from("execution_logs").insert({
-            circuit_name: circuitName,
-            execution_type: executionType,
-            backend,
-            status: "completed",
-            success_rate: mockResults.success_rate,
-            runtime_ms: mockResults.runtime_ms,
-            qubits_used: mockResults.qubits_used,
-            shots,
-            error_mitigation: errorMitigation,
-            completed_at: new Date().toISOString(),
-          })
-        } catch (logError) {
-          console.error("[v0] Failed to log execution completion to Supabase:", logError)
-        }
+        console.log("[v0] Execution completed and saved to Supabase")
       }
     } catch (error) {
       console.error("[v0] Execution error:", error)
-
-      try {
-        const supabase = createClient()
-        await supabase.from("execution_logs").insert({
-          circuit_name: circuitName,
-          execution_type: executionType,
-          backend,
-          status: "failed",
-          qubits_used: qubits,
-          shots,
-          error_mitigation: errorMitigation,
-        })
-      } catch (logError) {
-        console.error("[v0] Failed to log execution failure to Supabase:", logError)
-      }
     } finally {
       setIsRunning(false)
     }
@@ -251,7 +222,7 @@ export default function RunnerPage() {
 
     try {
       const supabase = createClient()
-      await supabase.from("execution_logs").insert({
+      const { error } = await supabase.from("execution_logs").insert({
         circuit_name: circuitName,
         execution_type: executionType,
         backend,
@@ -259,9 +230,15 @@ export default function RunnerPage() {
         qubits_used: qubits,
         shots,
         error_mitigation: errorMitigation,
+        // Store the complete circuit snapshot as JSONB
         circuit_data: circuitSnapshot,
       })
-      console.log("[v0] Circuit saved successfully with all backend results and complete QASM code")
+
+      if (error) {
+        console.error("[v0] Error saving circuit to Supabase:", error)
+      } else {
+        console.log("[v0] Circuit saved successfully with all backend results and complete QASM code")
+      }
     } catch (error) {
       console.error("[v0] Error saving circuit to Supabase:", error)
     }

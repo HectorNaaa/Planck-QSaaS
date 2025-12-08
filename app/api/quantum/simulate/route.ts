@@ -1,11 +1,23 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createServerClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { qasm, shots, backend, errorMitigation } = body
+    const { qasm, shots, backend, errorMitigation, circuitName, executionType, qubits } = body
 
     console.log("[v0] Simulating quantum circuit:", { backend, shots, errorMitigation })
+
+    const supabase = await createServerClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      console.error("[v0] Authentication error:", authError)
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
 
     // Simulate quantum execution
     const results = await simulateQuantumCircuit({
@@ -14,6 +26,27 @@ export async function POST(request: NextRequest) {
       backend,
       errorMitigation,
     })
+
+    const { error: insertError } = await supabase.from("execution_logs").insert({
+      user_id: user.id,
+      circuit_name: circuitName || "Unnamed Circuit",
+      execution_type: executionType || "auto",
+      backend,
+      status: "completed",
+      success_rate: results.successRate,
+      runtime_ms: results.runtime,
+      qubits_used: qubits || extractQubitCount(qasm),
+      shots,
+      error_mitigation: errorMitigation,
+      completed_at: new Date().toISOString(),
+    })
+
+    if (insertError) {
+      console.error("[v0] Failed to save execution to Supabase:", insertError)
+      // Continue anyway - don't fail the simulation if logging fails
+    } else {
+      console.log("[v0] Execution saved to Supabase successfully")
+    }
 
     return NextResponse.json({
       success: true,
