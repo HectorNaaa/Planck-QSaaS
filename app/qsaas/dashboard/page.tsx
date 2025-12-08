@@ -3,7 +3,7 @@
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BarChart3, Zap, TrendingUp, Clock } from "lucide-react"
+import { BarChart3, Zap, TrendingUp, Clock, Download } from "lucide-react"
 import Link from "next/link"
 import { PageHeader } from "@/components/page-header"
 import { useEffect, useState } from "react"
@@ -112,6 +112,28 @@ export default function DashboardPage() {
     }
   }
 
+  const handleDownloadCircuitJson = async (circuitId: string) => {
+    const supabase = createBrowserClient()
+
+    try {
+      const { data, error } = await supabase.from("execution_logs").select("*").eq("id", circuitId).single()
+
+      if (error) throw error
+
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `${data.circuit_name}_${circuitId}.json`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("[v0] Error downloading circuit JSON:", error)
+    }
+  }
+
   const statCards = [
     {
       label: "Avg Circuits Run",
@@ -195,6 +217,7 @@ export default function DashboardPage() {
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Qubits</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Runtime</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Timestamp</th>
+                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -222,6 +245,17 @@ export default function DashboardPage() {
                     <td className="py-3 px-4 text-foreground">{circuit.runtime_ms}ms</td>
                     <td className="py-3 px-4 text-muted-foreground text-sm">
                       {new Date(circuit.created_at).toLocaleString()}
+                    </td>
+                    <td className="py-3 px-4">
+                      <Button
+                        onClick={() => handleDownloadCircuitJson(circuit.id)}
+                        size="sm"
+                        variant="ghost"
+                        className="flex items-center gap-1"
+                      >
+                        <Download size={16} />
+                        JSON
+                      </Button>
                     </td>
                   </tr>
                 ))}

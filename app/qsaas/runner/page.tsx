@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CircuitSettings } from "@/components/runner/circuit-settings"
@@ -31,6 +31,57 @@ export default function RunnerPage() {
   const [dataUploaded, setDataUploaded] = useState(false)
   const [uploadedData, setUploadedData] = useState<any>(null)
   const [circuitImageUrl, setCircuitImageUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    const savedState = sessionStorage.getItem("runner_state")
+    if (savedState) {
+      try {
+        const state = JSON.parse(savedState)
+        setCircuitName(state.circuitName || "Grover")
+        setExecutionType(state.executionType || "auto")
+        setBackend(state.backend || "quantum_inspired_gpu")
+        setShots(state.shots || 1024)
+        setQubits(state.qubits || 4)
+        setErrorMitigation(state.errorMitigation || "none")
+        setCircuitCode(state.circuitCode || "")
+        setCircuitData(state.circuitData || null)
+        setDataUploaded(state.dataUploaded || false)
+        setUploadedData(state.uploadedData || null)
+        setCircuitImageUrl(state.circuitImageUrl || null)
+      } catch (e) {
+        console.error("[v0] Failed to restore runner state:", e)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const state = {
+      circuitName,
+      executionType,
+      backend,
+      shots,
+      qubits,
+      errorMitigation,
+      circuitCode,
+      circuitData,
+      dataUploaded,
+      uploadedData,
+      circuitImageUrl,
+    }
+    sessionStorage.setItem("runner_state", JSON.stringify(state))
+  }, [
+    circuitName,
+    executionType,
+    backend,
+    shots,
+    qubits,
+    errorMitigation,
+    circuitCode,
+    circuitData,
+    dataUploaded,
+    uploadedData,
+    circuitImageUrl,
+  ])
 
   const handleDataUpload = useCallback(
     async (uploadedData: any) => {
@@ -266,6 +317,7 @@ export default function RunnerPage() {
     setDataUploaded(false)
     setUploadedData(null)
     setIsCodeEditable(false)
+    sessionStorage.removeItem("runner_state")
   }, [])
 
   return (
