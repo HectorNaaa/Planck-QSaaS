@@ -13,7 +13,7 @@ import { LoadingSpinner } from "@/components/loading-spinner"
 import { Save, Play, RotateCcw, Download } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { PageHeader } from "@/components/page-header"
-import { generateQASM2, parseUploadedData, type CircuitData } from "@/lib/qasm-generator"
+import type { CircuitData } from "@/lib/qasm-generator"
 import { selectOptimalBackend, calculateFidelity, estimateRuntime } from "@/lib/backend-selector"
 
 export default function RunnerPage() {
@@ -31,23 +31,45 @@ export default function RunnerPage() {
   const [dataUploaded, setDataUploaded] = useState(false)
 
   const handleDataUpload = useCallback(
-    (uploadedData: any) => {
-      const parsed = parseUploadedData(uploadedData)
-      setCircuitData(parsed)
-      const qasm = generateQASM2(parsed)
-      setCircuitCode(qasm)
-      setDataUploaded(true)
-
-      if (executionType === "auto") {
-        const optimal = selectOptimalBackend({
-          qubits: parsed.qubits,
-          depth: parsed.gates.length,
-          gateCount: parsed.gates.length,
+    async (uploadedData: any) => {
+      try {
+        const response = await fetch("/api/quantum/generate-circuit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            algorithm: circuitName,
+            inputData: uploadedData,
+            qubits: uploadedData.qubits || qubits,
+            shots,
+            errorMitigation,
+          }),
         })
-        setBackend(optimal)
+
+        const data = await response.json()
+
+        if (data.success) {
+          setCircuitCode(data.qasm)
+          setCircuitData({
+            qubits: data.qubits,
+            gates: data.gates,
+          })
+          setQubits(data.qubits)
+          setDataUploaded(true)
+
+          if (executionType === "auto") {
+            const optimal = selectOptimalBackend({
+              qubits: data.qubits,
+              depth: data.depth,
+              gateCount: data.gates.length,
+            })
+            setBackend(optimal)
+          }
+        }
+      } catch (error) {
+        console.error("[v0] Failed to generate circuit:", error)
       }
     },
-    [executionType],
+    [circuitName, executionType, qubits, shots, errorMitigation],
   )
 
   const handleSaveCode = useCallback(() => {
@@ -60,49 +82,66 @@ export default function RunnerPage() {
     setIsRunning(true)
 
     try {
-      try {
-        const supabase = createClient()
-        await supabase.from("execution_logs").insert({
-          circuit_name: circuitName,
-          execution_type: executionType,
+      const transpileResponse = await fetch("/api/quantum/transpile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qasm: circuitCode,
           backend,
-          status: "running",
+          qubits,
+        }),
+      })
+
+      const transpileData = await transpileResponse.json()
+
+      if (!transpileData.success) {
+        throw new Error("Transpilation failed")
+      }
+
+      console.log("[v0] Circuit transpiled, SWAP gates added:", transpileData.swapCount)
+
+      const simulateResponse = await fetch("/api/quantum/simulate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qasm: transpileData.transpiledQASM,
+          shots,
+          backend,
+          errorMitigation,
+        }),
+      })
+
+      const simulateData = await simulateResponse.json()
+
+      if (simulateData.success) {
+        const mockResults = {
+          success_rate: simulateData.successRate,
+          runtime_ms: simulateData.runtime,
           qubits_used: qubits,
-          shots,
-          error_mitigation: errorMitigation,
-        })
-      } catch (logError) {
-        console.error("[v0] Failed to log execution start to Supabase:", logError)
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 2500))
-
-      const mockResults = {
-        success_rate: Math.random() * 0.1 + 0.9,
-        runtime_ms: Math.random() * 500 + 100,
-        qubits_used: qubits,
-        total_shots: shots,
-        backend,
-      }
-
-      setResults(mockResults)
-
-      try {
-        const supabase = createClient()
-        await supabase.from("execution_logs").insert({
-          circuit_name: circuitName,
-          execution_type: executionType,
+          total_shots: shots,
           backend,
-          status: "completed",
-          success_rate: mockResults.success_rate,
-          runtime_ms: mockResults.runtime_ms,
-          qubits_used: mockResults.qubits_used,
-          shots,
-          error_mitigation: errorMitigation,
-          completed_at: new Date().toISOString(),
-        })
-      } catch (logError) {
-        console.error("[v0] Failed to log execution completion to Supabase:", logError)
+          counts: simulateData.counts,
+        }
+
+        setResults(mockResults)
+
+        try {
+          const supabase = createClient()
+          await supabase.from("execution_logs").insert({
+            circuit_name: circuitName,
+            execution_type: executionType,
+            backend,
+            status: "completed",
+            success_rate: mockResults.success_rate,
+            runtime_ms: mockResults.runtime_ms,
+            qubits_used: mockResults.qubits_used,
+            shots,
+            error_mitigation: errorMitigation,
+            completed_at: new Date().toISOString(),
+          })
+        } catch (logError) {
+          console.error("[v0] Failed to log execution completion to Supabase:", logError)
+        }
       }
     } catch (error) {
       console.error("[v0] Execution error:", error)
@@ -124,7 +163,7 @@ export default function RunnerPage() {
     } finally {
       setIsRunning(false)
     }
-  }, [circuitName, executionType, backend, shots, qubits, errorMitigation])
+  }, [circuitName, executionType, backend, shots, qubits, errorMitigation, circuitCode])
 
   const handleDownloadCircuitImage = useCallback(() => {
     const link = document.createElement("a")
