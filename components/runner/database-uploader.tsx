@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Upload, X, ChevronDown, AlertCircle } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { QUANTUM_TEMPLATES } from "@/lib/constants"
@@ -15,13 +15,21 @@ interface DatabaseConfig {
 
 interface DatabaseUploaderProps {
   onDataUpload?: (data: any) => void
+  preSelectedAlgorithm?: string | null
 }
 
-export function DatabaseUploader({ onDataUpload }: DatabaseUploaderProps) {
+export function DatabaseUploader({ onDataUpload, preSelectedAlgorithm }: DatabaseUploaderProps) {
   const [selectedConfig, setSelectedConfig] = useState<DatabaseConfig | null>(null)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [isExpanded, setIsExpanded] = useState(false)
   const [parseError, setParseError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (preSelectedAlgorithm) {
+      handleTemplateSelect(preSelectedAlgorithm)
+      setIsExpanded(true)
+    }
+  }, [preSelectedAlgorithm])
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {

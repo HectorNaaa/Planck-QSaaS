@@ -29,14 +29,30 @@ export default function LoginPage() {
 
     try {
       const supabase = createClient()
-      const { error: authError } = await supabase.auth.signInWithPassword({
+
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
       if (authError) throw authError
 
-      // Set browser cookie for session persistence
+      // Check if profile exists (but don't delete if it doesn't)
+      if (authData.user) {
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("id", authData.user.id)
+          .single()
+
+        // If no profile exists, sign out but don't delete the account
+        if (!profileData || profileError) {
+          await supabase.auth.signOut()
+          throw new Error("Account not properly registered. Please sign up first.")
+        }
+      }
+
+      // Set browser cookie for session persistence (30 days)
       document.cookie = `planck_session=active; max-age=${30 * 24 * 60 * 60}; path=/; SameSite=Strict`
 
       sessionStorage.setItem("planck_nav_source", "auth")

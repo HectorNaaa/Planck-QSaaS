@@ -27,25 +27,28 @@ export async function POST(request: NextRequest) {
       errorMitigation,
     })
 
-    const { error: insertError } = await supabase.from("execution_logs").insert({
-      user_id: user.id,
-      circuit_name: circuitName || "Unnamed Circuit",
-      execution_type: executionType || "auto",
-      backend,
-      status: "completed",
-      success_rate: results.successRate,
-      runtime_ms: results.runtime,
-      qubits_used: qubits || extractQubitCount(qasm),
-      shots,
-      error_mitigation: errorMitigation,
-      completed_at: new Date().toISOString(),
-    })
+    const { data: insertedLog, error: insertError } = await supabase
+      .from("execution_logs")
+      .insert({
+        user_id: user.id,
+        circuit_name: circuitName || "Unnamed Circuit",
+        execution_type: executionType || "auto",
+        backend,
+        status: "completed",
+        success_rate: results.successRate,
+        runtime_ms: results.runtime,
+        qubits_used: qubits || extractQubitCount(qasm),
+        shots,
+        error_mitigation: errorMitigation,
+        completed_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single()
 
     if (insertError) {
       console.error("[v0] Failed to save execution to Supabase:", insertError)
-      // Continue anyway - don't fail the simulation if logging fails
     } else {
-      console.log("[v0] Execution saved to Supabase successfully")
+      console.log("[v0] Execution saved to Supabase successfully with ID:", insertedLog?.id)
     }
 
     return NextResponse.json({
@@ -54,6 +57,7 @@ export async function POST(request: NextRequest) {
       successRate: results.successRate,
       runtime: results.runtime,
       memory: results.memory,
+      execution_id: insertedLog?.id, // Return execution_id for Digital Twin creation
     })
   } catch (error) {
     console.error("[v0] Simulation error:", error)
@@ -62,29 +66,24 @@ export async function POST(request: NextRequest) {
 }
 
 async function simulateQuantumCircuit(config: any) {
-  // Simulate quantum execution with noise based on backend
   const { shots, backend, errorMitigation } = config
 
-  // Generate measurement outcomes
   const counts: Record<string, number> = {}
   const qubits = extractQubitCount(config.qasm)
 
   for (let i = 0; i < shots; i++) {
     let outcome = ""
     for (let q = 0; q < qubits; q++) {
-      // Add noise based on backend
       let prob = 0.5
       if (backend === "quantum_qpu") {
-        prob += (Math.random() - 0.5) * 0.2 // More noise
+        prob += (Math.random() - 0.5) * 0.2
       }
       outcome += Math.random() < prob ? "1" : "0"
     }
     counts[outcome] = (counts[outcome] || 0) + 1
   }
 
-  // Apply error mitigation
   if (errorMitigation !== "none") {
-    // Simulate error mitigation improving results
     const mitigationFactor =
       {
         low: 0.05,
@@ -92,7 +91,6 @@ async function simulateQuantumCircuit(config: any) {
         high: 0.15,
       }[errorMitigation] || 0
 
-    // Adjust counts (simplified)
     Object.keys(counts).forEach((key) => {
       counts[key] = Math.floor(counts[key] * (1 + mitigationFactor * Math.random()))
     })
@@ -100,9 +98,8 @@ async function simulateQuantumCircuit(config: any) {
 
   const totalShots = Object.values(counts).reduce((a, b) => a + b, 0)
   const maxCount = Math.max(...Object.values(counts))
-  const successRate = maxCount / totalShots
+  const successRate = (maxCount / totalShots) * 100
 
-  // Simulate runtime based on complexity
   const runtime = 100 + Math.random() * 400
 
   return {

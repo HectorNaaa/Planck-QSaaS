@@ -16,7 +16,10 @@ export default function TemplatesPage() {
   }
 
   const handleMouseEnter = (id: string) => {
-    setFlippedCards((prev) => ({ ...prev, [id]: true }))
+    const timer = setTimeout(() => {
+      setFlippedCards((prev) => ({ ...prev, [id]: true }))
+    }, 300)
+    return () => clearTimeout(timer)
   }
 
   const handleMouseLeave = (id: string) => {
@@ -73,9 +76,16 @@ export default function TemplatesPage() {
                   />
                 </div>
 
-                {/* Button area - bottom aligned, full width */}
                 <div className="absolute bottom-0 left-0 right-0 p-3">
-                  <Button className="bg-primary hover:bg-primary/90 w-full text-sm py-2.5">Use It</Button>
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleFlip(template.id)
+                    }}
+                    className="bg-primary hover:bg-primary/90 w-full text-sm py-2.5"
+                  >
+                    Learn More
+                  </Button>
                 </div>
               </Card>
 

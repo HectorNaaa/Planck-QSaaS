@@ -47,6 +47,13 @@ export default function DashboardPage() {
     const supabase = createBrowserClient()
 
     try {
+      const cachedCircuits = sessionStorage.getItem("planck_recent_circuits")
+      if (cachedCircuits && timeRange === "7d") {
+        const circuits = JSON.parse(cachedCircuits)
+        setRecentCircuits(circuits.slice(0, 5))
+        calculateStats(circuits)
+      }
+
       const now = new Date()
       const timeThreshold = new Date()
       switch (timeRange) {
@@ -61,7 +68,6 @@ export default function DashboardPage() {
           break
       }
 
-      // Fetch execution logs within time range
       const { data: logs, error } = await supabase
         .from("execution_logs")
         .select("*")
@@ -74,28 +80,12 @@ export default function DashboardPage() {
       }
 
       if (logs && logs.length > 0) {
-        const completedOrSavedLogs = logs.filter((log) => log.status === "completed" || log.status === "saved")
-
-        // Calculate averages
-        const totalCircuits = completedOrSavedLogs.length
-        const successfulCircuits = completedOrSavedLogs.filter((log) => log.status === "completed").length
-        const avgSuccessRate = totalCircuits > 0 ? (successfulCircuits / totalCircuits) * 100 : 0
-
-        const totalRuntime = completedOrSavedLogs.reduce((sum, log) => sum + (log.runtime_ms || 0), 0)
-        const avgRuntime = totalCircuits > 0 ? totalRuntime / totalCircuits : 0
-
-        const totalQubits = completedOrSavedLogs.reduce((sum, log) => sum + (log.qubits_used || 0), 0)
-        const avgQubits = totalCircuits > 0 ? totalQubits / totalCircuits : 0
-
-        setStats({
-          avgCircuitsRun: totalCircuits,
-          avgSuccessRate: Math.round(avgSuccessRate * 10) / 10,
-          avgRuntime: Math.round(avgRuntime),
-          avgQubits: Math.round(avgQubits * 10) / 10,
-        })
-
-        // Set recent circuits (top 5)
+        calculateStats(logs)
         setRecentCircuits(logs.slice(0, 5) as RecentCircuit[])
+
+        if (timeRange === "7d") {
+          sessionStorage.setItem("planck_recent_circuits", JSON.stringify(logs.slice(0, 10)))
+        }
       } else {
         setStats({
           avgCircuitsRun: 0,
@@ -110,6 +100,27 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  function calculateStats(logs: any[]) {
+    const completedOrSavedLogs = logs.filter((log) => log.status === "completed" || log.status === "saved")
+
+    const totalCircuits = completedOrSavedLogs.length
+    const successfulCircuits = completedOrSavedLogs.filter((log) => log.status === "completed").length
+    const avgSuccessRate = totalCircuits > 0 ? (successfulCircuits / totalCircuits) * 100 : 0
+
+    const totalRuntime = completedOrSavedLogs.reduce((sum, log) => sum + (log.runtime_ms || 0), 0)
+    const avgRuntime = totalCircuits > 0 ? totalRuntime / totalCircuits : 0
+
+    const totalQubits = completedOrSavedLogs.reduce((sum, log) => sum + (log.qubits_used || 0), 0)
+    const avgQubits = totalCircuits > 0 ? totalQubits / totalCircuits : 0
+
+    setStats({
+      avgCircuitsRun: totalCircuits,
+      avgSuccessRate: Math.round(avgSuccessRate * 10) / 10,
+      avgRuntime: Math.round(avgRuntime),
+      avgQubits: Math.round(avgQubits * 10) / 10,
+    })
   }
 
   const handleDownloadCircuitJson = async (circuitId: string) => {

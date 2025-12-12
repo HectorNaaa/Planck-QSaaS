@@ -2,8 +2,8 @@ export const QUANTUM_TEMPLATES = [
   {
     id: "bell-state",
     name: "Bell",
-    description: "Create an entangled quantum state for quantum teleportation and secure communication protocols.",
-    shortDescription: "Create an entangled quantum state for quantum teleportation and secure communication protocols",
+    description: "Create an entangled quantum state for system interconectivity and secure communication.",
+    shortDescription: "Create an entangled quantum state for system interconectivity and secure communication",
     minQubits: 2,
     difficulty: "Beginner",
     icon: "/images/bell-20icon-20planck.png",

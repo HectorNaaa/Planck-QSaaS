@@ -31,10 +31,20 @@ export default function RunnerPage() {
   const [dataUploaded, setDataUploaded] = useState(false)
   const [uploadedData, setUploadedData] = useState<any>(null)
   const [circuitImageUrl, setCircuitImageUrl] = useState<string | null>(null)
+  const [selectedAlgorithm, setSelectedAlgorithm] = useState<string | null>(null)
 
   useEffect(() => {
+    const algorithmFromTemplates = sessionStorage.getItem("selectedAlgorithm")
+    if (algorithmFromTemplates) {
+      setSelectedAlgorithm(algorithmFromTemplates)
+      setCircuitName(algorithmFromTemplates)
+      // Clear the selection after reading it
+      sessionStorage.removeItem("selectedAlgorithm")
+    }
+
+    // Restore other saved state
     const savedState = sessionStorage.getItem("runner_state")
-    if (savedState) {
+    if (savedState && !algorithmFromTemplates) {
       try {
         const state = JSON.parse(savedState)
         setCircuitName(state.circuitName || "Grover")
@@ -67,6 +77,7 @@ export default function RunnerPage() {
       dataUploaded,
       uploadedData,
       circuitImageUrl,
+      selectedAlgorithm,
     }
     sessionStorage.setItem("runner_state", JSON.stringify(state))
   }, [
@@ -81,6 +92,7 @@ export default function RunnerPage() {
     dataUploaded,
     uploadedData,
     circuitImageUrl,
+    selectedAlgorithm,
   ])
 
   const handleDataUpload = useCallback(
@@ -189,15 +201,67 @@ export default function RunnerPage() {
           shots,
           backend,
           errorMitigation,
-          circuitName, // Pass circuit name for logging
-          executionType, // Pass execution type for logging
-          qubits, // Pass qubits for logging
+          circuitName,
+          executionType,
+          qubits,
         }),
       })
 
       const simulateData = await simulateResponse.json()
 
-      if (simulateData.success) {
+      if (!simulateData.success) {
+        throw new Error("Simulation failed")
+      }
+
+      console.log("[v0] Generating Digital Twin for interpretability...")
+      const digitalTwinResponse = await fetch("/api/quantum/digital-twin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          algorithm: circuitName,
+          inputData: uploadedData,
+          circuitInfo: {
+            qubits,
+            depth: circuitData?.gates.length || 0,
+            gates: circuitData?.gates || [],
+            qasm: circuitCode,
+          },
+          executionResults: {
+            counts: simulateData.counts,
+            shots,
+            success_rate: simulateData.successRate,
+            runtime_ms: simulateData.runtime,
+            execution_id: simulateData.execution_id,
+          },
+          backendConfig: {
+            backend,
+            error_mitigation: errorMitigation,
+            transpiled: true,
+            noise_model: backend === "quantum_qpu" ? "realistic" : "ideal",
+          },
+        }),
+      })
+
+      const digitalTwinData = await digitalTwinResponse.json()
+
+      if (digitalTwinData.success) {
+        console.log("[v0] Digital Twin generated successfully")
+
+        const mockResults = {
+          success_rate: simulateData.successRate,
+          runtime_ms: simulateData.runtime,
+          qubits_used: qubits,
+          total_shots: shots,
+          backend,
+          counts: simulateData.counts,
+          digital_twin: digitalTwinData.digital_twin,
+        }
+
+        setResults(mockResults)
+        console.log("[v0] Execution completed with Digital Twin and saved to Supabase")
+      } else {
+        // Continue without Digital Twin if generation fails
+        console.error("[v0] Digital Twin generation failed:", digitalTwinData.error)
         const mockResults = {
           success_rate: simulateData.successRate,
           runtime_ms: simulateData.runtime,
@@ -206,16 +270,14 @@ export default function RunnerPage() {
           backend,
           counts: simulateData.counts,
         }
-
         setResults(mockResults)
-        console.log("[v0] Execution completed and saved to Supabase")
       }
     } catch (error) {
       console.error("[v0] Execution error:", error)
     } finally {
       setIsRunning(false)
     }
-  }, [circuitName, executionType, backend, shots, qubits, errorMitigation, circuitCode])
+  }, [circuitName, executionType, backend, shots, qubits, errorMitigation, circuitCode, circuitData, uploadedData])
 
   const handleDownloadCircuitImage = useCallback(() => {
     const link = document.createElement("a")
@@ -332,7 +394,9 @@ export default function RunnerPage() {
     setDataUploaded(false)
     setUploadedData(null)
     setIsCodeEditable(false)
+    setSelectedAlgorithm(null)
     sessionStorage.removeItem("runner_state")
+    sessionStorage.removeItem("selectedAlgorithm")
   }, [])
 
   return (
@@ -364,10 +428,12 @@ export default function RunnerPage() {
               </div>
             </Card>
           ) : (
-            <Card className="p-6 shadow-lg">
+            <Card className="p-6 shadow-lg bg-card px-4 py-4">
               <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Visualizer</h2>
               <div className="rounded-lg min-h-96 border border-border border-dashed flex items-center justify-center bg-secondary/30">
-                <p className="text-muted-foreground">Upload data and select an algorithm to generate circuit</p>
+                <p className="text-muted-foreground px-3 py-3">
+                  Upload data and select an algorithm to generate circuit
+                </p>
               </div>
             </Card>
           )}
@@ -431,10 +497,10 @@ measure q[3] -> c[3];`}
               )}
             </Card>
           ) : (
-            <Card className="p-6 shadow-lg bg-card">
+            <Card className="p-6 shadow-lg bg-card px-4 py-4">
               <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Code</h2>
-              <div className="rounded-lg min-h-96 border border-border border-dashed flex items-center justify-center bg-secondary/30">
-                <p className="text-muted-foreground">Circuit code will appear here after generation</p>
+              <div className="rounded-lg min-h-96 border border-border border-dashed flex items-center justify-center bg-secondary/30 px-0">
+                <p className="text-muted-foreground px-3 py-3">Circuit code will appear here after generation</p>
               </div>
             </Card>
           )}
@@ -442,17 +508,17 @@ measure q[3] -> c[3];`}
           {results ? (
             <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} />
           ) : (
-            <Card className="p-6 shadow-lg">
+            <Card className="p-6 shadow-lg px-4 py-4">
               <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Results</h2>
               <div className="rounded-lg min-h-96 border border-border border-dashed flex items-center justify-center bg-secondary/30">
-                <p className="text-muted-foreground">Results will appear here after execution</p>
+                <p className="text-muted-foreground px-3 py-3">Results will appear here after execution</p>
               </div>
             </Card>
           )}
         </div>
 
         <div className="space-y-6">
-          <DatabaseUploader onDataUpload={handleDataUpload} />
+          <DatabaseUploader onDataUpload={handleDataUpload} preSelectedAlgorithm={selectedAlgorithm} />
           <AutoParser inputData={uploadedData} algorithm={circuitName} />
           <CircuitSettings
             onExecutionTypeChange={setExecutionType}

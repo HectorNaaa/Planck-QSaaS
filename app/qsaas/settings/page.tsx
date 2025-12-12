@@ -386,6 +386,16 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+        <div className="mt-6 pt-6 border-t border-border">
+          <Button
+            onClick={handleSaveAccount}
+            disabled={isSavingAccount}
+            className="bg-primary hover:bg-primary/90 flex items-center gap-2"
+          >
+            <Save size={18} />
+            {isSavingAccount ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
       </Card>
 
       {/* API Keys */}
@@ -467,9 +477,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between pt-4 border-t border-border">
             <div>
               <p className="font-medium text-foreground">Improve Models</p>
-              <p className="text-sm text-muted-foreground">
-                {"Share benchmarks"}
-              </p>
+              <p className="text-sm text-muted-foreground">{"Share benchmarks"}</p>
             </div>
             <button
               onClick={handleImproveModelsToggle}
@@ -487,9 +495,7 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between pt-4 border-t border-border">
             <div>
               <p className="font-medium text-foreground">Stay Logged In</p>
-              <p className="text-sm text-muted-foreground">
-                Keep me signed in on this device.
-              </p>
+              <p className="text-sm text-muted-foreground">Keep me signed in on this device.</p>
             </div>
             <button
               onClick={handleStayLoggedInToggle}
@@ -562,39 +568,33 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      <div className="flex justify-between items-center my-0">
-        <Button className="bg-primary hover:bg-primary/90 flex items-center gap-2">
-          <Save size={18} />
-          Save Changes
+      <div className="flex justify-end gap-2 my-0">
+        <Button
+          variant="outline"
+          onClick={() => setShowDeleteConfirm(true)}
+          className="flex items-center gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 bg-transparent border-destructive"
+        >
+          <Trash2 size={18} />
+          Delete Account
         </Button>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setShowDeleteConfirm(true)}
-            className="flex items-center gap-2 text-destructive hover:text-destructive hover:bg-destructive/10 bg-transparent border-destructive"
-          >
-            <Trash2 size={18} />
-            Delete Account
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground bg-transparent"
-          >
-            {isLoggingOut ? (
-              <>
-                <span className="inline-block w-4 h-4 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-                Signing out...
-              </>
-            ) : (
-              <>
-                <LogOut size={18} />
-                Sign Out
-              </>
-            )}
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          onClick={handleLogout}
+          disabled={isLoggingOut}
+          className="flex items-center gap-2 text-muted-foreground hover:text-foreground bg-transparent"
+        >
+          {isLoggingOut ? (
+            <>
+              <span className="inline-block w-4 h-4 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              Signing out...
+            </>
+          ) : (
+            <>
+              <LogOut size={18} />
+              Sign Out
+            </>
+          )}
+        </Button>
       </div>
 
       {showDeleteConfirm && (

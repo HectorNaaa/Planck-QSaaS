@@ -29,8 +29,9 @@ export async function updateSession(request: NextRequest) {
     const {
       data: { user },
       error,
-    } = await supabase.auth.getUser()
+    } = await supabase.auth.refreshSession()
 
+    // Allow concurrent sessions from different devices
     if (
       request.nextUrl.pathname.startsWith("/qsaas") &&
       !user &&

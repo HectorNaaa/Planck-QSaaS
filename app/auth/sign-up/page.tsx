@@ -174,8 +174,6 @@ export default function SignUpPage() {
         email,
         password,
         options: {
-          emailRedirectTo:
-            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/qsaas/dashboard`,
           data: {
             name: fullName,
             first_name: firstName,
@@ -189,17 +187,22 @@ export default function SignUpPage() {
         },
       })
 
-      if (signUpError) throw signUpError
+      if (signUpError) {
+        console.error("[v0] Sign up error:", signUpError)
+        setError(signUpError.message)
+        return
+      }
 
-      document.cookie = `planck_session=active; max-age=${30 * 24 * 60 * 60}; path=/; SameSite=Strict`
+      if (!authData.user) {
+        setError("No user data returned from sign up")
+        return
+      }
 
-      sessionStorage.setItem("planck_nav_source", "auth")
-
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      console.log("[v0] Sign up successful, redirecting to dashboard...")
       router.push("/qsaas/dashboard")
-    } catch (error: unknown) {
-      console.error("Sign up error:", error)
-      setError(error instanceof Error ? error.message : language === "es" ? "Ocurrió un error" : "An error occurred")
+    } catch (err) {
+      console.error("[v0] Sign up error:", err)
+      setError(err instanceof Error ? err.message : "An unexpected error occurred")
     } finally {
       setIsLoading(false)
     }
