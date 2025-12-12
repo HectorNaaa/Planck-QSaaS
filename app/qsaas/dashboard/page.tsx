@@ -12,7 +12,7 @@ import { createBrowserClient } from "@/lib/supabase/client"
 type TimeRange = "24h" | "7d" | "30d"
 
 interface DashboardStats {
-  avgCircuitsRun: number
+  TotalCircuitsRun: number
   avgSuccessRate: number
   avgRuntime: number
   avgQubits: number
@@ -30,7 +30,7 @@ interface RecentCircuit {
 export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d")
   const [stats, setStats] = useState<DashboardStats>({
-    avgCircuitsRun: 0,
+    TotalCircuitsRun: 0,
     avgSuccessRate: 0,
     avgRuntime: 0,
     avgQubits: 0,
@@ -147,7 +147,7 @@ export default function DashboardPage() {
 
   const statCards = [
     {
-      label: "Avg Circuits Run",
+      label: "Total Circuits Run",
       value: loading ? "..." : stats.avgCircuitsRun.toString(),
       change: `Last ${timeRange}`,
       icon: Zap,
