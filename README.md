@@ -1,6 +1,6 @@
 # Planck-QSaaS — Short Overview
 
-Planck-QSaaS is Planck’s hybrid orchestration platform to run and integrate quantum workflows into data pipelines. It prioritizes **local-first** execution (micro-LLM on client when possible) with safe **server fallback** to managed backends. The platform provides reproducible pipelines, queueing and quota controls, privacy-minded logging with user-deletions (GDPR-ready), observable metrics and alerting, and simple APIs for pilots and production rollout.
+Planck-QSaaS is Planck’s hybrid orchestration platform to run and integrate quantum workflows into data pipelines. It prioritizes **local-first** execution with safe **server fallback** to managed backends. The platform provides reproducible pipelines, queueing and quota controls, privacy-minded logging with user-deletions (GDPR-ready), observable metrics and alerting, and simple APIs for pilots and production rollout.
 <img width="2669" height="585" alt="image" src="https://github.com/user-attachments/assets/beea1cff-1c81-481a-a95e-e47b2f834d85" />
 
 
