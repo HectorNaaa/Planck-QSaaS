@@ -6,8 +6,8 @@ const esTranslations: Record<string, string> = {
   // Landing - Hero
   Effortless: "Sin Esfuerzo",
   "Quantum Solutions": "Soluciones Cuánticas",
-  "Welcome to the new computing era, connect your data and start using quantum computing. AI-Enhanced.":
-    "Bienvenido a la nueva era de la computación, conecta tus datos y comienza a usar computación cuántica. Mejorado con IA.",
+  "Welcome to the new computing era, simulate and optimize your data models with quantum computing, AI-enhanced.":
+    "Bienvenido a la nueva era de la computación, simula y optimiza tus modelos de datos con computacion cuántica. Mejorado con IA.",
   Access: "Acceder",
   "Watch Video": "Ver Vídeo",
 
@@ -18,12 +18,12 @@ const esTranslations: Record<string, string> = {
 
   // Features section
   "Lightning Fast": "Ultrarrápido",
-  "53x faster executions than quantum market standards": "53x más rápido que los estándares del mercado cuántico",
+  "53x faster computing executions than market standards": "53x más rápido computacionalemnte que los estándares del mercado",
   "Powerful Analytics": "Análisis Potentes",
-  "Monitor, ask and analyze quantum data": "Monitorea, consulta y analiza datos cuánticos",
+  "Monitor, analyze and understand your model": "Monitorea, consulta y entiende tu modelo",
   "Hybrid Approach": "Enfoque Híbrido",
-  "Toggle auto/manual settings. Change between classic/quantum instances":
-    "Alterna configuración auto/manual. Cambia entre instancias clásicas/cuánticas",
+  "Toggle auto/manual configurations. Customize your workflow":
+    "Alterna configuración auto/manual.Personaliza tu flujo de trabajo",
 
   // CTA
   "Ready to build quantum?": "¿Listo para construir con cuántica?",

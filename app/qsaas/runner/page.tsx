@@ -15,10 +15,12 @@ import { createClient } from "@/lib/supabase/client"
 import { PageHeader } from "@/components/page-header"
 import type { CircuitData } from "@/lib/qasm-generator"
 import { selectOptimalBackend, calculateFidelity, estimateRuntime } from "@/lib/backend-selector"
+import { DigitalTwinPanel } from "@/components/runner/digital-twin-panel"
 
 export default function RunnerPage() {
   const [isRunning, setIsRunning] = useState(false)
-  const [circuitName, setCircuitName] = useState("Grover") // Updated default circuit name to short version
+  const [executionName, setExecutionName] = useState("")
+  const [circuitName, setCircuitName] = useState("")
   const [executionType, setExecutionType] = useState<"auto" | "manual">("auto")
   const [backend, setBackend] = useState<"quantum_inspired_gpu" | "hpc_gpu" | "quantum_qpu">("quantum_inspired_gpu")
   const [shots, setShots] = useState(1024)
@@ -38,16 +40,15 @@ export default function RunnerPage() {
     if (algorithmFromTemplates) {
       setSelectedAlgorithm(algorithmFromTemplates)
       setCircuitName(algorithmFromTemplates)
-      // Clear the selection after reading it
       sessionStorage.removeItem("selectedAlgorithm")
     }
 
-    // Restore other saved state
     const savedState = sessionStorage.getItem("runner_state")
     if (savedState && !algorithmFromTemplates) {
       try {
         const state = JSON.parse(savedState)
-        setCircuitName(state.circuitName || "Grover")
+        setExecutionName(state.executionName || "")
+        setCircuitName(state.circuitName || "")
         setExecutionType(state.executionType || "auto")
         setBackend(state.backend || "quantum_inspired_gpu")
         setShots(state.shots || 1024)
@@ -58,14 +59,15 @@ export default function RunnerPage() {
         setDataUploaded(state.dataUploaded || false)
         setUploadedData(state.uploadedData || null)
         setCircuitImageUrl(state.circuitImageUrl || null)
-      } catch (e) {
-        console.error("[v0] Failed to restore runner state:", e)
+      } catch (err) {
+        console.error("[v0] Error restoring state:", err)
       }
     }
   }, [])
 
   useEffect(() => {
     const state = {
+      executionName,
       circuitName,
       executionType,
       backend,
@@ -77,10 +79,10 @@ export default function RunnerPage() {
       dataUploaded,
       uploadedData,
       circuitImageUrl,
-      selectedAlgorithm,
     }
     sessionStorage.setItem("runner_state", JSON.stringify(state))
   }, [
+    executionName,
     circuitName,
     executionType,
     backend,
@@ -92,7 +94,6 @@ export default function RunnerPage() {
     dataUploaded,
     uploadedData,
     circuitImageUrl,
-    selectedAlgorithm,
   ])
 
   const handleDataUpload = useCallback(
@@ -112,7 +113,6 @@ export default function RunnerPage() {
           }),
         })
 
-        // Check if response is ok before parsing JSON
         if (!response.ok) {
           const errorText = await response.text()
           console.error("[v0] API error response:", errorText)
@@ -158,7 +158,6 @@ export default function RunnerPage() {
         }
       } catch (error) {
         console.error("[v0] Failed to generate circuit:", error)
-        // Still set some default state so user can continue
         setDataUploaded(false)
       }
     },
@@ -168,7 +167,6 @@ export default function RunnerPage() {
   const handleSaveCode = useCallback(() => {
     console.log("[v0] Saved circuit code:", circuitCode)
     setIsCodeEditable(false)
-    // TODO: Store in localStorage or database
   }, [circuitCode])
 
   const handleRunCircuit = useCallback(async () => {
@@ -201,7 +199,8 @@ export default function RunnerPage() {
           shots,
           backend,
           errorMitigation,
-          circuitName,
+          circuitName: executionName || `${circuitName} Execution`,
+          algorithm: circuitName,
           executionType,
           qubits,
         }),
@@ -260,7 +259,6 @@ export default function RunnerPage() {
         setResults(mockResults)
         console.log("[v0] Execution completed with Digital Twin and saved to Supabase")
       } else {
-        // Continue without Digital Twin if generation fails
         console.error("[v0] Digital Twin generation failed:", digitalTwinData.error)
         const mockResults = {
           success_rate: simulateData.successRate,
@@ -274,10 +272,11 @@ export default function RunnerPage() {
       }
     } catch (error) {
       console.error("[v0] Execution error:", error)
+      alert(`Error: ${error instanceof Error ? error.message : "Unknown error"}`)
     } finally {
       setIsRunning(false)
     }
-  }, [circuitName, executionType, backend, shots, qubits, errorMitigation, circuitCode, circuitData, uploadedData])
+  }, [circuitCode, backend, qubits, shots, errorMitigation, executionName, circuitName, executionType])
 
   const handleDownloadCircuitImage = useCallback(() => {
     const link = document.createElement("a")
@@ -334,9 +333,9 @@ export default function RunnerPage() {
     }
 
     const circuitSnapshot = {
-      circuit_name: circuitName,
+      circuit_name: executionName || `${circuitName} Execution`,
+      algorithm: circuitName,
       execution_type: executionType,
-      selected_backend: backend,
       circuit_settings: {
         shots,
         error_mitigation: errorMitigation,
@@ -357,7 +356,7 @@ export default function RunnerPage() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
     link.href = url
-    link.download = `${circuitName.replace(/\s+/g, "_")}_${Date.now()}.json`
+    link.download = `${(executionName || circuitName).replace(/\s+/g, "_")}_${Date.now()}.json`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -366,7 +365,8 @@ export default function RunnerPage() {
     try {
       const supabase = createClient()
       const { error } = await supabase.from("execution_logs").insert({
-        circuit_name: circuitName,
+        circuit_name: executionName || `${circuitName} Execution`,
+        algorithm: circuitName,
         execution_type: executionType,
         backend,
         status: "saved",
@@ -384,24 +384,63 @@ export default function RunnerPage() {
     } catch (error) {
       console.error("[v0] Error saving circuit to Supabase:", error)
     }
-  }, [circuitName, executionType, backend, shots, qubits, errorMitigation, circuitCode, circuitData, results])
+  }, [
+    executionName,
+    circuitName,
+    executionType,
+    backend,
+    shots,
+    qubits,
+    errorMitigation,
+    circuitCode,
+    circuitData,
+    results,
+  ])
 
   const handleReset = useCallback(() => {
+    setExecutionName("")
+    setCircuitName("")
+    setExecutionType("auto")
+    setBackend("quantum_inspired_gpu")
+    setShots(1024)
+    setQubits(4)
+    setErrorMitigation("none")
+    setResults(null)
     setCircuitCode("")
     setCircuitData(null)
-    setResults(null)
-    setCircuitImageUrl(null)
+    setIsCodeEditable(false)
     setDataUploaded(false)
     setUploadedData(null)
-    setIsCodeEditable(false)
+    setCircuitImageUrl(null)
     setSelectedAlgorithm(null)
     sessionStorage.removeItem("runner_state")
     sessionStorage.removeItem("selectedAlgorithm")
   }, [])
 
   return (
-    <div className="p-8 space-y-6 px-0">
-      <PageHeader title="Runner" description="Build and execute quantum circuits" />
+    <div className="p-8 space-y-8">
+      <PageHeader title="Runner" description="Configure and execute your quantum circuits" />
+
+      <Card className="p-6 shadow-lg bg-secondary">
+        <div className="space-y-4">
+          <div>
+            <label htmlFor="execution-name" className="block text-sm font-medium text-foreground mb-2">
+              Execution Name (Optional)
+            </label>
+            <input
+              id="execution-name"
+              type="text"
+              value={executionName}
+              onChange={(e) => setExecutionName(e.target.value)}
+              placeholder={`e.g., "My ${circuitName} Experiment"`}
+              className="w-full px-4 py-2 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Give this execution a custom name to easily identify it in your dashboard
+            </p>
+          </div>
+        </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -506,7 +545,32 @@ measure q[3] -> c[3];`}
           )}
 
           {results ? (
-            <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} />
+            <div className="space-y-6">
+              <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} />
+              {results && uploadedData && circuitCode && (
+                <DigitalTwinPanel
+                  algorithm={circuitName}
+                  inputData={uploadedData}
+                  circuitInfo={{
+                    qubits,
+                    depth: circuitData?.gates.length || 0,
+                    gates: circuitData?.gates || [],
+                    qasm: circuitCode,
+                  }}
+                  executionResults={{
+                    counts: results.counts || {},
+                    shots: results.total_shots || shots,
+                    success_rate: results.success_rate || 0,
+                    runtime_ms: results.runtime_ms || 0,
+                  }}
+                  backendConfig={{
+                    backend,
+                    error_mitigation: errorMitigation,
+                    transpiled: true,
+                  }}
+                />
+              )}
+            </div>
           ) : (
             <Card className="p-6 shadow-lg px-4 py-4">
               <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Results</h2>
@@ -518,7 +582,14 @@ measure q[3] -> c[3];`}
         </div>
 
         <div className="space-y-6">
-          <DatabaseUploader onDataUpload={handleDataUpload} preSelectedAlgorithm={selectedAlgorithm} />
+          <DatabaseUploader
+            onDataUpload={handleDataUpload}
+            preSelectedAlgorithm={selectedAlgorithm}
+            onAlgorithmSelect={(algorithm) => {
+              console.log("[v0] Algorithm selected:", algorithm)
+              setCircuitName(algorithm)
+            }}
+          />
           <AutoParser inputData={uploadedData} algorithm={circuitName} />
           <CircuitSettings
             onExecutionTypeChange={setExecutionType}

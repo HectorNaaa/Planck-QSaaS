@@ -208,7 +208,7 @@ export default function SettingsPage() {
       features: [
         "Quantum-inspired executions",
         "Up to 12 qubits",
-        "Pre-built circuits",
+        "Pre-built algorithms",
         "Basic analytics",
         "Community support",
       ],
@@ -222,7 +222,7 @@ export default function SettingsPage() {
       features: [
         "QPUs and quantum-inspired",
         "Up to 36 qubits",
-        "Pre-built circuits",
+        "Pre-built algorithms",
         "Advanced analytics",
         "Priority support",
         "Error Mitigation",

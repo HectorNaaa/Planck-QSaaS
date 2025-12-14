@@ -93,7 +93,7 @@ export function CircuitResults({ backend, results, qubits, onDownload }: Circuit
             <div className="p-3 bg-secondary/50 rounded-lg border border-border">
               <p className="text-xs text-muted-foreground mb-1">Runtime</p>
               <p className="text-xl font-bold text-primary">
-                {((benchmarks.runtime_ms || benchmarks.runtime || 0) / 1000).toFixed(2)}s
+                {(benchmarks.runtime_ms || benchmarks.runtime * 1000 || 0).toFixed(6)}ms
               </p>
             </div>
             <div className="p-3 bg-secondary/50 rounded-lg border border-border">

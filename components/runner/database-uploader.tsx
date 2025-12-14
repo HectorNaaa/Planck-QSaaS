@@ -16,9 +16,10 @@ interface DatabaseConfig {
 interface DatabaseUploaderProps {
   onDataUpload?: (data: any) => void
   preSelectedAlgorithm?: string | null
+  onAlgorithmSelect?: (algorithm: string) => void
 }
 
-export function DatabaseUploader({ onDataUpload, preSelectedAlgorithm }: DatabaseUploaderProps) {
+export function DatabaseUploader({ onDataUpload, preSelectedAlgorithm, onAlgorithmSelect }: DatabaseUploaderProps) {
   const [selectedConfig, setSelectedConfig] = useState<DatabaseConfig | null>(null)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [isExpanded, setIsExpanded] = useState(false)
@@ -99,6 +100,8 @@ export function DatabaseUploader({ onDataUpload, preSelectedAlgorithm }: Databas
         format: config.format,
         description: config.shortDescription,
       })
+
+      onAlgorithmSelect?.(config.name)
 
       const templateData = {
         qubits: config.minQubits,

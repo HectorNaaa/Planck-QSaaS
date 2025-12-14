@@ -28,18 +28,31 @@ export default function LandingPage() {
     setTheme("light")
 
     const checkSession = async () => {
+      // Skip Supabase check in preview/development environments where it may not be available
+      if (typeof window !== "undefined" && window.location.hostname.includes("vusercontent.net")) {
+        console.log("[v0] Skipping Supabase in preview environment")
+        return
+      }
+
       try {
         const supabase = createBrowserClient()
         const {
           data: { session },
+          error,
         } = await supabase.auth.getSession()
+
+        if (error) {
+          console.log("[v0] Session check error (non-critical):", error.message)
+          return
+        }
 
         if (session) {
           sessionStorage.setItem("planck_user_id", session.user.id)
           sessionStorage.setItem("planck_user_email", session.user.email || "")
         }
       } catch (error) {
-        console.log("[v0] Supabase connection skipped in preview mode")
+        // Silently handle any connection errors - not critical for landing page
+        console.log("[v0] Supabase connection unavailable (non-critical)")
       }
     }
 
@@ -153,15 +166,27 @@ export default function LandingPage() {
           </div>
 
           <div className="flex flex-col items-center gap-12 relative z-10">
+            <div className="hn-floating-cat absolute inset-0 pointer-events-none">
+              <Image
+                src="/images/schrodinger-20planck-20landing.png"
+                alt=""
+                width={360}
+                height={360}
+                className="w-[240px] h-[240px] sm:w-[288px] sm:h-[288px] md:w-[360px] md:h-[360px] object-contain"
+              />
+            </div>
+
             <div className="text-center space-y-6">
               <h1
-                className="hn-slogan-wrap text-5xl md:text-7xl font-bold text-foreground text-balance"
+                className="hn-slogan-wrap text-5xl md:text-7xl font-bold text-foreground text-balance relative"
                 style={{ "--scroll-rotation": `${scrollRotation}deg` } as React.CSSProperties}
               >
-                Effortless <span className="text-primary">Quantum Computing</span>
+                <span>
+                  Effortless <span className="text-primary">Quantum Computing</span>
+                </span>
               </h1>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-balance">
-                Boost your performance with quantum computing, AI-Enhanced.
+                Simulate and optimize your data models with quantum, AI-enhanced.
               </p>
               <div className="flex gap-4 justify-center flex-wrap pt-4">
                 <Link href="/auth/login">
@@ -185,35 +210,32 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 my-0 relative z-10">
-          <div className="absolute -top-16 sm:-top-32 lg:-top-44 -right-12 w-[293px] h-[293px] sm:w-[390px] sm:h-[390px] lg:w-[582px] lg:h-[582px] opacity-20 pointer-events-none z-0">
-            <Image
-              src="/images/schrodinger-20planck-20landing.png"
-              alt=""
-              width={582}
-              height={582}
-              className="w-full h-full object-contain"
-              style={{ transform: "rotate(-18deg)" }}
-            />
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center relative z-10">
+          <div className="inline-block">
+            <p className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#578e7e]">
+              Up to 68,719,476,736 different states
+            </p>
           </div>
+        </section>
 
+        <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 my-0 relative z-10">
           <h2 className="text-4xl font-bold text-foreground mb-12 text-center relative z-10">Features</h2>
           <div className="grid md:grid-cols-3 gap-8 relative z-10">
             {[
               {
                 icon: Zap,
-                title: "Lightning Fast",
-                description: "53x faster executions than quantum market standards",
+                title: "High Performance",
+                description: "53x faster computing executions than market standards",
               },
               {
                 icon: BarChart3,
                 title: "Powerful Analytics",
-                description: "Monitor, analyze and ask about quantum data",
+                description: "Monitor, analyze and understand your model",
               },
               {
                 icon: GitBranch,
                 title: "Hybrid Approach",
-                description: "Toggle auto/manual settings. Change between classic/quantum instances",
+                description: "Toggle auto/manual configurations. Customize your workflow",
               },
             ].map((feature, i) => {
               const Icon = feature.icon
@@ -329,169 +351,71 @@ export default function LandingPage() {
           display: inline-block;
         }
 
-        [data-hn-hero] .hn-slogan-wrap::before {
-          content: '';
-          position: absolute;
-          inset: -3rem;
-          background: radial-gradient(
-            ellipse 120% 100% at center,
-            var(--primary, #578e7e) 0%,
-            rgba(87, 142, 126, 0.47) 30%,
-            rgba(87, 142, 126, 0.23) 50%,
-            transparent 75%
-          );
-          opacity: calc(0.35 * var(--glow-opacity, 1));
-          filter: blur(60px);
-          z-index: -1;
-          animation: hn-halo-pulse 3s ease-in-out infinite, hn-halo-drift 8s ease-in-out infinite alternate;
-          transform: rotate(var(--scroll-rotation, 0deg));
-          transition: transform 0.1s ease-out, opacity 0.15s ease-out;
+        /* Enhanced floating cat animation with smoother fade in/out and 150% larger size */
+        .hn-floating-cat {
+          animation: hn-float-cat 15s ease-in-out infinite;
         }
 
-        [data-hn-hero] .hn-slogan-wrap::after {
-          content: '';
-          position: absolute;
-          inset: -2rem;
-          background: radial-gradient(
-            circle at center,
-            rgba(87, 142, 126, 0.62) 0%,
-            rgba(87, 142, 126, 0.31) 40%,
-            transparent 70%
-          );
-          opacity: calc(0.26 * var(--glow-opacity, 1));
-          filter: blur(45px);
-          z-index: -1;
-          animation: hn-halo-pulse 3s ease-in-out infinite 0.5s;
-          transform: rotate(calc(var(--scroll-rotation, 0deg) * -1.5));
-          transition: transform 0.1s ease-out, opacity 0.15s ease-out;
-        }
-
-        [data-hn-hero] .hn-cta {
-          position: relative;
-        }
-
-        [data-hn-hero] .hn-cta::before {
-          content: '';
-          position: absolute;
-          bottom: -12px;
-          left: 5%;
-          right: 5%;
-          height: 20px;
-          background: radial-gradient(
-            ellipse at center,
-            var(--primary, #578e7e) 0%,
-            rgba(87, 142, 126, 0.91) 40%,
-            transparent 75%
-          );
-          opacity: calc(0.84 * var(--glow-opacity, 1));
-          filter: blur(12px);
-          animation: hn-glow-pulse 2.5s ease-in-out infinite;
-          transition: opacity 0.15s ease-out;
-        }
-
-        [data-hn-hero] .hn-cta::after {
-          content: '';
-          position: absolute;
-          bottom: -8px;
-          left: 15%;
-          right: 15%;
-          height: 16px;
-          background: radial-gradient(
-            ellipse at center,
-            rgba(87, 142, 126, 1) 0%,
-            rgba(87, 142, 126, 0.65) 50%,
-            transparent 80%
-          );
-          opacity: calc(0.68 * var(--glow-opacity, 1));
-          filter: blur(8px);
-          animation: hn-glow-pulse 2.5s ease-in-out infinite 0.3s, hn-shimmer 4s ease-in-out infinite;
-          transition: opacity 0.15s ease-out;
-        }
-
-        @keyframes hn-halo-pulse {
-          0%, 100% {
-            opacity: 0.23;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.35;
-            transform: scale(1.08);
-          }
-        }
-
-        @keyframes hn-halo-drift {
-          0%, 100% {
-            transform: translateY(0) translateX(0);
-          }
-          50% {
-            transform: translateY(-8px) translateX(5px);
-          }
-        }
-
-        @keyframes hn-halo-rotate {
+        @keyframes hn-float-cat {
           0% {
-            transform: rotate(0deg) scale(1);
+            transform: translate(-20%, -20%) scale(0) rotate(0deg);
+            opacity: 0;
           }
-          50% {
-            transform: rotate(180deg) scale(1.05);
+          8% {
+            transform: translate(20%, 10%) scale(1) rotate(20deg);
+            opacity: 0.5;
+          }
+          20% {
+            transform: translate(80%, 20%) scale(1.1) rotate(45deg);
+            opacity: 0.6;
+          }
+          28% {
+            opacity: 0;
+          }
+          35% {
+            transform: translate(10%, 60%) scale(0) rotate(-30deg);
+            opacity: 0;
+          }
+          43% {
+            transform: translate(30%, 75%) scale(1) rotate(-45deg);
+            opacity: 0.5;
+          }
+          55% {
+            transform: translate(70%, 80%) scale(0.9) rotate(0deg);
+            opacity: 0.55;
+          }
+          63% {
+            opacity: 0;
+          }
+          70% {
+            transform: translate(90%, 30%) scale(0) rotate(90deg);
+            opacity: 0;
+          }
+          78% {
+            transform: translate(85%, 50%) scale(1.2) rotate(60deg);
+            opacity: 0.6;
+          }
+          90% {
+            transform: translate(50%, 40%) scale(0.8) rotate(-20deg);
+            opacity: 0.5;
+          }
+          98% {
+            opacity: 0;
           }
           100% {
-            transform: rotate(360deg) scale(1);
+            transform: translate(-20%, -20%) scale(0) rotate(0deg);
+            opacity: 0;
           }
         }
+      `}</style>
 
-        @keyframes hn-glow-pulse {
-          0%, 100% {
-            opacity: 0.52;
-            transform: scaleY(1);
-          }
-          50% {
-            opacity: 0.85;
-            transform: scaleY(1.15);
-          }
-        }
-
-        @keyframes hn-shimmer {
-          0%, 100% {
-            transform: translateX(0) scaleX(1);
-            opacity: 0.52;
-          }
-          50% {
-            transform: translateX(3px) scaleX(1.1);
-            opacity: 0.78;
-          }
-        }
-
-        @media (max-width: 768px) {
-          [data-hn-hero] .hn-slogan-wrap::before {
-            filter: blur(30px);
-            inset: -2rem;
-          }
-          [data-hn-hero] .hn-slogan-wrap::after {
-            filter: blur(25px);
-          }
-          [data-hn-hero] .hn-cta::before {
-            filter: blur(6px);
-          }
-          [data-hn-hero] .hn-cta::after {
-            filter: blur(4px);
-          }
-        }
-
+      <style jsx global>{`
         @media (prefers-reduced-motion: reduce) {
-          [data-hn-hero] .hn-slogan-wrap::before,
-          [data-hn-hero] .hn-slogan-wrap::after,
-          [data-hn-hero] .hn-cta::before,
-          [data-hn-hero] .hn-cta::after {
+          /* Disable shimmer animation overlay for reduced motion */
+          .hn-shimmer-text::before {
             animation: none;
+            display: none;
           }
-        }
-
-        [data-hn-hero].hn-disable .hn-slogan-wrap::before,
-        [data-hn-hero].hn-disable .hn-slogan-wrap::after,
-        [data-hn-hero].hn-disable .hn-cta::before,
-        [data-hn-hero].hn-disable .hn-cta::after {
-          display: none;
         }
       `}</style>
     </div>

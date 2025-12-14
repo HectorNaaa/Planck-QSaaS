@@ -12,7 +12,7 @@ import { createBrowserClient } from "@/lib/supabase/client"
 type TimeRange = "24h" | "7d" | "30d"
 
 interface DashboardStats {
-  TotalCircuitsRun: number
+  avgCircuitsRun: number
   avgSuccessRate: number
   avgRuntime: number
   avgQubits: number
@@ -21,6 +21,7 @@ interface DashboardStats {
 interface RecentCircuit {
   id: string
   circuit_name: string
+  algorithm: string
   status: string
   qubits_used: number
   runtime_ms: number
@@ -30,7 +31,7 @@ interface RecentCircuit {
 export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d")
   const [stats, setStats] = useState<DashboardStats>({
-    TotalCircuitsRun: 0,
+    avgCircuitsRun: 0,
     avgSuccessRate: 0,
     avgRuntime: 0,
     avgQubits: 0,
@@ -118,7 +119,7 @@ export default function DashboardPage() {
     setStats({
       avgCircuitsRun: totalCircuits,
       avgSuccessRate: Math.round(avgSuccessRate * 10) / 10,
-      avgRuntime: Math.round(avgRuntime),
+      avgRuntime: Number(avgRuntime.toFixed(3)),
       avgQubits: Math.round(avgQubits * 10) / 10,
     })
   }
@@ -160,7 +161,7 @@ export default function DashboardPage() {
     },
     {
       label: "Avg Runtime",
-      value: loading ? "..." : `${stats.avgRuntime}ms`,
+      value: loading ? "..." : `${stats.avgRuntime.toFixed(3)}ms`,
       change: `Last ${timeRange}`,
       icon: Clock,
     },
@@ -223,7 +224,8 @@ export default function DashboardPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Circuit Name</th>
+                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Algorithm</th>
+                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Name</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Status</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Qubits</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Runtime</th>
@@ -234,6 +236,11 @@ export default function DashboardPage() {
               <tbody>
                 {recentCircuits.map((circuit) => (
                   <tr key={circuit.id} className="border-b border-border hover:bg-secondary/50 transition">
+                    <td className="py-3 px-4">
+                      <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-primary/20 text-primary">
+                        {circuit.algorithm || "N/A"}
+                      </span>
+                    </td>
                     <td className="py-3 px-4 font-medium text-foreground">{circuit.circuit_name}</td>
                     <td className="py-3 px-4">
                       <span
@@ -253,7 +260,9 @@ export default function DashboardPage() {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-foreground">{circuit.qubits_used}</td>
-                    <td className="py-3 px-4 text-foreground">{circuit.runtime_ms}ms</td>
+                    <td className="py-3 px-4 text-foreground">
+                      {circuit.runtime_ms ? `${Number(circuit.runtime_ms).toFixed(6)}ms` : "N/A"}
+                    </td>
                     <td className="py-3 px-4 text-muted-foreground text-sm">
                       {new Date(circuit.created_at).toLocaleString()}
                     </td>

@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabase/server"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { qasm, shots, backend, errorMitigation, circuitName, executionType, qubits } = body
+    const { qasm, shots, backend, errorMitigation, circuitName, algorithm, executionType, qubits } = body
 
     console.log("[v0] Simulating quantum circuit:", { backend, shots, errorMitigation })
 
@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: user.id,
         circuit_name: circuitName || "Unnamed Circuit",
+        algorithm: algorithm || "Unknown",
         execution_type: executionType || "auto",
         backend,
         status: "completed",
@@ -40,6 +41,20 @@ export async function POST(request: NextRequest) {
         qubits_used: qubits || extractQubitCount(qasm),
         shots,
         error_mitigation: errorMitigation,
+        circuit_data: {
+          qasm_code: qasm,
+          results: {
+            counts: results.counts,
+            success_rate: results.successRate,
+            runtime_ms: results.runtime,
+            memory: results.memory,
+          },
+          backend_config: {
+            backend,
+            shots,
+            error_mitigation: errorMitigation,
+          },
+        },
         completed_at: new Date().toISOString(),
       })
       .select("id")
@@ -57,7 +72,7 @@ export async function POST(request: NextRequest) {
       successRate: results.successRate,
       runtime: results.runtime,
       memory: results.memory,
-      execution_id: insertedLog?.id, // Return execution_id for Digital Twin creation
+      execution_id: insertedLog?.id,
     })
   } catch (error) {
     console.error("[v0] Simulation error:", error)

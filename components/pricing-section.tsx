@@ -13,7 +13,7 @@ const plans = [
     features: [
       "Quantum-inspired executions",
       "Up to 12 qubits",
-      "Pre-built circuits",
+      "Pre-built algorithms",
       "Basic analytics",
       "Community support",
     ],
@@ -28,7 +28,7 @@ const plans = [
     features: [
       "QPUs and quantum-inspired",
       "Up to 36 qubits",
-      "Pre-built circuits",
+      "Pre-built algorithms",
       "Advanced analytics",
       "Priority support",
       "Error mitigation",
