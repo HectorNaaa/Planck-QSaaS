@@ -6,6 +6,7 @@ Supports Bell States, Grover, Shor, VQE, and QAOA algorithms.
 
 import json
 import sys
+from pathlib import Path
 from typing import Dict, List, Any, Tuple
 from dataclasses import dataclass
 import numpy as np
@@ -287,30 +288,56 @@ class CircuitGenerator:
         return qasm
 
 
+def load_qasm_template(algorithm: str) -> str:
+    """Load pre-built QASM template for algorithm"""
+    template_map = {
+        'bell': 'bell_state.qasm',
+        'grover': 'grover_search.qasm',
+        'shor': 'shor_period_finding.qasm',
+        'vqe': 'vqe_ansatz.qasm',
+        'qaoa': 'qaoa_maxcut.qasm'
+    }
+    
+    template_file = template_map.get(algorithm.lower())
+    if not template_file:
+        return None
+    
+    template_path = Path(__file__).parent / 'algorithms' / template_file
+    
+    try:
+        with open(template_path, 'r') as f:
+            return f.read()
+    except FileNotFoundError:
+        return None
+
 def main():
-    """Main entry point for circuit generation"""
     if len(sys.argv) < 3:
-        print("Usage: python quantum_circuit_generator.py <algorithm> <data_json>")
+        print(json.dumps({'error': 'Usage: python quantum_circuit_generator.py <algorithm> <data_json>'}))
         sys.exit(1)
     
     algorithm = sys.argv[1]
     data = json.loads(sys.argv[2])
     
-    generator = CircuitGenerator(algorithm, data)
-    circuit = generator.generate()
-    qasm = generator.to_qasm(circuit)
+    # Load QASM template
+    qasm = load_qasm_template(algorithm)
     
+    if not qasm:
+        print(json.dumps({'error': f'Unknown algorithm: {algorithm}'}))
+        sys.exit(1)
+    
+    # Return circuit info
+    num_qubits = qasm.count('qreg') 
     output = {
-        'algorithm': circuit.algorithm,
-        'num_qubits': circuit.num_qubits,
-        'num_gates': len(circuit.gates),
-        'depth': len([g for g in circuit.gates if g.gate_type != 'measure']),
+        'algorithm': algorithm.capitalize(),
+        'num_qubits': data.get('num_items', 4),
         'qasm': qasm,
-        'metadata': circuit.metadata
+        'metadata': {
+            'type': 'template',
+            'source': 'OpenQASM'
+        }
     }
     
     print(json.dumps(output, indent=2))
-
 
 if __name__ == "__main__":
     main()

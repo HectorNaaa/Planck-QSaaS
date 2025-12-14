@@ -364,7 +364,17 @@ export default function RunnerPage() {
 
     try {
       const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        console.error("[v0] Cannot save circuit: User not authenticated")
+        return
+      }
+
       const { error } = await supabase.from("execution_logs").insert({
+        user_id: user.id,
         circuit_name: executionName || `${circuitName} Execution`,
         algorithm: circuitName,
         execution_type: executionType,

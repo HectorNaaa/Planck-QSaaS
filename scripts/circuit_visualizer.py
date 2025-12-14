@@ -105,6 +105,34 @@ class CircuitVisualizer:
         }
 
 
+def parse_qasm_stats(qasm_code: str) -> dict:
+    """Extract basic statistics from QASM code"""
+    lines = qasm_code.strip().split('\n')
+    
+    stats = {
+        'num_qubits': 0,
+        'num_gates': 0,
+        'gate_types': {},
+        'depth': 0
+    }
+    
+    for line in lines:
+        line = line.strip()
+        if line.startswith('qreg'):
+            # Extract qubit count: qreg q[4];
+            num = int(line.split('[')[1].split(']')[0])
+            stats['num_qubits'] = max(stats['num_qubits'], num)
+        elif line and not line.startswith('//') and not line.startswith('OPENQASM') and not line.startswith('include'):
+            # Count gates
+            gate = line.split()[0].split('(')[0]
+            if gate in ['h', 'x', 'y', 'z', 'cx', 'measure', 'ry', 'rz', 'rx']:
+                stats['num_gates'] += 1
+                stats['gate_types'][gate] = stats['gate_types'].get(gate, 0) + 1
+    
+    stats['depth'] = stats['num_gates']  # Simplified depth calculation
+    
+    return stats
+
 def main():
     """Main entry point"""
     if len(sys.argv) < 2:
@@ -123,6 +151,8 @@ def main():
     # Add circuit stats
     if result['success']:
         result['stats'] = visualizer.get_circuit_stats()
+    else:
+        result['stats'] = parse_qasm_stats(qasm_code)
     
     print(json.dumps(result))
 

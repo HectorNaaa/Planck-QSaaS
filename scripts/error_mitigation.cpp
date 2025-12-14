@@ -201,24 +201,49 @@ public:
     }
 };
 
+// Error Mitigation - Simplified configuration generator
+
+double calculate_overhead(const std::string& level) {
+    if(level == "low") return 2.0;
+    if(level == "medium") return 5.0;
+    if(level == "high") return 10.0;
+    return 1.0;
+}
+
+double calculate_error_rate(const std::string& level, double base) {
+    if(level == "low") return base * base;
+    if(level == "medium") return std::pow(base, 3);
+    if(level == "high") return std::pow(base, 5);
+    return base;
+}
+
 int main(int argc, char* argv[]) {
-    if (argc < 3) {
-        cerr << "Usage: " << argv[0] << " <logical_qubits> <mitigation_level>" << endl;
+    if(argc < 3) {
+        std::cerr << "Usage: " << argv[0] << " <qubits> <level>" << std::endl;
         return 1;
     }
     
-    int logical_qubits = stoi(argv[1]);
-    string level_str = argv[2];
+    int qubits = std::stoi(argv[1]);
+    std::string level_str = argv[2];
+    double base_error = 0.001;
     
     MitigationLevel level = MitigationLevel::NONE;
     if (level_str == "low") level = MitigationLevel::LOW;
     else if (level_str == "medium") level = MitigationLevel::MEDIUM;
     else if (level_str == "high") level = MitigationLevel::HIGH;
     
-    ErrorMitigator mitigator(logical_qubits, level);
+    ErrorMitigator mitigator(qubits, level);
     json report = mitigator.generateReport();
     
     cout << report.dump(2) << endl;
+    
+    // Simplified configuration output
+    cout << "{"
+          << "\"mitigation_level\":\"" << level_str << "\","
+          << "\"logical_qubits\":" << qubits << ","
+          << "\"physical_qubits\":" << (int)(qubits * calculate_overhead(level_str)) << ","
+          << "\"effective_error\":" << calculate_error_rate(level_str, base_error)
+          << "}" << endl;
     
     return 0;
 }
