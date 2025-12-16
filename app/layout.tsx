@@ -14,8 +14,24 @@ export const metadata: Metadata = {
   description:
     "Build and run quantum algorithms with Planck. Simple, powerful, and accessible quantum computing platform.",
   icons: {
-    icon: "/logo-isotipo.png",
+    icon: [
+      { url: "/logo-isotipo.png", sizes: "any" },
+      { url: "/logo-isotipo.png", sizes: "32x32", type: "image/png" },
+      { url: "/logo-isotipo.png", sizes: "16x16", type: "image/png" },
+    ],
     apple: "/logo-isotipo.png",
+    shortcut: "/logo-isotipo.png",
+  },
+  openGraph: {
+    title: "Planck Quantum SaaS",
+    description: "Effortless Quantum Computing Platform",
+    images: ["/planck-logo.jpg"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Planck Quantum SaaS",
+    description: "Effortless Quantum Computing Platform",
+    images: ["/planck-logo.jpg"],
   },
     generator: 'v0.app'
 }
