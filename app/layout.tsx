@@ -10,27 +10,14 @@ const _lora = Lora({ subsets: ["latin"] })
 const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "QuantumSaaS - Quantum Computing Made Simple",
+  title: "Planck Quantum SaaS - Effortless Quantum Computing",
   description:
-    "Build and run quantum algorithms with QuantumSaaS. Simple, powerful, and accessible quantum computing platform.",
-  generator: "v0.app",
+    "Build and run quantum algorithms with Planck. Simple, powerful, and accessible quantum computing platform.",
   icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
-    apple: "/apple-icon.png",
+    icon: "/logo-isotipo.png",
+    apple: "/logo-isotipo.png",
   },
+    generator: 'v0.app'
 }
 
 export default function RootLayout({
