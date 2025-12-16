@@ -20,6 +20,7 @@ import { DigitalTwinPanel } from "@/components/runner/digital-twin-panel"
 export default function RunnerPage() {
   const [isRunning, setIsRunning] = useState(false)
   const [executionName, setExecutionName] = useState("")
+  const [targetLatency, setTargetLatency] = useState<number | null>(null)
   const [circuitName, setCircuitName] = useState("")
   const [executionType, setExecutionType] = useState<"auto" | "manual">("auto")
   const [backend, setBackend] = useState<"quantum_inspired_gpu" | "hpc_gpu" | "quantum_qpu">("quantum_inspired_gpu")
@@ -59,6 +60,7 @@ export default function RunnerPage() {
         setDataUploaded(state.dataUploaded || false)
         setUploadedData(state.uploadedData || null)
         setCircuitImageUrl(state.circuitImageUrl || null)
+        setTargetLatency(state.targetLatency || null)
       } catch (err) {
         console.error("[v0] Error restoring state:", err)
       }
@@ -79,6 +81,7 @@ export default function RunnerPage() {
       dataUploaded,
       uploadedData,
       circuitImageUrl,
+      targetLatency,
     }
     sessionStorage.setItem("runner_state", JSON.stringify(state))
   }, [
@@ -94,6 +97,7 @@ export default function RunnerPage() {
     dataUploaded,
     uploadedData,
     circuitImageUrl,
+    targetLatency,
   ])
 
   const handleDataUpload = useCallback(
@@ -101,15 +105,46 @@ export default function RunnerPage() {
       setUploadedData(uploadedData)
 
       try {
+        let dataStructure = "simple"
+        let dataDimensions = 1
+        let dataSize = 10
+
+        if (Array.isArray(uploadedData)) {
+          dataSize = uploadedData.length
+          if (Array.isArray(uploadedData[0])) {
+            dataStructure = "matrix"
+            dataDimensions = 2
+            dataSize = uploadedData.length * uploadedData[0].length
+          } else {
+            dataStructure = "array"
+          }
+        } else if (typeof uploadedData === "object" && uploadedData !== null) {
+          if (uploadedData.raw && uploadedData.type === "csv") {
+            dataStructure = "table"
+            const rows = uploadedData.raw.split("\n").filter((r: string) => r.trim())
+            dataSize = rows.length - 1
+          } else {
+            dataStructure = "object"
+            dataSize = Object.keys(uploadedData).length
+          }
+        }
+
+        console.log("[v0] Data structure:", dataStructure, "Dimensions:", dataDimensions, "Size:", dataSize)
+
         const response = await fetch("/api/quantum/generate-circuit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             algorithm: circuitName,
             inputData: uploadedData,
-            qubits: uploadedData.qubits || qubits,
+            qubits: uploadedData.qubits || Math.max(2, Math.ceil(Math.log2(dataSize))),
             shots,
             errorMitigation,
+            dataMetadata: {
+              structure: dataStructure,
+              dimensions: dataDimensions,
+              size: dataSize,
+            },
           }),
         })
 
@@ -138,8 +173,20 @@ export default function RunnerPage() {
 
           if (vizResponse.ok) {
             const vizData = await vizResponse.json()
-            if (vizData.success) {
-              setCircuitImageUrl(`data:image/png;base64,${vizData.image_data}`)
+            if (vizData.success && vizData.image_data) {
+              // Check if it's SVG or PNG base64
+              if (vizData.format === "svg") {
+                // Convert SVG string to data URL
+                const svgBlob = new Blob([vizData.image_data], { type: "image/svg+xml" })
+                const svgUrl = URL.createObjectURL(svgBlob)
+                setCircuitImageUrl(svgUrl)
+              } else {
+                // Handle PNG base64
+                setCircuitImageUrl(`data:image/png;base64,${vizData.image_data}`)
+              }
+              console.log("[v0] Circuit visualization generated successfully")
+            } else {
+              console.error("[v0] Visualization failed:", vizData.error)
             }
           } else {
             console.error("[v0] Visualization API error:", await vizResponse.text())
@@ -150,6 +197,7 @@ export default function RunnerPage() {
               qubits: data.qubits,
               depth: data.depth,
               gateCount: data.gates.length,
+              targetLatency,
             })
             setBackend(optimal)
           }
@@ -161,7 +209,7 @@ export default function RunnerPage() {
         setDataUploaded(false)
       }
     },
-    [circuitName, executionType, qubits, shots, errorMitigation],
+    [circuitName, executionType, qubits, shots, errorMitigation, targetLatency],
   )
 
   const handleSaveCode = useCallback(() => {
@@ -203,6 +251,7 @@ export default function RunnerPage() {
           algorithm: circuitName,
           executionType,
           qubits,
+          targetLatency,
         }),
       })
 
@@ -276,12 +325,16 @@ export default function RunnerPage() {
     } finally {
       setIsRunning(false)
     }
-  }, [circuitCode, backend, qubits, shots, errorMitigation, executionName, circuitName, executionType])
+  }, [circuitCode, backend, qubits, shots, errorMitigation, executionName, circuitName, executionType, targetLatency])
 
   const handleDownloadCircuitImage = useCallback(() => {
+    if (!circuitImageUrl) return
+
     const link = document.createElement("a")
-    link.href = circuitImageUrl || "/placeholder.svg"
-    link.download = `${circuitName.replace(/\s+/g, "_")}_circuit.jpg`
+    link.href = circuitImageUrl
+    // Use .svg extension if URL is a blob URL (SVG), otherwise .png
+    const extension = circuitImageUrl.startsWith("blob:") ? "svg" : "png"
+    link.download = `${circuitName.replace(/\s+/g, "_")}_circuit.${extension}`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
@@ -350,6 +403,7 @@ export default function RunnerPage() {
       circuit_data: circuitData,
       results,
       timestamp: new Date().toISOString(),
+      target_latency: targetLatency,
     }
 
     const blob = new Blob([JSON.stringify(circuitSnapshot, null, 2)], { type: "application/json" })
@@ -405,6 +459,7 @@ export default function RunnerPage() {
     circuitCode,
     circuitData,
     results,
+    targetLatency,
   ])
 
   const handleReset = useCallback(() => {
@@ -423,6 +478,7 @@ export default function RunnerPage() {
     setUploadedData(null)
     setCircuitImageUrl(null)
     setSelectedAlgorithm(null)
+    setTargetLatency(null)
     sessionStorage.removeItem("runner_state")
     sessionStorage.removeItem("selectedAlgorithm")
   }, [])
@@ -447,6 +503,28 @@ export default function RunnerPage() {
             />
             <p className="text-xs text-muted-foreground mt-1">
               Give this execution a custom name to easily identify it in your dashboard
+            </p>
+          </div>
+
+          <div className="mt-4">
+            <label htmlFor="target-latency" className="block text-sm font-medium text-foreground mb-2">
+              Target Latency (Optional)
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="target-latency"
+                type="number"
+                min="0"
+                step="1"
+                value={targetLatency || ""}
+                onChange={(e) => setTargetLatency(e.target.value ? Number(e.target.value) : null)}
+                placeholder="e.g., 1000"
+                className="flex-1 px-4 py-2 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <span className="text-sm font-medium text-muted-foreground">ms</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              For Quantum QPU: Minimum 500ms required. If less than 500ms, execution will use HPC or Classical backend
             </p>
           </div>
         </div>
@@ -520,28 +598,9 @@ export default function RunnerPage() {
                 />
               ) : (
                 <pre className="p-4 rounded-lg text-sm font-mono text-secondary-foreground bg-secondary max-h-96 overflow-auto">
-                  {circuitCode ||
-                    `OPENQASM 2.0;
-include "qelib1.inc";
-
-qreg q[4];
-creg c[4];
-
-// Initialize to superposition
-h q[0];
-h q[1];
-h q[2];
-h q[3];
-
-// Apply oracle
-cx q[0],q[3];
-cx q[1],q[2];
-
-// Measure
-measure q[0] -> c[0];
-measure q[1] -> c[1];
-measure q[2] -> c[2];
-measure q[3] -> c[3];`}
+                  {circuitCode
+                    ? circuitCode.replace(/^OPENQASM\s+2\.0;\s*\n/i, "").replace(/^include\s+"qelib1\.inc";\s*\n/i, "")
+                    : `// Upload data and select algorithm to generate circuit code`}
                 </pre>
               )}
             </Card>

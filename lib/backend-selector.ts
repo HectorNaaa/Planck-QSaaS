@@ -28,6 +28,44 @@ export function selectOptimalBackend(metrics: CircuitMetrics): Backend {
   return "quantum_inspired_gpu"
 }
 
+export function selectBackendWithLatency(
+  metrics: CircuitMetrics,
+  targetLatency: number | null,
+  preferredBackend: Backend,
+): Backend {
+  // If Quantum QPU is requested but latency < 500ms, downgrade to HPC or Classical
+  if (preferredBackend === "quantum_qpu" && targetLatency !== null && targetLatency < 500) {
+    console.log(`[v0] Quantum QPU requires >= 500ms latency. Target: ${targetLatency}ms. Selecting HPC GPU instead.`)
+    return "hpc_gpu"
+  }
+
+  // If no latency constraint, use optimal backend selection
+  if (targetLatency === null) {
+    return selectOptimalBackend(metrics)
+  }
+
+  // Select backend based on latency requirements
+  const { qubits, depth } = metrics
+
+  // Quantum-inspired GPU: fastest, best for < 100ms
+  if (targetLatency < 100 && qubits < 12) {
+    return "quantum_inspired_gpu"
+  }
+
+  // HPC GPU: moderate speed, good for 100-500ms
+  if (targetLatency >= 100 && targetLatency < 500) {
+    return "hpc_gpu"
+  }
+
+  // Quantum QPU: slowest but highest fidelity, requires >= 500ms
+  if (targetLatency >= 500 && qubits >= 12) {
+    return "quantum_qpu"
+  }
+
+  // Default fallback
+  return selectOptimalBackend(metrics)
+}
+
 export function calculateFidelity(backend: Backend, qubits: number, depth: number): number {
   // Fidelity formula: base_fidelity * (1 - error_rate)^(depth)
   const baseFidelities = {

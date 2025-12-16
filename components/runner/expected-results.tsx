@@ -44,7 +44,7 @@ export function ExpectedResults({ backend, qubits, depth, hasData = false }: Exp
   return (
     <Card className="p-6 shadow-lg">
       <div className="flex items-center justify-between mb-4 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-        <h3 className="text-lg font-bold text-foreground">Expected Results</h3>
+        <h3 className="text-lg font-bold text-foreground">Estimated Results</h3>
         <ChevronDown
           size={24}
           className={`text-primary transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
@@ -59,32 +59,11 @@ export function ExpectedResults({ backend, qubits, depth, hasData = false }: Exp
               <p className="text-xs text-muted-foreground mb-1">Est. Fidelity</p>
               <p className="text-xl font-bold text-primary">{selectedBackend.fidelity.toFixed(1)}%</p>
             </div>
-          </div>
-
-          {/* Complexity Analysis */}
-          {hasData && (
-            <div className="p-3 bg-secondary/50 rounded-lg border border-border">
-              <p className="text-xs text-muted-foreground mb-2">Estimated Algorithmic Analysis</p>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-foreground">Time (Classical):</span>
-                  <span className="text-sm font-bold text-muted-foreground">{classicalOps.toLocaleString()} ops</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-foreground">Time (Quantum):</span>
-                  <span className="text-sm font-bold text-primary">{quantumOps.toLocaleString()} ops</span>
-                </div>
-                <div className="flex justify-between items-center pt-2 border-t border-border">
-                  <span className="text-sm text-foreground">Space (Hilbert):</span>
-                  <span className="text-sm font-bold text-primary">{hilbertSpaceDim.toLocaleString()} dims</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-foreground">Runtime Est.:</span>
-                  <span className="text-sm font-bold text-primary">{selectedBackend.runtime.toFixed(3)}s</span>
-                </div>
-              </div>
+            <div className="p-3 bg-secondary/50 rounded-lg border border-primary/20">
+              <p className="text-xs text-muted-foreground mb-1">Avg Runtime</p>
+              <p className="text-xl font-bold text-primary">{(selectedBackend.runtime * 1000).toFixed(3)}ms</p>
             </div>
-          )}
+          </div>
 
           {/* Backend Comparison */}
           <div className="mt-4">
@@ -105,7 +84,7 @@ export function ExpectedResults({ backend, qubits, depth, hasData = false }: Exp
                   </div>
                   <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
                     <span>Fidelity: {data.fidelity.toFixed(1)}%</span>
-                    <span>Runtime: {data.runtime.toFixed(3)}s</span>
+                    <span>Runtime: {(data.runtime * 1000).toFixed(3)}ms</span>
                   </div>
                 </div>
               ))}

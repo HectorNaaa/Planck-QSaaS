@@ -8,6 +8,7 @@ import Link from "next/link"
 import { PageHeader } from "@/components/page-header"
 import { useEffect, useState } from "react"
 import { createBrowserClient } from "@/lib/supabase/client"
+import { ExecutionCharts } from "@/components/dashboard/execution-charts"
 
 type TimeRange = "24h" | "7d" | "30d"
 
@@ -37,6 +38,7 @@ export default function DashboardPage() {
     avgQubits: 0,
   })
   const [recentCircuits, setRecentCircuits] = useState<RecentCircuit[]>([])
+  const [allCircuits, setAllCircuits] = useState<RecentCircuit[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -82,7 +84,8 @@ export default function DashboardPage() {
 
       if (logs && logs.length > 0) {
         calculateStats(logs)
-        setRecentCircuits(logs.slice(0, 5) as RecentCircuit[])
+        setAllCircuits(logs as RecentCircuit[])
+        setRecentCircuits(logs as RecentCircuit[])
 
         if (timeRange === "7d") {
           sessionStorage.setItem("planck_recent_circuits", JSON.stringify(logs.slice(0, 10)))
@@ -94,6 +97,7 @@ export default function DashboardPage() {
           avgRuntime: 0,
           avgQubits: 0,
         })
+        setAllCircuits([])
         setRecentCircuits([])
       }
     } catch (error) {
@@ -175,9 +179,8 @@ export default function DashboardPage() {
 
   return (
     <div className="p-8 space-y-8 px-0">
-      {/* Header with Time Range Selector */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <PageHeader title="Dashboard" description="Welcome back! Here's your quantum computing activity." />
+        <PageHeader title="Dashboard" description="Welcome back! Here's your activity." />
         <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRange)}>
           <SelectTrigger className="w-[180px] shadow-lg">
             <SelectValue placeholder="Select time range" />
@@ -190,7 +193,6 @@ export default function DashboardPage() {
         </Select>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((stat, i) => {
           const Icon = stat.icon
@@ -207,7 +209,8 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* Recent Activity */}
+      <ExecutionCharts logs={allCircuits} timeRange={timeRange} />
+
       <Card className="p-6 hover:shadow-lg transition-all duration-300 shadow-lg bg-secondary">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-foreground">Recent Circuits</h2>
@@ -220,9 +223,9 @@ export default function DashboardPage() {
         ) : recentCircuits.length === 0 ? (
           <p className="text-muted-foreground text-center py-8">No circuits run in this time period.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
             <table className="w-full">
-              <thead>
+              <thead className="bg-secondary sticky top-0 z-10">
                 <tr className="border-b border-border">
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Algorithm</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Name</th>

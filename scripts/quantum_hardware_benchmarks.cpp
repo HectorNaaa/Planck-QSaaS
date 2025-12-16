@@ -46,6 +46,10 @@ struct HardwareSpec {
     double quantum_volume;
     double clops;  // Circuit Layer Operations Per Second
     double eplg;   // Error Per Layered Gate
+    
+    // Latency constraints (milliseconds)
+    double min_execution_latency;  // Minimum realistic execution time
+    double typical_latency;         // Typical execution latency
 };
 
 class QuantumHardwareDatabase {
@@ -79,6 +83,8 @@ public:
         ibm_falcon.quantum_volume = 128;
         ibm_falcon.clops = 7800;
         ibm_falcon.eplg = 0.0089;
+        ibm_falcon.min_execution_latency = 500.0;  // 500ms minimum for QPU
+        ibm_falcon.typical_latency = 800.0;        // Typical latency
         
         // Heavy-hex coupling map (simplified)
         for(int i = 0; i < 26; i++) {
@@ -111,6 +117,8 @@ public:
         rigetti_aspen.quantum_volume = 32;
         rigetti_aspen.clops = 4200;
         rigetti_aspen.eplg = 0.0234;
+        rigetti_aspen.min_execution_latency = 600.0;
+        rigetti_aspen.typical_latency = 1000.0;
         
         // Octagonal lattice coupling
         for(int i = 0; i < 79; i++) {
@@ -143,6 +151,8 @@ public:
         ionq_aria.quantum_volume = 524288;  // 2^19
         ionq_aria.clops = 150;
         ionq_aria.eplg = 0.0012;
+        ionq_aria.min_execution_latency = 1000.0;  // Ion traps are slower
+        ionq_aria.typical_latency = 2000.0;
         
         // Full connectivity
         for(int i = 0; i < 25; i++) {
@@ -174,6 +184,8 @@ public:
         google_sycamore.quantum_volume = 256;
         google_sycamore.clops = 31250;
         google_sycamore.eplg = 0.0041;
+        google_sycamore.min_execution_latency = 400.0;
+        google_sycamore.typical_latency = 600.0;
         
         // 2D grid coupling
         int grid_size = 7;
@@ -245,6 +257,8 @@ public:
         for(const auto& gate : hw.native_gates_2q) cout << gate << " ";
         cout << endl;
         cout << "Connectivity: " << hw.coupling_map.size() << " edges" << endl;
+        cout << "Minimum Execution Latency: " << hw.min_execution_latency << " ms" << endl;
+        cout << "Typical Latency: " << hw.typical_latency << " ms" << endl;
     }
 };
 

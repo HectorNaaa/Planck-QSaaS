@@ -118,7 +118,10 @@ export function DatabaseUploader({ onDataUpload, preSelectedAlgorithm, onAlgorit
   return (
     <Card className="p-6 shadow-lg">
       <div className="flex items-center justify-between mb-4 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-        <h3 className="text-lg font-bold text-foreground">Database & Config</h3>
+        <div className="flex items-center gap-3">
+          <span className="text-primary font-bold text-base">1.</span>
+          <h3 className="text-lg font-bold text-foreground">Database & Config</h3>
+        </div>
         <ChevronDown
           size={24}
           className={`text-primary transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}

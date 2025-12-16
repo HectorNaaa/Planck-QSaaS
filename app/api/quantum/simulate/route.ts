@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabase/server"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { qasm, shots, backend, errorMitigation, circuitName, algorithm, executionType, qubits } = body
+    const { qasm, shots, backend, errorMitigation, circuitName, algorithm, executionType, qubits, inputData } = body
 
     console.log("[v0] Simulating quantum circuit:", { backend, shots, errorMitigation })
 
@@ -43,6 +43,14 @@ export async function POST(request: NextRequest) {
         error_mitigation: errorMitigation,
         circuit_data: {
           qasm_code: qasm,
+          input_data: inputData, // Store the uploaded data
+          algorithm_params: {
+            algorithm,
+            qubits,
+            shots,
+            backend,
+            error_mitigation: errorMitigation,
+          },
           results: {
             counts: results.counts,
             success_rate: results.successRate,
