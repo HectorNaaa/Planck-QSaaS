@@ -11,8 +11,7 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Planck Quantum SaaS - Effortless Quantum Computing",
-  description:
-    "Build and run quantum algorithms with Planck. Simple, powerful, and accessible quantum computing platform.",
+  description: "Build and run quantum cases with Planck. Simple, powerful, and accessible quantum computing platform.",
   icons: {
     icon: [
       { url: "/logo-isotipo.png", sizes: "any" },

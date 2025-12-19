@@ -28,6 +28,7 @@ interface ExecutionLog {
   shots: number
   success_rate: number
   created_at: string
+  qubits_used: number // Added qubits_used field
 }
 
 interface ExecutionChartsProps {
@@ -42,6 +43,7 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
 
   const brandGreen = "rgb(87, 142, 126)"
   const brandGreenLight = "rgba(87, 142, 126, 0.1)"
+  const darkGray = "rgb(64, 64, 64)" // Added dark gray color for qubit line
 
   const latencyData = {
     labels: logs.map((_, idx) => `#${idx + 1}`),
@@ -53,13 +55,27 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
         backgroundColor: brandGreenLight,
         tension: 0.4,
         fill: true,
+        yAxisID: "y",
+      },
+      {
+        label: "Qubits",
+        data: logs.map((log) => log.qubits_used || 2),
+        borderColor: darkGray,
+        backgroundColor: "transparent",
+        tension: 0.4,
+        fill: false,
+        pointRadius: 4,
+        yAxisID: "y1",
       },
     ],
   }
 
   const backendMap: { [key: string]: number } = {
+    classical: 1,
     Classical: 1,
+    hpc: 2,
     HPC: 2,
+    quantum_qpu: 3,
     "Quantum QPU": 3,
   }
 
@@ -70,11 +86,25 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
         label: "Backend Type",
         data: logs.map((log, idx) => ({
           x: idx + 1,
-          y: backendMap[log.backend] || 1,
+          y: backendMap[log.backend] || backendMap[log.backend.toLowerCase()] || 1,
         })),
         backgroundColor: brandGreen,
         pointRadius: 6,
         pointHoverRadius: 8,
+        yAxisID: "y",
+      },
+      {
+        label: "Qubits",
+        data: logs.map((log, idx) => ({
+          x: idx + 1,
+          y: log.qubits_used || 2,
+        })),
+        backgroundColor: darkGray,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        showLine: true,
+        borderColor: darkGray,
+        yAxisID: "y1",
       },
     ],
   }
@@ -89,6 +119,17 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
         backgroundColor: brandGreenLight,
         tension: 0.4,
         fill: true,
+        yAxisID: "y",
+      },
+      {
+        label: "Qubits",
+        data: logs.map((log) => log.qubits_used || 2),
+        borderColor: darkGray,
+        backgroundColor: "transparent",
+        tension: 0.4,
+        fill: false,
+        pointRadius: 4,
+        yAxisID: "y1",
       },
     ],
   }
@@ -96,6 +137,10 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
   const lineChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    interaction: {
+      mode: "index" as const,
+      intersect: false,
+    },
     plugins: {
       legend: {
         display: true,
@@ -107,7 +152,23 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
     },
     scales: {
       y: {
+        type: "linear" as const,
+        display: true,
+        position: "left" as const,
         beginAtZero: true,
+      },
+      y1: {
+        type: "linear" as const,
+        display: true,
+        position: "right" as const,
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: "Qubits",
+        },
+        grid: {
+          drawOnChartArea: false,
+        },
       },
     },
   }
@@ -117,7 +178,8 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        display: false,
+        display: true,
+        position: "top" as const,
       },
       title: {
         display: false,
@@ -125,8 +187,16 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
       tooltip: {
         callbacks: {
           label: (context: any) => {
-            const log = logs[context.parsed.x - 1]
-            return `${log.circuit_name} - ${log.backend}`
+            const datasetLabel = context.dataset.label
+            if (datasetLabel === "Backend Type") {
+              const log = logs[context.parsed.x - 1]
+              const backendDisplay =
+                log.backend === "quantum_qpu" ? "Quantum QPU" : log.backend === "hpc" ? "HPC" : "Classical"
+              return `${log.circuit_name} - ${backendDisplay}`
+            } else if (datasetLabel === "Qubits") {
+              return `Qubits: ${context.parsed.y}`
+            }
+            return ""
           },
         },
       },
@@ -139,6 +209,9 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
         },
       },
       y: {
+        type: "linear" as const,
+        display: true,
+        position: "left" as const,
         title: {
           display: true,
           text: "Backend Type",
@@ -152,6 +225,19 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
         },
         min: 0,
         max: 4,
+      },
+      y1: {
+        type: "linear" as const,
+        display: true,
+        position: "right" as const,
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: "Qubits",
+        },
+        grid: {
+          drawOnChartArea: false,
+        },
       },
     },
   }

@@ -30,7 +30,7 @@ export function AutoParser({ onParsed, inputData, algorithm }: AutoParserProps) 
     }
 
     if (!algorithm) {
-      setError("Please select an algorithm before parsing")
+      setError("Please select a case before parsing")
       return
     }
 
@@ -40,37 +40,47 @@ export function AutoParser({ onParsed, inputData, algorithm }: AutoParserProps) 
     try {
       let dataSize = 10
       let dataDimensions = 1
+      let features = 1
 
       if (Array.isArray(inputData)) {
         dataSize = inputData.length
         if (Array.isArray(inputData[0])) {
           dataDimensions = 2
-          dataSize = inputData.length * inputData[0].length
+          features = inputData[0].length
+          dataSize = inputData.length * features
         }
       } else if (typeof inputData === "object" && inputData !== null) {
         if (inputData.raw && inputData.type === "csv") {
           const rows = inputData.raw.split("\n").filter((r: string) => r.trim())
           dataSize = rows.length - 1
+          if (rows.length > 0) {
+            features = rows[0].split(",").length
+          }
         } else {
           dataSize = Object.keys(inputData).length
+          features = dataSize
         }
       }
 
-      const qubitsNeeded = Math.max(2, Math.ceil(Math.log2(dataSize)))
+      const recommendedQubits = Math.max(2, Math.ceil(Math.log2(dataSize || 4)))
+      const qubitsNeeded = Math.min(recommendedQubits, 20) // Cap at 20
 
-      const depthEstimates: Record<string, (q: number, dims: number) => number> = {
+      const complexity = Math.max(1, Math.ceil(Math.sqrt(features)))
+      const layers = Math.max(1, Math.min(3, Math.floor(features / 2)))
+
+      const depthEstimates: Record<string, (q: number, dims: number, comp: number) => number> = {
         Bell: () => 3,
-        Grover: (q, dims) => {
+        Grover: (q, dims, comp) => {
           const iterations = Math.ceil((Math.PI / 4) * Math.sqrt(Math.pow(2, q)))
-          return iterations * (dims === 2 ? 2 : 1)
+          return Math.ceil(iterations * comp * (dims === 2 ? 2 : 1))
         },
-        Shor: (q, dims) => q * 3 * (dims === 2 ? 1.5 : 1),
-        VQE: (q, dims) => q * 5 * (dims === 2 ? 1.2 : 1),
-        QAOA: (q, dims) => q * 4 * (dims === 2 ? 1.3 : 1),
+        Shor: (q, dims) => Math.ceil(q * 3 * (dims === 2 ? 1.5 : 1)),
+        VQE: (q, dims, comp) => Math.ceil(10 + Math.floor(features / 2)),
+        QAOA: (q, dims, comp) => Math.ceil(6 + layers),
       }
 
       const estimateDepth = depthEstimates[algorithm] || ((q: number) => q * 2)
-      const circuitDepth = Math.ceil(estimateDepth(qubitsNeeded, dataDimensions))
+      const circuitDepth = estimateDepth(qubitsNeeded, dataDimensions, complexity)
 
       const gateMultipliers: Record<string, number> = {
         Bell: 3,
@@ -91,8 +101,8 @@ export function AutoParser({ onParsed, inputData, algorithm }: AutoParserProps) 
       setParsedData(parsed)
       onParsed?.(parsed)
 
-      console.log("[v0] Parsed circuit from input data:", parsed)
-      console.log("[v0] Data dimensions:", dataDimensions, "Data size:", dataSize)
+      console.log("[v0] Parsed base circuit from input data:", parsed)
+      console.log("[v0] Data: size=", dataSize, "features=", features, "dimensions=", dataDimensions)
     } catch (error) {
       console.error("[v0] Parsing error:", error)
       setError("Failed to parse circuit. Please check your input data.")
@@ -117,7 +127,7 @@ export function AutoParser({ onParsed, inputData, algorithm }: AutoParserProps) 
       {isExpanded && (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Automatically analyze your circuit and extract configuration details.
+            Automatically analyze your data and extract base circuit configuration details.
           </p>
 
           {error && (

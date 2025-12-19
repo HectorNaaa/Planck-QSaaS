@@ -9,8 +9,7 @@ import { DatabaseUploader } from "@/components/runner/database-uploader"
 import { AutoParser } from "@/components/runner/autoparser"
 import { ExpectedResults } from "@/components/runner/expected-results"
 import { CircuitResults } from "@/components/runner/circuit-results"
-import { LoadingSpinner } from "@/components/loading-spinner"
-import { Save, Play, RotateCcw, Download } from "lucide-react"
+import { Save, Play, RotateCcw, Download, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { PageHeader } from "@/components/page-header"
 import type { CircuitData } from "@/lib/qasm-generator"
@@ -484,10 +483,10 @@ export default function RunnerPage() {
   }, [])
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-8 space-y-8 px-0">
       <PageHeader title="Runner" description="Configure and execute your quantum circuits" />
 
-      <Card className="p-6 shadow-lg bg-secondary">
+      <Card className="p-6 shadow-lg bg-secondary px-6">
         <div className="space-y-4">
           <div>
             <label htmlFor="execution-name" className="block text-sm font-medium text-foreground mb-2">
@@ -529,6 +528,64 @@ export default function RunnerPage() {
           </div>
         </div>
       </Card>
+
+      <div className="lg:hidden space-y-6">
+        <DatabaseUploader
+          onDataUpload={handleDataUpload}
+          preSelectedAlgorithm={selectedAlgorithm}
+          onAlgorithmSelect={(algorithm) => {
+            console.log("[v0] Algorithm selected:", algorithm)
+            setCircuitName(algorithm)
+          }}
+        />
+        <AutoParser inputData={uploadedData} algorithm={circuitName} />
+        <CircuitSettings
+          onExecutionTypeChange={setExecutionType}
+          onQubitsChange={setQubits}
+          onErrorMitigationChange={setErrorMitigation}
+        />
+        <ExecutionSettings
+          onBackendChange={setBackend}
+          currentBackend={backend}
+          onModeChange={setExecutionType}
+          qubits={qubits}
+          depth={circuitData?.gates.length || 20}
+        />
+        <ExpectedResults
+          backend={backend}
+          qubits={qubits}
+          depth={circuitData?.gates.length || 20}
+          hasData={dataUploaded}
+        />
+
+        <div className="flex justify-center gap-3 pt-6 border-border border-t-2">
+          <Button onClick={handleReset} variant="outline" className="flex items-center gap-2 bg-secondary">
+            <RotateCcw size={18} />
+            Reset
+          </Button>
+          <Button onClick={handleSaveCircuit} variant="outline" className="flex items-center gap-2 bg-secondary">
+            <Save size={18} />
+            Save
+          </Button>
+          <Button
+            onClick={handleRunCircuit}
+            disabled={isRunning}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2"
+          >
+            {isRunning ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Running
+              </>
+            ) : (
+              <>
+                <Play size={18} />
+                Run
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -650,7 +707,7 @@ export default function RunnerPage() {
           )}
         </div>
 
-        <div className="space-y-6">
+        <div className="hidden lg:block space-y-6">
           <DatabaseUploader
             onDataUpload={handleDataUpload}
             preSelectedAlgorithm={selectedAlgorithm}
@@ -681,7 +738,7 @@ export default function RunnerPage() {
         </div>
       </div>
 
-      <div className="flex justify-center gap-3 pt-6 border-border border-t-2">
+      <div className="hidden lg:flex justify-center gap-3 pt-6 border-border border-t-2">
         <Button onClick={handleReset} variant="outline" className="flex items-center gap-2 bg-secondary">
           <RotateCcw size={18} />
           Reset
@@ -697,8 +754,8 @@ export default function RunnerPage() {
         >
           {isRunning ? (
             <>
-              <LoadingSpinner size="sm" />
-              Running...
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Running
             </>
           ) : (
             <>

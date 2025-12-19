@@ -149,7 +149,7 @@ export function DatabaseUploader({ onDataUpload, preSelectedAlgorithm, onAlgorit
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-foreground mb-2">Select Quantum Algorithm</label>
+            <label className="block text-sm font-medium text-foreground mb-2">Select Quantum Case</label>
             <select
               value={selectedConfig?.name || ""}
               onChange={(e) => handleTemplateSelect(e.target.value)}

@@ -47,6 +47,9 @@ print(json.dumps(circuit_data))
 }
 
 async function generateCircuitFromAlgorithm(algorithm: string, inputData: any, qubits: number) {
+  const dataAnalysis = analyzeInputData(inputData)
+  const adaptedQubits = Math.max(qubits, dataAnalysis.recommendedQubits)
+
   // Simulate calling the Python generator
   const algorithmGenerators: Record<string, any> = {
     Bell: {
@@ -69,28 +72,28 @@ measure q[1] -> c[1];`,
       ],
     },
     Grover: {
-      qasm: generateGroverQASM(qubits, inputData),
-      qubits: qubits,
-      depth: Math.ceil(Math.sqrt(Math.pow(2, qubits))),
-      gates: generateGroverGates(qubits),
+      qasm: generateGroverQASM(adaptedQubits, dataAnalysis),
+      qubits: adaptedQubits,
+      depth: Math.ceil(Math.sqrt(Math.pow(2, adaptedQubits))) * (dataAnalysis.complexity || 1),
+      gates: generateGroverGates(adaptedQubits),
     },
     Shor: {
-      qasm: generateShorQASM(qubits),
-      qubits: qubits,
-      depth: qubits * 3,
-      gates: generateShorGates(qubits),
+      qasm: generateShorQASM(adaptedQubits),
+      qubits: adaptedQubits,
+      depth: adaptedQubits * 3,
+      gates: generateShorGates(adaptedQubits),
     },
     VQE: {
-      qasm: generateVQEQASM(qubits, inputData),
-      qubits: qubits,
-      depth: 10,
-      gates: generateVQEGates(qubits),
+      qasm: generateVQEQASM(adaptedQubits, dataAnalysis),
+      qubits: adaptedQubits,
+      depth: 10 + Math.floor(dataAnalysis.features / 2),
+      gates: generateVQEGates(adaptedQubits),
     },
     QAOA: {
-      qasm: generateQAOAQASM(qubits, inputData),
-      qubits: qubits,
-      depth: 6,
-      gates: generateQAOAGates(qubits),
+      qasm: generateQAOAQASM(adaptedQubits, dataAnalysis),
+      qubits: adaptedQubits,
+      depth: 6 + dataAnalysis.layers,
+      gates: generateQAOAGates(adaptedQubits),
     },
   }
 
@@ -101,13 +104,85 @@ measure q[1] -> c[1];`,
     metadata: {
       algorithm,
       generatedAt: new Date().toISOString(),
-      inputDataSize: inputData?.length || 0,
+      inputDataSize: dataAnalysis.size,
+      dataFeatures: dataAnalysis.features,
+      dataComplexity: dataAnalysis.complexity,
     },
   }
 }
 
-function generateGroverQASM(qubits: number, inputData: any): string {
-  const iterations = Math.ceil(Math.sqrt(Math.pow(2, qubits)))
+function analyzeInputData(inputData: any) {
+  let size = 0
+  let features = 1
+  let complexity = 1
+  let recommendedQubits = 2
+  let layers = 0
+
+  if (!inputData) {
+    return { size, features, complexity, recommendedQubits, layers }
+  }
+
+  try {
+    // Array data (1D or 2D)
+    if (Array.isArray(inputData)) {
+      size = inputData.length
+
+      // Check if 2D array (matrix)
+      if (Array.isArray(inputData[0])) {
+        features = inputData[0].length
+        size = inputData.length * features
+        complexity = Math.ceil(Math.sqrt(features))
+        layers = Math.min(3, Math.floor(features / 2))
+      } else {
+        // 1D array
+        features = 1
+        complexity = 1
+        layers = 1
+      }
+    }
+    // CSV data
+    else if (typeof inputData === "object" && inputData.raw && inputData.type === "csv") {
+      const rows = inputData.raw.split("\n").filter((r: string) => r.trim())
+      size = rows.length - 1 // Exclude header
+
+      if (rows.length > 0) {
+        const cols = rows[0].split(",").length
+        features = cols
+        complexity = Math.ceil(Math.sqrt(cols))
+        layers = Math.min(3, Math.floor(cols / 3))
+      }
+    }
+    // JSON object
+    else if (typeof inputData === "object") {
+      const keys = Object.keys(inputData)
+      size = keys.length
+      features = size
+      complexity = Math.ceil(Math.log2(size))
+      layers = Math.min(2, Math.floor(size / 4))
+    }
+
+    // Calculate recommended qubits based on data size
+    recommendedQubits = Math.max(2, Math.ceil(Math.log2(size || 4)))
+
+    // Cap at reasonable maximum
+    recommendedQubits = Math.min(recommendedQubits, 20)
+  } catch (error) {
+    console.error("[v0] Error analyzing input data:", error)
+  }
+
+  return {
+    size,
+    features,
+    complexity,
+    recommendedQubits,
+    layers: Math.max(1, layers),
+  }
+}
+
+function generateGroverQASM(qubits: number, dataAnalysis: any): string {
+  const baseIterations = Math.ceil(Math.sqrt(Math.pow(2, qubits)))
+  const iterations = Math.ceil(baseIterations * dataAnalysis.complexity)
+
   let qasm = `OPENQASM 2.0;\ninclude "qelib1.inc";\n\n`
   qasm += `qreg q[${qubits}];\ncreg c[${qubits}];\n\n`
 
@@ -116,7 +191,7 @@ function generateGroverQASM(qubits: number, inputData: any): string {
     qasm += `h q[${i}];\n`
   }
 
-  // Grover iterations
+  // Grover iterations adapted to data
   for (let iter = 0; iter < iterations; iter++) {
     // Oracle (marks target state)
     qasm += `\n// Oracle iteration ${iter + 1}\n`
@@ -204,16 +279,18 @@ function generateShorGates(qubits: number) {
   return gates
 }
 
-function generateVQEQASM(qubits: number, inputData: any): string {
+function generateVQEQASM(qubits: number, dataAnalysis: any): string {
   let qasm = `OPENQASM 2.0;\ninclude "qelib1.inc";\n\n`
   qasm += `qreg q[${qubits}];\ncreg c[${qubits}];\n\n`
   qasm += `// VQE ansatz circuit\n`
 
-  // Parameterized rotation layers
-  for (let layer = 0; layer < 3; layer++) {
+  const layers = Math.max(2, Math.min(5, dataAnalysis.layers + 2))
+
+  for (let layer = 0; layer < layers; layer++) {
     qasm += `\n// Layer ${layer + 1}\n`
     for (let i = 0; i < qubits; i++) {
-      qasm += `ry(${Math.random() * Math.PI}) q[${i}];\n`
+      const angle = (Math.PI / layers) * (layer + 1) * dataAnalysis.complexity
+      qasm += `ry(${angle.toFixed(4)}) q[${i}];\n`
     }
     for (let i = 0; i < qubits - 1; i++) {
       qasm += `cx q[${i}],q[${i + 1}];\n`
@@ -238,7 +315,7 @@ function generateVQEGates(qubits: number) {
   return gates
 }
 
-function generateQAOAQASM(qubits: number, inputData: any): string {
+function generateQAOAQASM(qubits: number, dataAnalysis: any): string {
   let qasm = `OPENQASM 2.0;\ninclude "qelib1.inc";\n\n`
   qasm += `qreg q[${qubits}];\ncreg c[${qubits}];\n\n`
   qasm += `// QAOA circuit\n`
@@ -248,19 +325,21 @@ function generateQAOAQASM(qubits: number, inputData: any): string {
     qasm += `h q[${i}];\n`
   }
 
-  // QAOA layers
-  const p = 2 // number of QAOA layers
+  const p = Math.max(2, Math.min(4, dataAnalysis.layers))
+
   for (let layer = 0; layer < p; layer++) {
     qasm += `\n// QAOA layer ${layer + 1}\n`
     // Problem Hamiltonian
     for (let i = 0; i < qubits - 1; i++) {
       qasm += `cx q[${i}],q[${i + 1}];\n`
-      qasm += `rz(${Math.random()}) q[${i + 1}];\n`
+      const gamma = (Math.PI / (2 * p)) * (layer + 1)
+      qasm += `rz(${gamma.toFixed(4)}) q[${i + 1}];\n`
       qasm += `cx q[${i}],q[${i + 1}];\n`
     }
     // Mixer Hamiltonian
     for (let i = 0; i < qubits; i++) {
-      qasm += `rx(${Math.random()}) q[${i}];\n`
+      const beta = (Math.PI / p) * (layer + 1)
+      qasm += `rx(${beta.toFixed(4)}) q[${i}];\n`
     }
   }
 

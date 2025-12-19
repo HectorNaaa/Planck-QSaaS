@@ -28,7 +28,7 @@ export default function TemplatesPage() {
 
   return (
     <div className="p-8 space-y-8 px-0">
-      <PageHeader title="Quantum Templates" description="Explore pre-built quantum algorithms and circuits." />
+      <PageHeader title="Quantum Templates" description="Explore pre-built quantum cases and circuits." />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-center">
         {QUANTUM_TEMPLATES.map((template) => (
