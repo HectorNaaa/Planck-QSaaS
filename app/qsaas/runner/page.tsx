@@ -128,8 +128,6 @@ export default function RunnerPage() {
           }
         }
 
-        console.log("[v0] Data structure:", dataStructure, "Dimensions:", dataDimensions, "Size:", dataSize)
-
         const response = await fetch("/api/quantum/generate-circuit", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -149,7 +147,6 @@ export default function RunnerPage() {
 
         if (!response.ok) {
           const errorText = await response.text()
-          console.error("[v0] API error response:", errorText)
           throw new Error(`API returned ${response.status}: ${errorText}`)
         }
 
@@ -173,19 +170,13 @@ export default function RunnerPage() {
           if (vizResponse.ok) {
             const vizData = await vizResponse.json()
             if (vizData.success && vizData.image_data) {
-              // Check if it's SVG or PNG base64
               if (vizData.format === "svg") {
-                // Convert SVG string to data URL
                 const svgBlob = new Blob([vizData.image_data], { type: "image/svg+xml" })
                 const svgUrl = URL.createObjectURL(svgBlob)
                 setCircuitImageUrl(svgUrl)
               } else {
-                // Handle PNG base64
                 setCircuitImageUrl(`data:image/png;base64,${vizData.image_data}`)
               }
-              console.log("[v0] Circuit visualization generated successfully")
-            } else {
-              console.error("[v0] Visualization failed:", vizData.error)
             }
           } else {
             console.error("[v0] Visualization API error:", await vizResponse.text())
@@ -212,7 +203,6 @@ export default function RunnerPage() {
   )
 
   const handleSaveCode = useCallback(() => {
-    console.log("[v0] Saved circuit code:", circuitCode)
     setIsCodeEditable(false)
   }, [circuitCode])
 
@@ -236,8 +226,6 @@ export default function RunnerPage() {
         throw new Error("Transpilation failed")
       }
 
-      console.log("[v0] Circuit transpiled, SWAP gates added:", transpileData.swapCount)
-
       const simulateResponse = await fetch("/api/quantum/simulate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -260,7 +248,6 @@ export default function RunnerPage() {
         throw new Error("Simulation failed")
       }
 
-      console.log("[v0] Generating Digital Twin for interpretability...")
       const digitalTwinResponse = await fetch("/api/quantum/digital-twin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -292,8 +279,6 @@ export default function RunnerPage() {
       const digitalTwinData = await digitalTwinResponse.json()
 
       if (digitalTwinData.success) {
-        console.log("[v0] Digital Twin generated successfully")
-
         const mockResults = {
           success_rate: simulateData.successRate,
           runtime_ms: simulateData.runtime,
@@ -305,9 +290,7 @@ export default function RunnerPage() {
         }
 
         setResults(mockResults)
-        console.log("[v0] Execution completed with Digital Twin and saved to Supabase")
       } else {
-        console.error("[v0] Digital Twin generation failed:", digitalTwinData.error)
         const mockResults = {
           success_rate: simulateData.successRate,
           runtime_ms: simulateData.runtime,
@@ -319,7 +302,6 @@ export default function RunnerPage() {
         setResults(mockResults)
       }
     } catch (error) {
-      console.error("[v0] Execution error:", error)
       alert(`Error: ${error instanceof Error ? error.message : "Unknown error"}`)
     } finally {
       setIsRunning(false)
@@ -331,7 +313,6 @@ export default function RunnerPage() {
 
     const link = document.createElement("a")
     link.href = circuitImageUrl
-    // Use .svg extension if URL is a blob URL (SVG), otherwise .png
     const extension = circuitImageUrl.startsWith("blob:") ? "svg" : "png"
     link.download = `${circuitName.replace(/\s+/g, "_")}_circuit.${extension}`
     document.body.appendChild(link)
@@ -534,7 +515,6 @@ export default function RunnerPage() {
           onDataUpload={handleDataUpload}
           preSelectedAlgorithm={selectedAlgorithm}
           onAlgorithmSelect={(algorithm) => {
-            console.log("[v0] Algorithm selected:", algorithm)
             setCircuitName(algorithm)
           }}
         />
@@ -712,7 +692,6 @@ export default function RunnerPage() {
             onDataUpload={handleDataUpload}
             preSelectedAlgorithm={selectedAlgorithm}
             onAlgorithmSelect={(algorithm) => {
-              console.log("[v0] Algorithm selected:", algorithm)
               setCircuitName(algorithm)
             }}
           />

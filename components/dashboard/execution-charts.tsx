@@ -3,7 +3,7 @@
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Download } from "lucide-react"
-import { Line, Scatter } from "react-chartjs-2"
+import { Line } from "react-chartjs-2"
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -65,6 +65,10 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
         tension: 0.4,
         fill: false,
         pointRadius: 4,
+        pointStyle: "circle",
+        pointBackgroundColor: "transparent",
+        pointBorderColor: darkGray,
+        pointBorderWidth: 2,
         yAxisID: "y1",
       },
     ],
@@ -84,26 +88,27 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
     datasets: [
       {
         label: "Backend Type",
-        data: logs.map((log, idx) => ({
-          x: idx + 1,
-          y: backendMap[log.backend] || backendMap[log.backend.toLowerCase()] || 1,
-        })),
-        backgroundColor: brandGreen,
-        pointRadius: 6,
-        pointHoverRadius: 8,
+        data: logs.map((log) => backendMap[log.backend] || backendMap[log.backend.toLowerCase()] || 1),
+        borderColor: brandGreen,
+        backgroundColor: brandGreenLight,
+        tension: 0.4,
+        fill: true,
+        pointRadius: 3,
+        pointHoverRadius: 5,
         yAxisID: "y",
       },
       {
         label: "Qubits",
-        data: logs.map((log, idx) => ({
-          x: idx + 1,
-          y: log.qubits_used || 2,
-        })),
-        backgroundColor: darkGray,
-        pointRadius: 4,
-        pointHoverRadius: 6,
-        showLine: true,
+        data: logs.map((log) => log.qubits_used || 2),
         borderColor: darkGray,
+        backgroundColor: "transparent",
+        tension: 0.4,
+        fill: false,
+        pointRadius: 4,
+        pointStyle: "circle",
+        pointBackgroundColor: "transparent",
+        pointBorderColor: darkGray,
+        pointBorderWidth: 2,
         yAxisID: "y1",
       },
     ],
@@ -129,6 +134,10 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
         tension: 0.4,
         fill: false,
         pointRadius: 4,
+        pointStyle: "circle",
+        pointBackgroundColor: "transparent",
+        pointBorderColor: darkGray,
+        pointBorderWidth: 2,
         yAxisID: "y1",
       },
     ],
@@ -162,10 +171,6 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
         display: true,
         position: "right" as const,
         beginAtZero: true,
-        title: {
-          display: true,
-          text: "Qubits",
-        },
         grid: {
           drawOnChartArea: false,
         },
@@ -173,9 +178,13 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
     },
   }
 
-  const scatterChartOptions = {
+  const backendChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    interaction: {
+      mode: "index" as const,
+      intersect: false,
+    },
     plugins: {
       legend: {
         display: true,
@@ -189,7 +198,7 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
           label: (context: any) => {
             const datasetLabel = context.dataset.label
             if (datasetLabel === "Backend Type") {
-              const log = logs[context.parsed.x - 1]
+              const log = logs[context.dataIndex]
               const backendDisplay =
                 log.backend === "quantum_qpu" ? "Quantum QPU" : log.backend === "hpc" ? "HPC" : "Classical"
               return `${log.circuit_name} - ${backendDisplay}`
@@ -204,8 +213,7 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
     scales: {
       x: {
         title: {
-          display: true,
-          text: "Execution Number",
+          display: false,
         },
       },
       y: {
@@ -213,12 +221,11 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
         display: true,
         position: "left" as const,
         title: {
-          display: true,
-          text: "Backend Type",
+          display: false,
         },
         ticks: {
           callback: (value: any) => {
-            const backends = ["", "Classical", "HPC", "Quantum QPU"]
+            const backends = ["", "Clas", "HPC", "QPU"]
             return backends[value] || ""
           },
           stepSize: 1,
@@ -231,10 +238,6 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
         display: true,
         position: "right" as const,
         beginAtZero: true,
-        title: {
-          display: true,
-          text: "Qubits",
-        },
         grid: {
           drawOnChartArea: false,
         },
@@ -312,7 +315,7 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
           </Button>
         </div>
         <div className="h-64">
-          <Scatter ref={backendChartRef} data={backendData} options={scatterChartOptions} />
+          <Line ref={backendChartRef} data={backendData} options={backendChartOptions} />
         </div>
       </Card>
 

@@ -1,12 +1,28 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
+import { CppMLEngine } from "@/lib/ml/cpp-ml-engine"
+import { calculateFidelity } from "@/lib/backend-selector"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { qasm, shots, backend, errorMitigation, circuitName, algorithm, executionType, qubits, inputData } = body
-
-    console.log("[v0] Simulating quantum circuit:", { backend, shots, errorMitigation })
+    const {
+      qasm,
+      shots,
+      backend,
+      errorMitigation,
+      circuitName,
+      algorithm,
+      executionType,
+      qubits,
+      inputData,
+      depth,
+      gateCount,
+      targetLatency,
+      predictedShots,
+      predictedBackend,
+      predictedFidelity,
+    } = body
 
     const supabase = await createServerClient()
     const {
@@ -15,17 +31,17 @@ export async function POST(request: NextRequest) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      console.error("[v0] Authentication error:", authError)
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
 
-    // Simulate quantum execution
     const results = await simulateQuantumCircuit({
       qasm,
       shots,
       backend,
       errorMitigation,
     })
+
+    const actualFidelity = calculateFidelity(backend, qubits, depth)
 
     const { data: insertedLog, error: insertError } = await supabase
       .from("execution_logs")
@@ -43,19 +59,23 @@ export async function POST(request: NextRequest) {
         error_mitigation: errorMitigation,
         circuit_data: {
           qasm_code: qasm,
-          input_data: inputData, // Store the uploaded data
+          input_data: inputData,
           algorithm_params: {
             algorithm,
             qubits,
             shots,
             backend,
             error_mitigation: errorMitigation,
+            depth,
+            gate_count: gateCount,
+            target_latency: targetLatency,
           },
           results: {
             counts: results.counts,
             success_rate: results.successRate,
             runtime_ms: results.runtime,
             memory: results.memory,
+            fidelity: actualFidelity,
           },
           backend_config: {
             backend,
@@ -68,10 +88,36 @@ export async function POST(request: NextRequest) {
       .select("id")
       .single()
 
-    if (insertError) {
-      console.error("[v0] Failed to save execution to Supabase:", insertError)
-    } else {
-      console.log("[v0] Execution saved to Supabase successfully with ID:", insertedLog?.id)
+    if (insertedLog?.id && inputData) {
+      const dataSize = JSON.stringify(inputData).length
+      const dataComplexity = inputData.rows ? Math.min(1, inputData.rows.length / 1000) : 0.5
+
+      CppMLEngine.recordExecution(
+        {
+          qubits,
+          depth,
+          gateCount,
+          algorithm,
+          dataSize,
+          dataComplexity,
+          targetLatency: targetLatency || 0,
+          errorMitigation,
+          userHistoricalAccuracy: 0.5,
+        },
+        insertedLog.id,
+        user.id,
+        {
+          actualShots: shots,
+          actualBackend: backend,
+          actualRuntime: results.runtime,
+          actualSuccessRate: results.successRate,
+          actualFidelity,
+          predictedShots: predictedShots || shots,
+          predictedBackend: predictedBackend || backend,
+          predictedRuntime: results.runtime,
+          predictedFidelity: predictedFidelity || actualFidelity,
+        },
+      ).catch(() => {})
     }
 
     return NextResponse.json({
@@ -83,7 +129,6 @@ export async function POST(request: NextRequest) {
       execution_id: insertedLog?.id,
     })
   } catch (error) {
-    console.error("[v0] Simulation error:", error)
     return NextResponse.json({ success: false, error: "Failed to simulate circuit" }, { status: 500 })
   }
 }
