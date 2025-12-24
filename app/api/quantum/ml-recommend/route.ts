@@ -16,17 +16,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
     }
 
-    const { data: userHistory } = await supabase
-      .from("ml_feature_vectors")
-      .select("reward_score")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(10)
+    let userHistoricalAccuracy = 0.5
+    try {
+      const { data: userHistory, error: historyError } = await supabase
+        .from("ml_feature_vectors")
+        .select("reward_score")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(10)
 
-    const userHistoricalAccuracy =
-      userHistory && userHistory.length > 0
-        ? userHistory.reduce((sum, h) => sum + (h.reward_score || 0), 0) / userHistory.length / 100
-        : 0.5
+      // If table doesn't exist (PGRST205 error), continue with default values
+      if (historyError && historyError.code !== "PGRST205") {
+        throw historyError
+      }
+
+      if (userHistory && userHistory.length > 0) {
+        userHistoricalAccuracy =
+          userHistory.reduce((sum, h) => sum + (h.reward_score || 0), 0) / userHistory.length / 100
+      }
+    } catch (tableError: any) {
+      // ML tables not yet created, use default heuristics
+      if (tableError.code !== "PGRST205") {
+        console.error("Error checking ML history:", tableError)
+      }
+    }
 
     const recommendation = await CppMLEngine.getRecommendation({
       qubits,
@@ -44,12 +57,13 @@ export async function POST(request: NextRequest) {
       success: true,
       recommendedShots: recommendation.recommendedShots,
       recommendedBackend: recommendation.recommendedBackend,
+      recommendedErrorMitigation: recommendation.recommendedErrorMitigation,
       confidence: recommendation.confidence,
       reasoning: recommendation.reasoning,
       basedOnExecutions: recommendation.basedOnExecutions,
     })
   } catch (error) {
-    console.error("[v0] ML recommendation error:", error)
+    console.error("ML recommendation error:", error)
     return NextResponse.json({ success: false, error: "Failed to get ML recommendation" }, { status: 500 })
   }
 }

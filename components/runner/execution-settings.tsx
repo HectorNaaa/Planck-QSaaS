@@ -10,6 +10,9 @@ interface ExecutionSettingsProps {
   onBackendChange?: (backend: ExecutionBackend) => void
   currentBackend?: ExecutionBackend
   onModeChange?: (mode: "auto" | "manual") => void
+  onShotsChange?: (shots: number) => void
+  currentShots?: number
+  autoShots?: number
   qubits: number
   depth: number
 }
@@ -18,12 +21,16 @@ export function ExecutionSettings({
   onBackendChange,
   currentBackend,
   onModeChange,
+  onShotsChange,
+  currentShots,
+  autoShots,
   qubits,
   depth,
 }: ExecutionSettingsProps) {
   const [backend, setBackend] = useState<ExecutionBackend>(currentBackend || "quantum_inspired_gpu")
   const [isExpanded, setIsExpanded] = useState(false)
   const [mode, setMode] = useState<"auto" | "manual">("auto")
+  const [manualShots, setManualShots] = useState(currentShots || 1024)
 
   const handleBackendChange = (newBackend: ExecutionBackend) => {
     setBackend(newBackend)
@@ -33,6 +40,11 @@ export function ExecutionSettings({
   const handleModeChange = (newMode: "auto" | "manual") => {
     setMode(newMode)
     onModeChange?.(newMode)
+  }
+
+  const handleShotsChange = (newShots: number) => {
+    setManualShots(newShots)
+    onShotsChange?.(newShots)
   }
 
   const backends = [
@@ -56,7 +68,6 @@ export function ExecutionSettings({
     },
   ]
 
-  // Function to select the optimal backend based on qubits, depth, and gateCount
   const selectOptimalBackend = ({ qubits, depth, gateCount }: { qubits: number; depth: number; gateCount: number }) => {
     if (qubits <= 10 && gateCount <= 100) {
       return "quantum_inspired_gpu"
@@ -113,6 +124,31 @@ export function ExecutionSettings({
                 ? `Recommended: ${backends.find((b) => b.id === recommendedBackend)?.label}`
                 : "Manually select execution backend"}
             </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">Shots</label>
+            {mode === "auto" ? (
+              <div className="px-4 py-3 bg-secondary/50 rounded-lg">
+                <p className="text-lg font-bold text-foreground">{autoShots || 1024}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Automatically calculated based on circuit complexity and error accumulation
+                </p>
+              </div>
+            ) : (
+              <div>
+                <input
+                  type="number"
+                  value={manualShots}
+                  onChange={(e) => handleShotsChange(Number(e.target.value))}
+                  className="w-full px-4 py-2 border-2 border-secondary rounded-lg focus:border-primary focus:outline-none"
+                  min={100}
+                  max={10000}
+                  step={100}
+                />
+                <p className="text-xs text-muted-foreground mt-1">Range: 100 - 10,000 shots</p>
+              </div>
+            )}
           </div>
 
           {mode === "manual" && (

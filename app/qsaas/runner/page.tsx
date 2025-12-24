@@ -23,7 +23,8 @@ export default function RunnerPage() {
   const [circuitName, setCircuitName] = useState("")
   const [executionType, setExecutionType] = useState<"auto" | "manual">("auto")
   const [backend, setBackend] = useState<"quantum_inspired_gpu" | "hpc_gpu" | "quantum_qpu">("quantum_inspired_gpu")
-  const [shots, setShots] = useState(1024)
+  const [shots, setShots] = useState<number | null>(null)
+  const [autoShots, setAutoShots] = useState(1024)
   const [qubits, setQubits] = useState(4)
   const [errorMitigation, setErrorMitigation] = useState<"none" | "low" | "medium" | "high">("none")
   const [results, setResults] = useState<any>(null)
@@ -34,6 +35,12 @@ export default function RunnerPage() {
   const [uploadedData, setUploadedData] = useState<any>(null)
   const [circuitImageUrl, setCircuitImageUrl] = useState<string | null>(null)
   const [selectedAlgorithm, setSelectedAlgorithm] = useState<string | null>(null)
+  const [mlRecommendation, setMlRecommendation] = useState<{
+    shots: number
+    backend: string
+    errorMitigation: string
+    confidence: number
+  } | null>(null)
 
   useEffect(() => {
     const algorithmFromTemplates = sessionStorage.getItem("selectedAlgorithm")
@@ -51,7 +58,8 @@ export default function RunnerPage() {
         setCircuitName(state.circuitName || "")
         setExecutionType(state.executionType || "auto")
         setBackend(state.backend || "quantum_inspired_gpu")
-        setShots(state.shots || 1024)
+        setShots(state.shots || null)
+        setAutoShots(state.autoShots || 1024)
         setQubits(state.qubits || 4)
         setErrorMitigation(state.errorMitigation || "none")
         setCircuitCode(state.circuitCode || "")
@@ -73,6 +81,7 @@ export default function RunnerPage() {
       executionType,
       backend,
       shots,
+      autoShots,
       qubits,
       errorMitigation,
       circuitCode,
@@ -81,6 +90,7 @@ export default function RunnerPage() {
       uploadedData,
       circuitImageUrl,
       targetLatency,
+      mlRecommendation,
     }
     sessionStorage.setItem("runner_state", JSON.stringify(state))
   }, [
@@ -89,6 +99,7 @@ export default function RunnerPage() {
     executionType,
     backend,
     shots,
+    autoShots,
     qubits,
     errorMitigation,
     circuitCode,
@@ -97,7 +108,91 @@ export default function RunnerPage() {
     uploadedData,
     circuitImageUrl,
     targetLatency,
+    mlRecommendation,
   ])
+
+  useEffect(() => {
+    if (executionType === "auto" && circuitData && uploadedData) {
+      fetchMLRecommendations()
+    }
+  }, [circuitData, uploadedData, executionType, errorMitigation, targetLatency])
+
+  const fetchMLRecommendations = async () => {
+    if (!circuitData || !uploadedData) return
+
+    try {
+      const response = await fetch("/api/quantum/ml-recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qubits: circuitData.qubits,
+          depth: circuitData.depth,
+          gateCount: circuitData.gates.length,
+          algorithm: circuitName,
+          dataSize: JSON.stringify(uploadedData).length,
+          dataComplexity: Array.isArray(uploadedData) ? uploadedData.length / 100 : 0.5,
+          targetLatency: targetLatency || 0,
+          errorMitigation,
+        }),
+      })
+
+      if (!response.ok) {
+        // Fall back to adaptive shots calculation if ML service fails
+        const adaptiveShots = calculateAdaptiveShots({
+          qubits: circuitData.qubits,
+          depth: circuitData.depth,
+          gates: circuitData.gates.length,
+        })
+        setAutoShots(adaptiveShots)
+        return
+      }
+
+      const data = await response.json()
+      if (data.success) {
+        setMlRecommendation({
+          shots: data.recommendedShots,
+          backend: data.recommendedBackend,
+          errorMitigation: data.recommendedErrorMitigation,
+          confidence: data.confidence,
+        })
+        setAutoShots(data.recommendedShots)
+
+        if (executionType === "auto") {
+          setBackend(data.recommendedBackend as any)
+          setErrorMitigation(data.recommendedErrorMitigation as any)
+        }
+      } else {
+        // Fall back to adaptive calculation
+        const adaptiveShots = calculateAdaptiveShots({
+          qubits: circuitData.qubits,
+          depth: circuitData.depth,
+          gates: circuitData.gates.length,
+        })
+        setAutoShots(adaptiveShots)
+      }
+    } catch (error) {
+      const adaptiveShots = calculateAdaptiveShots({
+        qubits: circuitData.qubits,
+        depth: circuitData.depth,
+        gates: circuitData.gates.length,
+      })
+      setAutoShots(adaptiveShots)
+    }
+  }
+
+  const calculateAdaptiveShots = useCallback((circuitParams: { qubits: number; depth: number; gates: number }) => {
+    const baseShots = 512
+    const qubitFactor = Math.pow(1.3, circuitParams.qubits - 4)
+    const depthFactor = 1 + circuitParams.depth / 200
+    const gateFactor = 1 + circuitParams.gates / 500
+
+    const errorAccumulation = circuitParams.gates * 0.001
+    const errorFactor = 1 + errorAccumulation
+
+    const calculatedShots = Math.round(baseShots * qubitFactor * depthFactor * gateFactor * errorFactor)
+
+    return Math.min(10000, Math.max(100, calculatedShots))
+  }, [])
 
   const handleDataUpload = useCallback(
     async (uploadedData: any) => {
@@ -135,7 +230,7 @@ export default function RunnerPage() {
             algorithm: circuitName,
             inputData: uploadedData,
             qubits: uploadedData.qubits || Math.max(2, Math.ceil(Math.log2(dataSize))),
-            shots,
+            shots: executionType === "auto" ? autoShots : shots || 1024,
             errorMitigation,
             dataMetadata: {
               structure: dataStructure,
@@ -157,6 +252,7 @@ export default function RunnerPage() {
           setCircuitData({
             qubits: data.qubits,
             gates: data.gates,
+            depth: data.depth,
           })
           setQubits(data.qubits)
           setDataUploaded(true)
@@ -191,6 +287,13 @@ export default function RunnerPage() {
             })
             setBackend(optimal)
           }
+
+          const adaptiveShots = calculateAdaptiveShots({
+            qubits: data.qubits,
+            depth: data.depth,
+            gates: data.gates.length,
+          })
+          setAutoShots(adaptiveShots)
         } else {
           console.error("[v0] Circuit generation failed:", data.error)
         }
@@ -199,12 +302,28 @@ export default function RunnerPage() {
         setDataUploaded(false)
       }
     },
-    [circuitName, executionType, qubits, shots, errorMitigation, targetLatency],
+    [circuitName, executionType, qubits, shots, errorMitigation, targetLatency, calculateAdaptiveShots],
   )
 
   const handleSaveCode = useCallback(() => {
     setIsCodeEditable(false)
   }, [circuitCode])
+
+  const handleAutoParse = useCallback((parsedData: { gates: number; depth: number; qubitsUsed: number }) => {
+    setQubits(parsedData.qubitsUsed)
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("circuit-parsed", {
+          detail: {
+            gates: parsedData.gates,
+            depth: parsedData.depth,
+            qubitsUsed: parsedData.qubitsUsed,
+          },
+        }),
+      )
+    }
+  }, [])
 
   const handleRunCircuit = useCallback(async () => {
     setIsRunning(true)
@@ -216,7 +335,7 @@ export default function RunnerPage() {
         body: JSON.stringify({
           qasm: circuitCode,
           backend,
-          qubits,
+          errorMitigation,
         }),
       })
 
@@ -231,7 +350,7 @@ export default function RunnerPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           qasm: transpileData.transpiledQASM,
-          shots,
+          shots: executionType === "auto" ? autoShots : shots || 1024,
           backend,
           errorMitigation,
           circuitName: executionName || `${circuitName} Execution`,
@@ -256,13 +375,13 @@ export default function RunnerPage() {
           inputData: uploadedData,
           circuitInfo: {
             qubits,
-            depth: circuitData?.gates.length || 0,
+            depth: circuitData?.depth || 0,
             gates: circuitData?.gates || [],
             qasm: circuitCode,
           },
           executionResults: {
             counts: simulateData.counts,
-            shots,
+            shots: simulateData.total_shots || shots,
             success_rate: simulateData.successRate,
             runtime_ms: simulateData.runtime,
             execution_id: simulateData.execution_id,
@@ -283,7 +402,7 @@ export default function RunnerPage() {
           success_rate: simulateData.successRate,
           runtime_ms: simulateData.runtime,
           qubits_used: qubits,
-          total_shots: shots,
+          total_shots: executionType === "auto" ? autoShots : shots || 1024,
           backend,
           counts: simulateData.counts,
           digital_twin: digitalTwinData.digital_twin,
@@ -295,7 +414,7 @@ export default function RunnerPage() {
           success_rate: simulateData.successRate,
           runtime_ms: simulateData.runtime,
           qubits_used: qubits,
-          total_shots: shots,
+          total_shots: executionType === "auto" ? autoShots : shots || 1024,
           backend,
           counts: simulateData.counts,
         }
@@ -306,7 +425,18 @@ export default function RunnerPage() {
     } finally {
       setIsRunning(false)
     }
-  }, [circuitCode, backend, qubits, shots, errorMitigation, executionName, circuitName, executionType, targetLatency])
+  }, [
+    circuitCode,
+    backend,
+    qubits,
+    autoShots,
+    shots,
+    errorMitigation,
+    executionName,
+    circuitName,
+    executionType,
+    targetLatency,
+  ])
 
   const handleDownloadCircuitImage = useCallback(() => {
     if (!circuitImageUrl) return
@@ -334,7 +464,33 @@ export default function RunnerPage() {
 
   const handleDownloadResults = useCallback(() => {
     if (!results) return
-    const resultsData = JSON.stringify(results, null, 2)
+
+    const downloadData = {
+      ...results,
+      metadata: {
+        execution_name: executionName,
+        circuit_name: circuitName,
+        algorithm: selectedAlgorithm,
+        execution_type: executionType,
+        qubits,
+        shots: shots || autoShots,
+        backend,
+        error_mitigation: errorMitigation,
+        target_latency: targetLatency,
+        timestamp: new Date().toISOString(),
+        ml_recommendations: mlRecommendation
+          ? {
+              recommended_shots: mlRecommendation.shots,
+              recommended_backend: mlRecommendation.backend,
+              recommended_error_mitigation: mlRecommendation.errorMitigation,
+              confidence: mlRecommendation.confidence,
+              execution_type_used: executionType,
+            }
+          : null,
+      },
+    }
+
+    const resultsData = JSON.stringify(downloadData, null, 2)
     const blob = new Blob([resultsData], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
@@ -344,7 +500,20 @@ export default function RunnerPage() {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-  }, [results, circuitName])
+  }, [
+    results,
+    circuitName,
+    executionName,
+    selectedAlgorithm,
+    executionType,
+    qubits,
+    shots,
+    autoShots,
+    backend,
+    errorMitigation,
+    targetLatency,
+    mlRecommendation,
+  ])
 
   const handleSaveCircuit = useCallback(async () => {
     const allBackendResults = {
@@ -370,13 +539,13 @@ export default function RunnerPage() {
       algorithm: circuitName,
       execution_type: executionType,
       circuit_settings: {
-        shots,
+        shots: executionType === "auto" ? autoShots : shots || 1024,
         error_mitigation: errorMitigation,
       },
       execution_settings: {
         backend,
         qubits,
-        depth: circuitData?.gates.length || 0,
+        depth: circuitData?.depth || 0,
       },
       expected_results_all_backends: allBackendResults,
       circuit_code_qasm: circuitCode,
@@ -415,7 +584,7 @@ export default function RunnerPage() {
         backend,
         status: "saved",
         qubits_used: qubits,
-        shots,
+        shots: executionType === "auto" ? autoShots : shots || 1024,
         error_mitigation: errorMitigation,
         circuit_data: circuitSnapshot,
       })
@@ -434,6 +603,7 @@ export default function RunnerPage() {
     executionType,
     backend,
     shots,
+    autoShots,
     qubits,
     errorMitigation,
     circuitCode,
@@ -447,7 +617,8 @@ export default function RunnerPage() {
     setCircuitName("")
     setExecutionType("auto")
     setBackend("quantum_inspired_gpu")
-    setShots(1024)
+    setShots(null)
+    setAutoShots(1024)
     setQubits(4)
     setErrorMitigation("none")
     setResults(null)
@@ -459,6 +630,7 @@ export default function RunnerPage() {
     setCircuitImageUrl(null)
     setSelectedAlgorithm(null)
     setTargetLatency(null)
+    setMlRecommendation(null)
     sessionStorage.removeItem("runner_state")
     sessionStorage.removeItem("selectedAlgorithm")
   }, [])
@@ -518,7 +690,7 @@ export default function RunnerPage() {
             setCircuitName(algorithm)
           }}
         />
-        <AutoParser inputData={uploadedData} algorithm={circuitName} />
+        <AutoParser onParsed={handleAutoParse} inputData={uploadedData} algorithm={selectedAlgorithm} />
         <CircuitSettings
           onExecutionTypeChange={setExecutionType}
           onQubitsChange={setQubits}
@@ -529,14 +701,9 @@ export default function RunnerPage() {
           currentBackend={backend}
           onModeChange={setExecutionType}
           qubits={qubits}
-          depth={circuitData?.gates.length || 20}
+          depth={circuitData?.depth || 20}
         />
-        <ExpectedResults
-          backend={backend}
-          qubits={qubits}
-          depth={circuitData?.gates.length || 20}
-          hasData={dataUploaded}
-        />
+        <ExpectedResults backend={backend} qubits={qubits} depth={circuitData?.depth || 20} hasData={dataUploaded} />
 
         <div className="flex justify-center gap-3 pt-6 border-border border-t-2">
           <Button onClick={handleReset} variant="outline" className="flex items-center gap-2 bg-secondary">
@@ -659,7 +826,7 @@ export default function RunnerPage() {
                   inputData={uploadedData}
                   circuitInfo={{
                     qubits,
-                    depth: circuitData?.gates.length || 0,
+                    depth: circuitData?.depth || 0,
                     gates: circuitData?.gates || [],
                     qasm: circuitCode,
                   }}
@@ -695,7 +862,7 @@ export default function RunnerPage() {
               setCircuitName(algorithm)
             }}
           />
-          <AutoParser inputData={uploadedData} algorithm={circuitName} />
+          <AutoParser onParsed={handleAutoParse} inputData={uploadedData} algorithm={selectedAlgorithm} />
           <CircuitSettings
             onExecutionTypeChange={setExecutionType}
             onQubitsChange={setQubits}
@@ -706,16 +873,35 @@ export default function RunnerPage() {
             currentBackend={backend}
             onModeChange={setExecutionType}
             qubits={qubits}
-            depth={circuitData?.gates.length || 20}
+            depth={circuitData?.depth || 20}
           />
-          <ExpectedResults
-            backend={backend}
-            qubits={qubits}
-            depth={circuitData?.gates.length || 20}
-            hasData={dataUploaded}
-          />
+          <ExpectedResults backend={backend} qubits={qubits} depth={circuitData?.depth || 20} hasData={dataUploaded} />
         </div>
       </div>
+
+      {executionType === "manual" && (
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Shots</label>
+          <input
+            type="number"
+            value={shots || 1024}
+            onChange={(e) => setShots(Number(e.target.value))}
+            className="w-full px-3 py-2 border rounded-lg"
+            min={100}
+            max={10000}
+          />
+        </div>
+      )}
+
+      {executionType === "auto" && (
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Auto Shots</label>
+          <div className="px-3 py-2 bg-secondary/50 rounded-lg">
+            <p className="text-foreground font-bold">{autoShots}</p>
+            <p className="text-xs text-muted-foreground">Calculated based on circuit complexity</p>
+          </div>
+        </div>
+      )}
 
       <div className="hidden lg:flex justify-center gap-3 pt-6 border-border border-t-2">
         <Button onClick={handleReset} variant="outline" className="flex items-center gap-2 bg-secondary">

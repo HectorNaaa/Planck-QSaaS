@@ -21,6 +21,7 @@ interface CircuitFeatures {
 interface MLRecommendation {
   recommendedShots: number
   recommendedBackend: string
+  recommendedErrorMitigation: string
   confidence: number
   reasoning: string
   basedOnExecutions: number
@@ -135,65 +136,100 @@ export class CppMLEngine {
     // Generate feature vector
     const featureVector = await this.vectorizeFeatures(features)
 
-    // Query similar executions from database using pgvector
-    const { data: similarExecutions, error } = await supabase.rpc("find_similar_executions", {
-      query_vector: featureVector,
-      similarity_threshold: 0.7,
-      limit_count: 50,
-    })
+    try {
+      // Query similar executions from database using pgvector
+      const { data: similarExecutions, error } = await supabase.rpc("find_similar_executions", {
+        query_vector: featureVector,
+        similarity_threshold: 0.7,
+        limit_count: 50,
+      })
 
-    if (error || !similarExecutions || similarExecutions.length === 0) {
-      console.log("[v0] No similar executions found, using defaults")
+      // If function doesn't exist (PGRST202) or other errors, fall back to defaults
+      if (error) {
+        if (error.code === "PGRST202" || error.code === "42883") {
+          // Function not found - ML tables not set up yet
+          return this.getDefaultRecommendation(features)
+        }
+        throw error
+      }
+
+      if (!similarExecutions || similarExecutions.length === 0) {
+        return this.getDefaultRecommendation(features)
+      }
+
+      // Weighted voting based on similarity and reward scores
+      const shotsVotes: Record<number, number> = {}
+      const backendVotes: Record<string, number> = {}
+      const errorMitigationVotes: Record<string, number> = {}
+      let totalWeight = 0
+
+      for (const exec of similarExecutions) {
+        const weight = exec.similarity * (1 + exec.reward_score / 100)
+        totalWeight += weight
+
+        shotsVotes[exec.actual_shots] = (shotsVotes[exec.actual_shots] || 0) + weight
+        backendVotes[exec.actual_backend] = (backendVotes[exec.actual_backend] || 0) + weight
+        if (exec.error_mitigation) {
+          errorMitigationVotes[exec.error_mitigation] = (errorMitigationVotes[exec.error_mitigation] || 0) + weight
+        }
+      }
+
+      // Find best shots and backend
+      let bestShots = this.calculateDefaultShots(features)
+      let bestShotsWeight = 0
+      for (const [shots, weight] of Object.entries(shotsVotes)) {
+        if (weight > bestShotsWeight) {
+          bestShotsWeight = weight
+          bestShots = Number(shots)
+        }
+      }
+
+      let bestBackend = this.selectDefaultBackend(features)
+      let bestBackendWeight = 0
+      for (const [backend, weight] of Object.entries(backendVotes)) {
+        if (weight > bestBackendWeight) {
+          bestBackendWeight = weight
+          bestBackend = backend
+        }
+      }
+
+      let bestErrorMitigation = this.selectDefaultErrorMitigation(features)
+      let bestErrorMitigationWeight = 0
+      for (const [mitigation, weight] of Object.entries(errorMitigationVotes)) {
+        if (weight > bestErrorMitigationWeight) {
+          bestErrorMitigationWeight = weight
+          bestErrorMitigation = mitigation
+        }
+      }
+
+      const confidence = Math.min(0.95, totalWeight / (similarExecutions.length * 2))
+      const avgSimilarity =
+        (similarExecutions.reduce((sum, e) => sum + e.similarity, 0) / similarExecutions.length) * 100
+
       return {
-        recommendedShots: this.calculateDefaultShots(features),
-        recommendedBackend: this.selectDefaultBackend(features),
-        confidence: 0.1,
-        reasoning: "No historical data available, using heuristic defaults",
-        basedOnExecutions: 0,
+        recommendedShots: bestShots,
+        recommendedBackend: bestBackend,
+        recommendedErrorMitigation: bestErrorMitigation,
+        confidence,
+        reasoning: `Network effect: ${similarExecutions.length} similar executions (${avgSimilarity.toFixed(0)}% match)`,
+        basedOnExecutions: similarExecutions.length,
       }
+    } catch (error: any) {
+      return this.getDefaultRecommendation(features)
     }
+  }
 
-    // Weighted voting based on similarity and reward scores
-    const shotsVotes: Record<number, number> = {}
-    const backendVotes: Record<string, number> = {}
-    let totalWeight = 0
-
-    for (const exec of similarExecutions) {
-      const weight = exec.similarity * (1 + exec.reward_score / 100)
-      totalWeight += weight
-
-      shotsVotes[exec.actual_shots] = (shotsVotes[exec.actual_shots] || 0) + weight
-      backendVotes[exec.actual_backend] = (backendVotes[exec.actual_backend] || 0) + weight
-    }
-
-    // Find best shots and backend
-    let bestShots = this.calculateDefaultShots(features)
-    let bestShotsWeight = 0
-    for (const [shots, weight] of Object.entries(shotsVotes)) {
-      if (weight > bestShotsWeight) {
-        bestShotsWeight = weight
-        bestShots = Number(shots)
-      }
-    }
-
-    let bestBackend = this.selectDefaultBackend(features)
-    let bestBackendWeight = 0
-    for (const [backend, weight] of Object.entries(backendVotes)) {
-      if (weight > bestBackendWeight) {
-        bestBackendWeight = weight
-        bestBackend = backend
-      }
-    }
-
-    const confidence = Math.min(0.95, totalWeight / (similarExecutions.length * 2))
-    const avgSimilarity = (similarExecutions.reduce((sum, e) => sum + e.similarity, 0) / similarExecutions.length) * 100
-
+  /**
+   * Get default recommendation using heuristics
+   */
+  private static getDefaultRecommendation(features: CircuitFeatures): MLRecommendation {
     return {
-      recommendedShots: bestShots,
-      recommendedBackend: bestBackend,
-      confidence,
-      reasoning: `Network effect: ${similarExecutions.length} similar executions (${avgSimilarity.toFixed(0)}% match)`,
-      basedOnExecutions: similarExecutions.length,
+      recommendedShots: this.calculateDefaultShots(features),
+      recommendedBackend: this.selectDefaultBackend(features),
+      recommendedErrorMitigation: this.selectDefaultErrorMitigation(features),
+      confidence: 0.1,
+      reasoning: "Using heuristic defaults (ML tables not configured)",
+      basedOnExecutions: 0,
     }
   }
 
@@ -245,41 +281,46 @@ export class CppMLEngine {
       predictedFidelity: number
     },
   ): Promise<void> {
-    const supabase = await createServerClient()
+    try {
+      const supabase = await createServerClient()
 
-    // Generate feature vector
-    const featureVector = await this.vectorizeFeatures(features)
+      // Generate feature vector
+      const featureVector = await this.vectorizeFeatures(features)
 
-    // Calculate reward
-    const reward = this.calculateReward(
-      outcomes.actualFidelity,
-      outcomes.actualRuntime,
-      features.targetLatency,
-      outcomes.predictedFidelity,
-    )
+      // Calculate reward
+      const reward = this.calculateReward(
+        outcomes.actualFidelity,
+        outcomes.actualRuntime,
+        features.targetLatency,
+        outcomes.predictedFidelity,
+      )
 
-    // Store in database
-    const { error } = await supabase.from("ml_feature_vectors").insert({
-      execution_id: executionId,
-      user_id: userId,
-      features: featureVector,
-      feature_metadata: features,
-      actual_shots: outcomes.actualShots,
-      actual_backend: outcomes.actualBackend,
-      actual_runtime_ms: outcomes.actualRuntime,
-      actual_success_rate: outcomes.actualSuccessRate,
-      actual_fidelity: outcomes.actualFidelity,
-      predicted_shots: outcomes.predictedShots,
-      predicted_backend: outcomes.predictedBackend,
-      predicted_runtime_ms: outcomes.predictedRuntime,
-      predicted_fidelity: outcomes.predictedFidelity,
-      reward_score: reward,
-    })
+      // Store in database
+      const { error } = await supabase.from("ml_feature_vectors").insert({
+        execution_id: executionId,
+        user_id: userId,
+        features: featureVector,
+        feature_metadata: features,
+        actual_shots: outcomes.actualShots,
+        actual_backend: outcomes.actualBackend,
+        actual_runtime_ms: outcomes.actualRuntime,
+        actual_success_rate: outcomes.actualSuccessRate,
+        actual_fidelity: outcomes.actualFidelity,
+        predicted_shots: outcomes.predictedShots,
+        predicted_backend: outcomes.predictedBackend,
+        predicted_runtime_ms: outcomes.predictedRuntime,
+        predicted_fidelity: outcomes.predictedFidelity,
+        reward_score: reward,
+      })
 
-    if (error) {
-      console.error("[v0] Failed to record ML execution:", error)
-    } else {
-      console.log("[v0] ML execution recorded with reward:", reward.toFixed(2))
+      if (error) {
+        // Silently fail if ML tables don't exist yet
+        if (error.code !== "PGRST205" && error.code !== "42P01") {
+          console.error("Failed to record ML execution:", error)
+        }
+      }
+    } catch (error) {
+      // Silently fail - ML features are optional
     }
   }
 
@@ -296,5 +337,12 @@ export class CppMLEngine {
     if (features.qubits < 12 && features.depth < 50) return "quantum_inspired_gpu"
     if (features.qubits >= 12 && features.targetLatency >= 500) return "quantum_qpu"
     return "hpc_gpu"
+  }
+
+  private static selectDefaultErrorMitigation(features: CircuitFeatures): string {
+    // High complexity circuits benefit from higher error mitigation
+    if (features.qubits >= 20 || features.depth >= 100) return "high"
+    if (features.qubits >= 12 || features.depth >= 50) return "medium"
+    return "low"
   }
 }

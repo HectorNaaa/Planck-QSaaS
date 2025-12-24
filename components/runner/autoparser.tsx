@@ -1,9 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { Zap, ChevronDown, AlertCircle } from "lucide-react"
+import { useState, useEffect } from "react"
+import { ChevronDown, AlertCircle } from "lucide-react"
 import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 
 interface ParsedCircuit {
   gates: number
@@ -22,6 +21,27 @@ export function AutoParser({ onParsed, inputData, algorithm }: AutoParserProps) 
   const [parsedData, setParsedData] = useState<ParsedCircuit | null>(null)
   const [isExpanded, setIsExpanded] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const handleCircuitParsed = (event: CustomEvent) => {
+      const { gates, depth, qubitsUsed } = event.detail
+      setParsedData({ gates, depth, qubitsUsed })
+      setError(null)
+    }
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("circuit-parsed" as any, handleCircuitParsed as any)
+      return () => {
+        window.removeEventListener("circuit-parsed" as any, handleCircuitParsed as any)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    if (inputData && algorithm && !isParsing) {
+      handleParse()
+    }
+  }, [inputData, algorithm])
 
   const handleParse = async () => {
     if (!inputData) {
@@ -101,10 +121,23 @@ export function AutoParser({ onParsed, inputData, algorithm }: AutoParserProps) 
       setParsedData(parsed)
       onParsed?.(parsed)
 
-      console.log("[v0] Parsed base circuit from input data:", parsed)
-      console.log("[v0] Data: size=", dataSize, "features=", features, "dimensions=", dataDimensions)
+      console.log("Parsed base circuit from input data:", parsed)
+      console.log("Data: size=", dataSize, "features=", features, "dimensions=", dataDimensions)
+
+      // Dispatch event for other components
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent("circuit-parsed", {
+            detail: {
+              gates: gateCount,
+              depth: circuitDepth,
+              qubitsUsed: qubitsNeeded,
+            },
+          }),
+        )
+      }
     } catch (error) {
-      console.error("[v0] Parsing error:", error)
+      console.error("Parsing error:", error)
       setError("Failed to parse circuit. Please check your input data.")
     } finally {
       setIsParsing(false)
@@ -137,14 +170,12 @@ export function AutoParser({ onParsed, inputData, algorithm }: AutoParserProps) 
             </div>
           )}
 
-          <Button
-            onClick={handleParse}
-            disabled={isParsing || !inputData || !algorithm}
-            className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-          >
-            <Zap size={18} className="mr-2" />
-            {isParsing ? "Parsing..." : "Parse Circuit"}
-          </Button>
+          <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg">
+            <p className="text-sm text-foreground font-medium">✓ Automatic parsing enabled</p>
+            <p className="text-xs text-muted-foreground">
+              Circuit parameters update automatically when data or case changes
+            </p>
+          </div>
 
           {parsedData && (
             <div className="grid grid-cols-3 gap-3">
