@@ -12,8 +12,8 @@ const plans = [
     description: "For those beginning the journey",
     features: [
       "Quantum-inspired executions",
-      "Up to 12 qubits",
-      "Pre-built cases", // Changed from "Pre-built algorithms"
+      "Up to 20 qubits",
+      "Pre-built cases",
       "Basic analytics",
       "Community support",
     ],
@@ -27,8 +27,8 @@ const plans = [
     description: "For professionals and teams",
     features: [
       "QPUs and quantum-inspired",
-      "Up to 36 qubits",
-      "Pre-built cases", // Changed from "Pre-built algorithms"
+      "Up to 40 qubits",
+      "Pre-built cases",
       "Advanced analytics",
       "Priority support",
       "Error mitigation",
@@ -41,11 +41,11 @@ const plans = [
     name: "Enterprise",
     price: "Custom",
     period: "",
-    description: "Commercial-grade quantum solutions",
+    description: "Commercial-grade solutions",
     features: [
       "QPUs and quantum-inspired",
-      "Up to 36 qubits",
-      "Custom circuits",
+      "Up to 40 qubits",
+      "Custom use cases",
       "Custom analytics",
       "Priority support",
       "Error mitigation",
@@ -76,7 +76,7 @@ Requirements:
 - Specific Use Cases: [Describe your quantum computing needs]
 
 Please provide information about:
-- Custom circuit development capabilities
+- Custom use case development capabilities
 - Team education and training programs
 - Enterprise pricing options
 - Security and compliance features

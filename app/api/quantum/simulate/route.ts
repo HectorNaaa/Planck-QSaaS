@@ -90,16 +90,15 @@ export async function POST(request: NextRequest) {
 
     if (insertedLog?.id && inputData) {
       const dataSize = JSON.stringify(inputData).length
-      const dataComplexity = inputData.rows ? Math.min(1, inputData.rows.length / 1000) : 0.5
 
-      CppMLEngine.recordExecution(
+      await CppMLEngine.recordExecution(
         {
           qubits,
           depth,
           gateCount,
           algorithm,
           dataSize,
-          dataComplexity,
+          dataComplexity: 0.5,
           targetLatency: targetLatency || 0,
           errorMitigation,
           userHistoricalAccuracy: 0.5,
@@ -117,7 +116,7 @@ export async function POST(request: NextRequest) {
           predictedRuntime: results.runtime,
           predictedFidelity: predictedFidelity || actualFidelity,
         },
-      ).catch(() => {})
+      )
     }
 
     return NextResponse.json({

@@ -12,7 +12,7 @@ export function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-9">
         <div className="grid md:grid-cols-3 gap-8 mb-8">
           <div>
-            <h3 className="text-lg font-semibold text-foreground mb-4">{t("Effortless Quantum Computing")}</h3>
+            
             <div className="flex gap-4">
               <a
                 href="https://www.linkedin.com/company/planck-technologies-xyz/"

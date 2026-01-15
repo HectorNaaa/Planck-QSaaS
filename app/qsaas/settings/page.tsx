@@ -234,11 +234,11 @@ export default function SettingsPage() {
       name: "Enterprise",
       price: "Contact",
       period: "Us",
-      description: "Commercial-grade quantum solutions",
+      description: "Commercial-grade solutions",
       features: [
         "QPUs and quantum-inspired",
         "Up to 36 qubits",
-        "Custom circuits",
+        "Custom use cases",
         "Custom analytics",
         "Priority support",
         "Error Mitigation",

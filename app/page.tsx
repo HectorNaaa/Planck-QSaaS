@@ -84,11 +84,14 @@ export default function LandingPage() {
                 FAQs
               </a>
             </nav>
-            <Link href="/auth/login">
-              <Button className="bg-primary hover:bg-primary/90 text-lg transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 px-6 py-2.5">
-                Access
-              </Button>
-            </Link>
+            <div className="flex items-center gap-4">
+              <LanguageSelector />
+              <Link href="/auth/login">
+                <Button className="bg-primary hover:bg-primary/90 text-lg transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 px-6 py-2.5">
+                  Platform
+                </Button>
+              </Link>
+            </div>
           </div>
 
           <div className="md:hidden flex justify-between items-center gap-2">
@@ -99,13 +102,20 @@ export default function LandingPage() {
               height={29}
               className="h-6 w-auto flex-shrink-0"
             />
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 hover:bg-accent rounded-lg transition-colors flex-shrink-0"
-              aria-label="Toggle menu"
-            >
-              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
+            <div className="flex items-center gap-2">
+              <Link href="/auth/login">
+                <Button size="sm" className="bg-primary hover:bg-primary/90 text-sm px-3 py-1.5">
+                  Platform
+                </Button>
+              </Link>
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="p-2 hover:bg-accent rounded-lg transition-colors flex-shrink-0"
+                aria-label="Toggle menu"
+              >
+                {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -135,16 +145,6 @@ export default function LandingPage() {
               </a>
               <div className="flex justify-center pt-2">
                 <LanguageSelector />
-              </div>
-              <div className="pt-4 border-t border-border">
-                <Link href="/auth/login">
-                  <Button
-                    className="w-full bg-primary hover:bg-primary/90 transition-transform duration-300 hover:scale-105"
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    Access
-                  </Button>
-                </Link>
               </div>
             </div>
           </div>
@@ -182,7 +182,7 @@ export default function LandingPage() {
                 style={{ "--scroll-rotation": `${scrollRotation}deg` } as React.CSSProperties}
               >
                 <span>
-                  Effortless <span className="text-primary">Quantum Computing</span>
+                  Quantum <span className="text-primary">Digital Twins</span>
                 </span>
               </h1>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-balance">
@@ -194,7 +194,7 @@ export default function LandingPage() {
                     size="lg"
                     className="hn-cta bg-primary hover:bg-primary/90 text-lg px-8 transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 shadow-xl"
                   >
-                    Access <ArrowRight className="ml-2" size={20} />
+                    Platform <ArrowRight className="ml-2" size={20} />
                   </Button>
                 </Link>
                 <Button
@@ -251,7 +251,7 @@ export default function LandingPage() {
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center relative z-10">
           <div className="inline-block">
             <p className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#578e7e]">
-              Up to 68,719,476,736 different states
+              More than 1 Trillion simultaneous states
             </p>
           </div>
         </section>
@@ -273,7 +273,7 @@ export default function LandingPage() {
               {
                 icon: GitBranch,
                 title: "Hybrid Approach",
-                description: "Toggle auto/manual configurations. Customize your workflow",
+                description: "Toggle auto/manual configurations. Make your own workflow",
               },
             ].map((feature, i) => {
               const Icon = feature.icon
@@ -456,7 +456,7 @@ export default function LandingPage() {
           }
         }
 
-        /* Updated carousel scroll animation from 40s to 25s for faster speed */
+        /* Updated carousel scroll animation from 25s to 15s for faster speed */
         @keyframes scroll-carousel {
           0% {
             transform: translateX(0);
@@ -467,7 +467,7 @@ export default function LandingPage() {
         }
 
         .animate-scroll-carousel {
-          animation: scroll-carousel 25s linear infinite;
+          animation: scroll-carousel 15s linear infinite;
         }
 
         .animate-scroll-carousel:hover {

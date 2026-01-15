@@ -876,32 +876,21 @@ export default function RunnerPage() {
             depth={circuitData?.depth || 20}
           />
           <ExpectedResults backend={backend} qubits={qubits} depth={circuitData?.depth || 20} hasData={dataUploaded} />
+          {executionType === "manual" && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Shots</label>
+              <input
+                type="number"
+                value={shots || 1024}
+                onChange={(e) => setShots(Number(e.target.value))}
+                className="w-full px-3 py-2 border rounded-lg"
+                min={100}
+                max={10000}
+              />
+            </div>
+          )}
         </div>
       </div>
-
-      {executionType === "manual" && (
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">Shots</label>
-          <input
-            type="number"
-            value={shots || 1024}
-            onChange={(e) => setShots(Number(e.target.value))}
-            className="w-full px-3 py-2 border rounded-lg"
-            min={100}
-            max={10000}
-          />
-        </div>
-      )}
-
-      {executionType === "auto" && (
-        <div className="mb-4">
-          <label className="block text-sm font-medium mb-2">Auto Shots</label>
-          <div className="px-3 py-2 bg-secondary/50 rounded-lg">
-            <p className="text-foreground font-bold">{autoShots}</p>
-            <p className="text-xs text-muted-foreground">Calculated based on circuit complexity</p>
-          </div>
-        </div>
-      )}
 
       <div className="hidden lg:flex justify-center gap-3 pt-6 border-border border-t-2">
         <Button onClick={handleReset} variant="outline" className="flex items-center gap-2 bg-secondary">

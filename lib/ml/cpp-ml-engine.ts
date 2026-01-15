@@ -287,7 +287,7 @@ export class CppMLEngine {
       // Generate feature vector
       const featureVector = await this.vectorizeFeatures(features)
 
-      // Calculate reward
+      // Calculate reward score
       const reward = this.calculateReward(
         outcomes.actualFidelity,
         outcomes.actualRuntime,
@@ -295,28 +295,27 @@ export class CppMLEngine {
         outcomes.predictedFidelity,
       )
 
-      // Store in database
       const { error } = await supabase.from("ml_feature_vectors").insert({
         execution_id: executionId,
         user_id: userId,
-        features: featureVector,
-        feature_metadata: features,
-        actual_shots: outcomes.actualShots,
-        actual_backend: outcomes.actualBackend,
-        actual_runtime_ms: outcomes.actualRuntime,
-        actual_success_rate: outcomes.actualSuccessRate,
-        actual_fidelity: outcomes.actualFidelity,
-        predicted_shots: outcomes.predictedShots,
-        predicted_backend: outcomes.predictedBackend,
-        predicted_runtime_ms: outcomes.predictedRuntime,
-        predicted_fidelity: outcomes.predictedFidelity,
+        feature_vector: featureVector,
+        num_qubits: features.qubits,
+        circuit_depth: features.depth,
+        gate_count: features.gateCount,
+        algorithm_type: features.algorithm,
+        data_size: features.dataSize,
+        backend_used: outcomes.actualBackend,
+        shots_used: outcomes.actualShots,
+        runtime_ms: outcomes.actualRuntime,
+        fidelity_score: outcomes.actualFidelity,
+        success: outcomes.actualSuccessRate > 50,
         reward_score: reward,
       })
 
       if (error) {
-        // Silently fail if ML tables don't exist yet
+        // Log actual errors for debugging
         if (error.code !== "PGRST205" && error.code !== "42P01") {
-          console.error("Failed to record ML execution:", error)
+          console.error("ML recording error:", error.message)
         }
       }
     } catch (error) {
