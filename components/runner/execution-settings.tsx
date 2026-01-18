@@ -130,7 +130,7 @@ export function ExecutionSettings({
             <label className="block text-sm font-medium text-foreground mb-2">Shots</label>
             {mode === "auto" ? (
               <div className="px-4 py-3 bg-secondary/50 rounded-lg">
-                <p className="text-lg font-bold text-foreground">{autoShots || 1024}</p>
+                <p className="text-lg font-bold text-foreground">{autoShots || "Calculating..."}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Automatically calculated based on circuit complexity and error accumulation
                 </p>

@@ -166,7 +166,7 @@ export default function LandingPage() {
           </div>
 
           <div className="flex flex-col items-center gap-12 relative z-10">
-            <div className="hn-floating-cat absolute inset-0 pointer-events-none">
+            <div className="hn-floating-cat absolute inset-0 pointer-events-none z-0">
               <Image
                 src="/images/schrodinger-20planck-20landing.png"
                 alt=""

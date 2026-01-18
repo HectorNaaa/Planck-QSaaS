@@ -24,7 +24,7 @@ export default function RunnerPage() {
   const [executionType, setExecutionType] = useState<"auto" | "manual">("auto")
   const [backend, setBackend] = useState<"quantum_inspired_gpu" | "hpc_gpu" | "quantum_qpu">("quantum_inspired_gpu")
   const [shots, setShots] = useState<number | null>(null)
-  const [autoShots, setAutoShots] = useState(1024)
+  const [autoShots, setAutoShots] = useState<number | null>(null)
   const [qubits, setQubits] = useState(4)
   const [errorMitigation, setErrorMitigation] = useState<"none" | "low" | "medium" | "high">("none")
   const [results, setResults] = useState<any>(null)
@@ -59,7 +59,7 @@ export default function RunnerPage() {
         setExecutionType(state.executionType || "auto")
         setBackend(state.backend || "quantum_inspired_gpu")
         setShots(state.shots || null)
-        setAutoShots(state.autoShots || 1024)
+        setAutoShots(state.autoShots || null)
         setQubits(state.qubits || 4)
         setErrorMitigation(state.errorMitigation || "none")
         setCircuitCode(state.circuitCode || "")
@@ -138,12 +138,14 @@ export default function RunnerPage() {
 
       if (!response.ok) {
         // Fall back to adaptive shots calculation if ML service fails
-        const adaptiveShots = calculateAdaptiveShots({
-          qubits: circuitData.qubits,
-          depth: circuitData.depth,
-          gates: circuitData.gates.length,
-        })
-        setAutoShots(adaptiveShots)
+const adaptiveShots = calculateAdaptiveShots({
+            qubits: circuitData.qubits,
+            depth: circuitData.depth,
+            gates: circuitData.gates.length,
+          })
+        if (adaptiveShots !== autoShots) {
+          setAutoShots(adaptiveShots)
+        }
         return
       }
 
@@ -230,7 +232,7 @@ export default function RunnerPage() {
             algorithm: circuitName,
             inputData: uploadedData,
             qubits: uploadedData.qubits || Math.max(2, Math.ceil(Math.log2(dataSize))),
-            shots: executionType === "auto" ? autoShots : shots || 1024,
+            shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
             errorMitigation,
             dataMetadata: {
               structure: dataStructure,
@@ -350,7 +352,7 @@ export default function RunnerPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           qasm: transpileData.transpiledQASM,
-          shots: executionType === "auto" ? autoShots : shots || 1024,
+          shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
           backend,
           errorMitigation,
           circuitName: executionName || `${circuitName} Execution`,
@@ -402,7 +404,7 @@ export default function RunnerPage() {
           success_rate: simulateData.successRate,
           runtime_ms: simulateData.runtime,
           qubits_used: qubits,
-          total_shots: executionType === "auto" ? autoShots : shots || 1024,
+          total_shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
           backend,
           counts: simulateData.counts,
           digital_twin: digitalTwinData.digital_twin,
@@ -414,7 +416,7 @@ export default function RunnerPage() {
           success_rate: simulateData.successRate,
           runtime_ms: simulateData.runtime,
           qubits_used: qubits,
-          total_shots: executionType === "auto" ? autoShots : shots || 1024,
+          total_shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
           backend,
           counts: simulateData.counts,
         }
@@ -539,7 +541,7 @@ export default function RunnerPage() {
       algorithm: circuitName,
       execution_type: executionType,
       circuit_settings: {
-        shots: executionType === "auto" ? autoShots : shots || 1024,
+        shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
         error_mitigation: errorMitigation,
       },
       execution_settings: {
@@ -584,7 +586,7 @@ export default function RunnerPage() {
         backend,
         status: "saved",
         qubits_used: qubits,
-        shots: executionType === "auto" ? autoShots : shots || 1024,
+        shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
         error_mitigation: errorMitigation,
         circuit_data: circuitSnapshot,
       })
