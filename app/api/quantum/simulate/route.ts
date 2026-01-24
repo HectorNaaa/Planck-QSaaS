@@ -2,10 +2,19 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
 import { CppMLEngine } from "@/lib/ml/cpp-ml-engine"
 import { calculateFidelity } from "@/lib/backend-selector"
+import { checkRateLimit, getRetryAfter, validatePayloadSize } from "@/lib/rate-limiter"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+
+    // Validate payload size (1MB max)
+    if (!validatePayloadSize(body)) {
+      return NextResponse.json(
+        { success: false, error: "Payload too large. Maximum size is 1MB." },
+        { status: 413 }
+      )
+    }
     const {
       qasm,
       shots,
@@ -32,6 +41,27 @@ export async function POST(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Rate limiting: 1 request per 3 seconds per user
+    const identifier = user.id
+    if (!checkRateLimit(identifier)) {
+      const retryAfter = Math.ceil(getRetryAfter(identifier) / 1000)
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: "Rate limit exceeded. Please wait before making another request.",
+          retry_after_seconds: retryAfter 
+        },
+        { 
+          status: 429,
+          headers: {
+            "Retry-After": retryAfter.toString(),
+            "X-RateLimit-Limit": "1",
+            "X-RateLimit-Reset": new Date(Date.now() + retryAfter * 1000).toISOString(),
+          }
+        }
+      )
     }
 
     const results = await simulateQuantumCircuit({

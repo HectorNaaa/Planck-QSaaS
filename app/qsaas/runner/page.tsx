@@ -69,7 +69,7 @@ export default function RunnerPage() {
         setCircuitImageUrl(state.circuitImageUrl || null)
         setTargetLatency(state.targetLatency || null)
       } catch (err) {
-        console.error("[v0] Error restoring state:", err)
+        // Error restoring state
       }
     }
   }, [])

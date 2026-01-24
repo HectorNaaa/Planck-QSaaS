@@ -252,6 +252,13 @@ export default function SettingsPage() {
 
   return (
     <div className="p-8 space-y-4 py-4 px-0">
+      {/* Version indicator */}
+      <div className="flex justify-end mb-2">
+        <span className="text-xs font-medium text-primary bg-primary/10 px-3 py-1 rounded-full">
+          v0.9 (Beta)
+        </span>
+      </div>
+      
       <PageHeader title="Settings" description="Manage your account and preferences." />
 
       {/* Account Settings */}

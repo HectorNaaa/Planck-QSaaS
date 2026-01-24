@@ -39,8 +39,11 @@ export function QuantumLoadingScreen() {
   return (
     <div className="fixed inset-0 bg-[#fffaec] flex items-center justify-center z-50">
       <div className="flex flex-col items-center gap-8 max-w-2xl px-6 text-center">
+        {/* Version indicator */}
+        <p className="text-xs font-medium text-[#578e7e] tracking-wider">v0.9 (Beta)</p>
+
         {/* Tagline */}
-        <h2 className="text-2xl font-serif text-[#3d3d3d]">Effortless Quantum Computing</h2>
+        <h2 className="text-2xl font-serif text-[#3d3d3d]">Quantum Digital Twins</h2>
 
         <div className="w-full max-w-md">
           <div className="relative h-3 bg-[#f5ecd5] rounded-full overflow-hidden border border-[#578e7e]/20">

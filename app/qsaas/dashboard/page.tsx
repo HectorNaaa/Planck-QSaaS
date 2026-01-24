@@ -78,7 +78,7 @@ export default function DashboardPage() {
         .order("created_at", { ascending: false })
 
       if (error) {
-        console.error("[v0] Error fetching dashboard data:", error)
+        // Error fetching dashboard data
         return
       }
 
@@ -101,7 +101,7 @@ export default function DashboardPage() {
         setRecentCircuits([])
       }
     } catch (error) {
-      console.error("[v0] Error loading dashboard data:", error)
+      // Error loading dashboard data
     } finally {
       setLoading(false)
     }
@@ -123,8 +123,8 @@ export default function DashboardPage() {
     setStats({
       avgCircuitsRun: totalCircuits,
       avgSuccessRate: Math.round(avgSuccessRate * 10) / 10,
-      avgRuntime: Number(avgRuntime.toFixed(3)),
-      avgQubits: Math.round(avgQubits * 10) / 10,
+      avgRuntime: Math.round(avgRuntime),
+      avgQubits: Math.round(avgQubits),
     })
   }
 
@@ -146,13 +146,13 @@ export default function DashboardPage() {
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
     } catch (error) {
-      console.error("[v0] Error downloading circuit JSON:", error)
+      // Error downloading JSON
     }
   }
 
   const statCards = [
     {
-      label: "Total Circuits Run",
+      label: "Digital Twins Created",
       value: loading ? "..." : stats.avgCircuitsRun.toString(),
       change: `Last ${timeRange}`,
       icon: Zap,
@@ -165,13 +165,13 @@ export default function DashboardPage() {
     },
     {
       label: "Avg Runtime",
-      value: loading ? "..." : `${stats.avgRuntime.toFixed(3)}ms`,
+      value: loading ? "..." : `${Math.round(stats.avgRuntime)}ms`,
       change: `Last ${timeRange}`,
       icon: Clock,
     },
     {
       label: "Avg Qubits",
-      value: loading ? "..." : stats.avgQubits.toFixed(1),
+      value: loading ? "..." : Math.round(stats.avgQubits).toString(),
       change: `Last ${timeRange}`,
       icon: BarChart3,
     },
@@ -180,7 +180,7 @@ export default function DashboardPage() {
   return (
     <div className="p-8 space-y-8 px-0">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <PageHeader title="Dashboard" description="Welcome back! Here's your activity." />
+        <PageHeader title="Digital Twin Dashboard" description="Your quantum digital twins activity and insights." />
         <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRange)}>
           <SelectTrigger className="w-[180px] shadow-lg">
             <SelectValue placeholder="Select time range" />
@@ -213,9 +213,9 @@ export default function DashboardPage() {
 
       <Card className="p-6 hover:shadow-lg transition-all duration-300 shadow-lg bg-secondary">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-foreground">Recent Circuits</h2>
+          <h2 className="text-2xl font-bold text-foreground">Recent Digital Twins</h2>
           <Link href="/qsaas/runner">
-            <Button className="bg-primary hover:bg-primary/90">New Circuit</Button>
+            <Button className="bg-primary hover:bg-primary/90">New Digital Twin</Button>
           </Link>
         </div>
         {loading ? (
@@ -264,7 +264,7 @@ export default function DashboardPage() {
                     </td>
                     <td className="py-3 px-4 text-foreground">{circuit.qubits_used}</td>
                     <td className="py-3 px-4 text-foreground">
-                      {circuit.runtime_ms ? `${Number(circuit.runtime_ms).toFixed(6)}ms` : "N/A"}
+                      {circuit.runtime_ms ? `${Math.round(Number(circuit.runtime_ms))}ms` : "N/A"}
                     </td>
                     <td className="py-3 px-4 text-muted-foreground text-sm">
                       {new Date(circuit.created_at).toLocaleString()}
