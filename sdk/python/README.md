@@ -13,7 +13,7 @@ pip install planck-sdk
 To ensure fair usage and prevent abuse, the Planck API enforces the following limits:
 
 - **Request Rate**: Maximum 1 request every 3 seconds per user
-- **Payload Size**: Maximum 1MB per request
+- **Payload Size**: Maximum 1mb per request
 
 The SDK automatically handles these limits:
 - Automatically waits 3 seconds between requests
@@ -170,9 +170,4 @@ client = PlanckClient(api_key=os.environ["PLANCK_API_KEY"])
 ## Support
 
 - Documentation: https://docs.plancktechnologies.xyz/sdk/python
-- Issues: https://github.com/plancktechnologies/planck-sdk-python/issues
 - Email: hello@plancktechnologies.xyz
-
-## License
-
-MIT License - see LICENSE file for details.
