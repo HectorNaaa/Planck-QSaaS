@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/page-header"
 import { createClient, createBrowserClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { LanguageSelector } from "@/components/language-selector"
-import { deleteUserAccount, updateUserAccount } from "./actions"
+import { deleteUserAccount, updateUserAccount, generateApiKey, getApiKey, revokeApiKey } from "./actions"
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
@@ -29,7 +29,9 @@ export default function SettingsPage() {
   const [userOccupation, setUserOccupation] = useState("")
   const [isEditingAccount, setIsEditingAccount] = useState(false)
   const [isSavingAccount, setIsSavingAccount] = useState(false)
-  const [apiKey, setApiKey] = useState("sk_live_4f8b2a9c1e6d3h7k")
+  const [apiKey, setApiKey] = useState<string | null>(null)
+  const [apiKeyCreatedAt, setApiKeyCreatedAt] = useState<string | null>(null)
+  const [isGeneratingKey, setIsGeneratingKey] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
 
@@ -58,6 +60,8 @@ export default function SettingsPage() {
           setUserOccupation(profile.occupation || "")
           setStayLoggedIn(profile.stay_logged_in !== false)
           setDarkModeEnabled(profile.theme_preference === "dark")
+          setApiKey(profile.api_key || null)
+          setApiKeyCreatedAt(profile.api_key_created_at || null)
         }
       }
 
@@ -189,14 +193,51 @@ export default function SettingsPage() {
   }
 
   const handleCopyApiKey = () => {
-    navigator.clipboard.writeText(apiKey)
-    alert("API key copied to clipboard!")
+    if (apiKey) {
+      navigator.clipboard.writeText(apiKey)
+      alert("API key copied to clipboard!")
+    }
   }
 
-  const handleRegenerateApiKey = () => {
-    const newKey = `sk_live_${Math.random().toString(36).substring(2, 18)}`
-    setApiKey(newKey)
-    alert("New API key generated!")
+  const handleGenerateApiKey = async () => {
+    if (apiKey) {
+      const confirmed = confirm("This will revoke your existing API key. Are you sure?")
+      if (!confirmed) return
+    }
+
+    setIsGeneratingKey(true)
+    try {
+      const result = await generateApiKey()
+      if (result.error) {
+        throw new Error(result.error)
+      }
+      setApiKey(result.apiKey!)
+      setApiKeyCreatedAt(new Date().toISOString())
+      alert("API key generated successfully! Make sure to copy it now - you won't be able to see it again.")
+    } catch (error: any) {
+      console.error("Error generating API key:", error)
+      alert(`Error generating API key: ${error.message}`)
+    } finally {
+      setIsGeneratingKey(false)
+    }
+  }
+
+  const handleRevokeApiKey = async () => {
+    const confirmed = confirm("Are you sure you want to revoke your API key? This cannot be undone.")
+    if (!confirmed) return
+
+    try {
+      const result = await revokeApiKey()
+      if (result.error) {
+        throw new Error(result.error)
+      }
+      setApiKey(null)
+      setApiKeyCreatedAt(null)
+      alert("API key revoked successfully!")
+    } catch (error: any) {
+      console.error("Error revoking API key:", error)
+      alert(`Error revoking API key: ${error.message}`)
+    }
   }
 
   const plans = [
@@ -408,32 +449,72 @@ export default function SettingsPage() {
       {/* API Keys */}
       <Card className="p-6 shadow-lg">
         <h2 className="text-2xl font-bold text-foreground mb-6">API Keys</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Use API keys to authenticate requests to the Planck API from your Python code or Jupyter notebooks.
+        </p>
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg border border-border">
-            <div className="flex-1">
-              <p className="font-medium text-foreground">Production Key</p>
-              <p className="text-sm text-muted-foreground font-mono">{apiKey}</p>
+          {apiKey ? (
+            <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg border border-border">
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-foreground mb-1">Production Key</p>
+                <p className="text-sm text-muted-foreground font-mono truncate">{apiKey}</p>
+                {apiKeyCreatedAt && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Created: {new Date(apiKeyCreatedAt).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2 ml-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCopyApiKey}
+                  className="flex items-center gap-2 bg-transparent"
+                >
+                  <Copy size={16} />
+                  Copy
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRevokeApiKey}
+                  className="flex items-center gap-2 bg-transparent text-destructive hover:text-destructive"
+                >
+                  <Trash2 size={16} />
+                  Revoke
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-2">
+          ) : (
+            <div className="p-4 bg-secondary/50 rounded-lg border border-border text-center">
+              <p className="text-muted-foreground mb-4">No API key generated yet.</p>
               <Button
-                variant="outline"
-                size="sm"
-                onClick={handleCopyApiKey}
-                className="flex items-center gap-2 bg-transparent"
-              >
-                <Copy size={16} />
-                Copy
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRegenerateApiKey}
-                className="flex items-center gap-2 bg-transparent"
+                onClick={handleGenerateApiKey}
+                disabled={isGeneratingKey}
+                className="bg-primary hover:bg-primary/90 flex items-center gap-2 mx-auto"
               >
                 <RefreshCw size={16} />
-                Regenerate
+                {isGeneratingKey ? "Generating..." : "Generate API Key"}
               </Button>
             </div>
+          )}
+          <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+            <p className="text-sm text-blue-900 dark:text-blue-100 font-medium mb-2">SDK Installation</p>
+            <code className="text-xs bg-blue-100 dark:bg-blue-900/30 px-2 py-1 rounded text-blue-900 dark:text-blue-100">
+              pip install planck-sdk
+            </code>
+            <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
+              Check the{" "}
+              <a
+                href="https://github.com/HectorNaaa/Planck-QSaaS/tree/main/sdk/python"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                SDK documentation
+              </a>{" "}
+              for examples.
+            </p>
           </div>
         </div>
       </Card>
