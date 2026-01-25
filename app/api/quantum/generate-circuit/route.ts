@@ -1,10 +1,45 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createServerClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     console.log("[v0] Generate circuit request:", body)
     const { algorithm, inputData, qubits, shots, errorMitigation } = body
+    
+    // Check for API key authentication
+    const apiKey = request.headers.get("x-api-key")
+    const supabase = await createServerClient()
+    
+    let userId: string | null = null
+    
+    if (apiKey) {
+      // Authenticate via API key
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("api_key", apiKey)
+        .single()
+      
+      if (!profile) {
+        return NextResponse.json(
+          { success: false, error: "Invalid API key" },
+          { status: 401 }
+        )
+      }
+      userId = profile.id
+    } else {
+      // Authenticate via session
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        return NextResponse.json(
+          { success: false, error: "Unauthorized. Please provide an API key or authenticate." },
+          { status: 401 }
+        )
+      }
+      userId = user.id
+    }
 
     const pythonScript = `
 import sys
@@ -31,7 +66,9 @@ print(json.dumps(circuit_data))
       qasm: circuitData.qasm,
       qubits: circuitData.qubits,
       depth: circuitData.depth,
+      gateCount: circuitData.gates.length,
       gates: circuitData.gates,
+      recommendedShots: 1024,
       metadata: circuitData.metadata,
     })
   } catch (error) {

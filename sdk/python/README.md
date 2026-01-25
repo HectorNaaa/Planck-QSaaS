@@ -4,8 +4,26 @@ Official Python SDK for the Planck Quantum Digital Twins Platform.
 
 ## Installation
 
+### From PyPI (when published)
+
 \`\`\`bash
 pip install planck-sdk
+\`\`\`
+
+### From Source
+
+\`\`\`bash
+# Clone the repository
+git clone https://github.com/HectorNaaa/Planck-QSaaS.git
+cd Planck-QSaaS/sdk/python
+
+# Install in development mode
+pip install -e .
+
+# Or build and install
+pip install build
+python -m build
+pip install dist/planck_sdk-0.9.0-py3-none-any.whl
 \`\`\`
 
 ## Rate Limits & Restrictions
@@ -22,13 +40,23 @@ The SDK automatically handles these limits:
 
 If you exceed the rate limit, you'll receive an `APIError` with retry-after information.
 
+## Getting Your API Key
+
+1. Sign up at [https://planck.plancktechnologies.xyz](https://planck.plancktechnologies.xyz)
+2. Navigate to Settings > API Keys
+3. Generate a new API key
+4. Copy and save it securely (it won't be shown again)
+
 ## Quick Start
 
 \`\`\`python
 from planck_sdk import PlanckClient
 
-# Initialize client with your API key (found in Settings > API Keys)
-client = PlanckClient(api_key="sk_live_your_api_key")
+# Initialize client with your API key
+client = PlanckClient(
+    api_key="your_api_key_here",
+    base_url="https://planck.plancktechnologies.xyz"  # Optional, this is the default
+)
 
 # Run a quantum circuit with your data
 result = client.run(

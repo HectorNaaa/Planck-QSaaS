@@ -34,17 +34,41 @@ export async function POST(request: NextRequest) {
     } = body
 
     const supabase = await createServerClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    
+    // Check for API key authentication
+    const apiKey = request.headers.get("x-api-key")
+    let userId: string | null = null
+    
+    if (apiKey) {
+      // Authenticate via API key
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("api_key", apiKey)
+        .single()
+      
+      if (!profile) {
+        return NextResponse.json(
+          { success: false, error: "Invalid API key" },
+          { status: 401 }
+        )
+      }
+      userId = profile.id
+    } else {
+      // Authenticate via session
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        return NextResponse.json(
+          { success: false, error: "Unauthorized. Please provide an API key or authenticate." },
+          { status: 401 }
+        )
+      }
+      userId = user.id
     }
 
     // Rate limiting: 1 request per 3 seconds per user
-    const identifier = user.id
+    const identifier = userId
     if (!checkRateLimit(identifier)) {
       const retryAfter = Math.ceil(getRetryAfter(identifier) / 1000)
       return NextResponse.json(
@@ -76,7 +100,7 @@ export async function POST(request: NextRequest) {
     const { data: insertedLog, error: insertError } = await supabase
       .from("execution_logs")
       .insert({
-        user_id: user.id,
+        user_id: userId,
         circuit_name: circuitName || "Unnamed Circuit",
         algorithm: algorithm || "Unknown",
         execution_type: executionType || "auto",
@@ -134,7 +158,7 @@ export async function POST(request: NextRequest) {
           userHistoricalAccuracy: 0.5,
         },
         insertedLog.id,
-        user.id,
+        userId,
         {
           actualShots: shots,
           actualBackend: backend,
