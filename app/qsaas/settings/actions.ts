@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
+import crypto from "crypto"
 
 export async function updateUserAccount(data: {
   email?: string
@@ -148,5 +149,143 @@ export async function deleteUserAccount() {
   } catch (error: any) {
     console.error("Delete account error:", error)
     return { error: error.message || "Failed to delete account" }
+  }
+}
+
+export async function generateApiKey() {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    return { error: "Not authenticated" }
+  }
+
+  try {
+    // Generate a secure API key
+    const apiKey = `plk_${crypto.randomBytes(32).toString("hex")}`
+
+    // Update user profile with new API key
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        api_key: apiKey,
+        api_key_created_at: new Date().toISOString(),
+      })
+      .eq("id", user.id)
+
+    if (updateError) {
+      console.error("Error generating API key:", updateError)
+      return { error: "Failed to generate API key: " + updateError.message }
+    }
+
+    // Log the API key generation
+    await supabase.from("execution_logs").insert({
+      user_id: user.id,
+      execution_type: "api_key_generation",
+      circuit_name: "API Key Generated",
+      status: "completed",
+      backend: "system",
+      qubits_used: 0,
+      shots: 0,
+      runtime_ms: 0,
+      success_rate: 1.0,
+      error_mitigation: "New API key created",
+      created_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+    })
+
+    return { success: true, apiKey }
+  } catch (error: any) {
+    console.error("Generate API key error:", error)
+    return { error: error.message || "Failed to generate API key" }
+  }
+}
+
+export async function getApiKey() {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    return { error: "Not authenticated" }
+  }
+
+  try {
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("api_key, api_key_created_at")
+      .eq("id", user.id)
+      .single()
+
+    if (profileError) {
+      console.error("Error fetching API key:", profileError)
+      return { error: "Failed to fetch API key" }
+    }
+
+    return { 
+      success: true, 
+      apiKey: profile?.api_key || null,
+      createdAt: profile?.api_key_created_at || null
+    }
+  } catch (error: any) {
+    console.error("Get API key error:", error)
+    return { error: error.message || "Failed to get API key" }
+  }
+}
+
+export async function revokeApiKey() {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    return { error: "Not authenticated" }
+  }
+
+  try {
+    // Remove API key from profile
+    const { error: updateError } = await supabase
+      .from("profiles")
+      .update({
+        api_key: null,
+        api_key_created_at: null,
+      })
+      .eq("id", user.id)
+
+    if (updateError) {
+      console.error("Error revoking API key:", updateError)
+      return { error: "Failed to revoke API key: " + updateError.message }
+    }
+
+    // Log the API key revocation
+    await supabase.from("execution_logs").insert({
+      user_id: user.id,
+      execution_type: "api_key_revocation",
+      circuit_name: "API Key Revoked",
+      status: "completed",
+      backend: "system",
+      qubits_used: 0,
+      shots: 0,
+      runtime_ms: 0,
+      success_rate: 1.0,
+      error_mitigation: "API key revoked by user",
+      created_at: new Date().toISOString(),
+      completed_at: new Date().toISOString(),
+    })
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Revoke API key error:", error)
+    return { error: error.message || "Failed to revoke API key" }
   }
 }

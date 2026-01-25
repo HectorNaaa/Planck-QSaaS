@@ -75,7 +75,7 @@ class PlanckClient:
         
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}",
+            "X-API-Key": self.api_key,
             "X-Planck-SDK": "python/0.9.0",
         }
         

@@ -6,7 +6,7 @@ A Python SDK to interact with the Planck quantum computing platform,
 enabling circuit generation, simulation, and result management.
 
 Installation:
-    pip install planck-sdk
+    pip install planck_sdk
 
 Quick Start:
     from planck_sdk import PlanckClient

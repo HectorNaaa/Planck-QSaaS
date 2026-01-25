@@ -1,9 +1,38 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createServerClient } from "@/lib/supabase/server"
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { qasm, backend, qubits } = body
+    
+    // Authenticate via API key or session
+    const apiKey = request.headers.get("x-api-key")
+    const supabase = await createServerClient()
+    
+    if (apiKey) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("api_key", apiKey)
+        .single()
+      
+      if (!profile) {
+        return NextResponse.json(
+          { success: false, error: "Invalid API key" },
+          { status: 401 }
+        )
+      }
+    } else {
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        return NextResponse.json(
+          { success: false, error: "Unauthorized. Please provide an API key or authenticate." },
+          { status: 401 }
+        )
+      }
+    }
 
     const transpilerConfig = {
       qasm,

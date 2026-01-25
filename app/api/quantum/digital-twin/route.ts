@@ -8,15 +8,35 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] Generating Digital Twin for:", algorithm)
 
-    // Authenticate user
+    // Authenticate via API key or session
     const supabase = await createServerClient()
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    const apiKey = request.headers.get("x-api-key")
+    let userId: string | null = null
+    
+    if (apiKey) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("api_key", apiKey)
+        .single()
+      
+      if (!profile) {
+        return NextResponse.json(
+          { success: false, error: "Invalid API key" },
+          { status: 401 }
+        )
+      }
+      userId = profile.id
+    } else {
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        return NextResponse.json(
+          { success: false, error: "Unauthorized. Please provide an API key or authenticate." },
+          { status: 401 }
+        )
+      }
+      userId = user.id
     }
 
     // Since we can't spawn processes in browser environment, we implement the logic here
@@ -29,7 +49,7 @@ export async function POST(request: NextRequest) {
         .update({
           digital_twin: digitalTwin,
         })
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("id", executionResults.execution_id)
 
       if (updateError) {

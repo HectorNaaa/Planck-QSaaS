@@ -4,9 +4,35 @@ Official Python SDK for the Planck Quantum Digital Twins Platform.
 
 ## Installation
 
-```bash
+### Direct Install from GitHub (Recommended for Colab/Remote)
+
+Install directly without cloning - works in Google Colab, Jupyter, or any Python environment:
+
+\`\`\`bash
+pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
+\`\`\`
+
+**Google Colab / Jupyter Notebook:**
+\`\`\`python
+!pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
+\`\`\`
+
+### From PyPI (when published)
+
+\`\`\`bash
 pip install planck-sdk
-```
+\`\`\`
+
+### From Source (for development)
+
+\`\`\`bash
+# Clone the repository
+git clone https://github.com/HectorNaaa/Planck-QSaaS.git
+cd Planck-QSaaS/sdk/python
+
+# Install in development mode
+pip install -e .
+\`\`\`
 
 ## Rate Limits & Restrictions
 
@@ -22,13 +48,23 @@ The SDK automatically handles these limits:
 
 If you exceed the rate limit, you'll receive an `APIError` with retry-after information.
 
+## Getting Your API Key
+
+1. Sign up at [https://planck.plancktechnologies.xyz](https://planck.plancktechnologies.xyz)
+2. Navigate to Settings > API Keys
+3. Generate a new API key
+4. Copy and save it securely (it won't be shown again)
+
 ## Quick Start
 
-```python
+\`\`\`python
 from planck_sdk import PlanckClient
 
-# Initialize client with your API key (found in Settings > API Keys)
-client = PlanckClient(api_key="sk_live_your_api_key")
+# Initialize client with your API key
+client = PlanckClient(
+    api_key="your_api_key_here",
+    base_url="https://planck.plancktechnologies.xyz"  # Optional, this is the default
+)
 
 # Run a quantum circuit with your data
 result = client.run(
@@ -47,7 +83,7 @@ result.plot_histogram()
 
 # Save results
 result.save("my_execution.json")
-```
+\`\`\`
 
 ## Available Algorithms
 
@@ -61,7 +97,7 @@ result.save("my_execution.json")
 
 ## Loading Data
 
-```python
+\`\`\`python
 # From a list
 result = client.run(data=[1, 2, 3, 4])
 
@@ -71,13 +107,13 @@ result = client.run(data={"values": [1, 2, 3], "weights": [0.5, 0.3, 0.2]})
 # From a file
 result = client.run(data="path/to/data.csv")
 result = client.run(data="path/to/data.json")
-```
+\`\`\`
 
 ## Advanced Usage
 
 ### Generate Circuit Without Executing
 
-```python
+\`\`\`python
 circuit = client.generate_circuit(
     data=[1, 2, 3, 4],
     algorithm="grover",
@@ -90,11 +126,11 @@ print(f"Gates: {circuit.gate_count}")
 
 # Save QASM to file
 circuit.save("my_circuit.qasm")
-```
+\`\`\`
 
 ### Get ML Recommendations
 
-```python
+\`\`\`python
 recommendations = client.get_recommendations(
     qubits=8,
     depth=20,
@@ -106,11 +142,11 @@ recommendations = client.get_recommendations(
 print(f"Recommended shots: {recommendations['recommended_shots']}")
 print(f"Recommended backend: {recommendations['recommended_backend']}")
 print(f"Confidence: {recommendations['confidence']:.2f}")
-```
+\`\`\`
 
 ### Custom Backend Selection
 
-```python
+\`\`\`python
 # Force specific backend
 result = client.run(
     data=my_data,
@@ -118,27 +154,27 @@ result = client.run(
     backend="quantum_qpu",  # Options: auto, classical, hpc, quantum_qpu
     error_mitigation="high"  # Options: none, low, medium, high
 )
-```
+\`\`\`
 
 ### List Previous Executions
 
-```python
+\`\`\`python
 executions = client.list_executions(limit=20)
 
 for exec in executions:
     print(f"{exec['id']}: {exec['algorithm']} - {exec['status']}")
-```
+\`\`\`
 
 ### Retrieve Specific Execution
 
-```python
+\`\`\`python
 result = client.get_execution("execution_id_here")
 print(result.to_json())
-```
+\`\`\`
 
 ## Error Handling
 
-```python
+\`\`\`python
 from planck_sdk import PlanckClient, AuthenticationError, CircuitError, APIError
 
 try:
@@ -150,24 +186,25 @@ except CircuitError as e:
     print(f"Circuit error: {e}")
 except APIError as e:
     print(f"API error: {e}")
-```
+\`\`\`
 
 ## Environment Variables
 
 You can also set your API key via environment variable:
 
-```bash
+\`\`\`bash
 export PLANCK_API_KEY="sk_live_your_api_key"
-```
+\`\`\`
 
-```python
+\`\`\`python
 import os
 from planck_sdk import PlanckClient
 
 client = PlanckClient(api_key=os.environ["PLANCK_API_KEY"])
-```
+\`\`\`
 
 ## Support
 
-- Documentation: https://docs.plancktechnologies.xyz/sdk/python
+- Platform: https://planck.plancktechnologies.xyz
+- GitHub: https://github.com/HectorNaaa/Planck-QSaaS
 - Email: hello@plancktechnologies.xyz

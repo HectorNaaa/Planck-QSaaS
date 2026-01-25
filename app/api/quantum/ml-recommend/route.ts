@@ -8,12 +8,35 @@ export async function POST(request: NextRequest) {
     const { qubits, depth, gateCount, algorithm, dataSize, dataComplexity, targetLatency, errorMitigation } = body
 
     const supabase = await createServerClient()
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    
+    // Authenticate via API key or session
+    const apiKey = request.headers.get("x-api-key")
+    let userId: string | null = null
+    
+    if (apiKey) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("api_key", apiKey)
+        .single()
+      
+      if (!profile) {
+        return NextResponse.json(
+          { success: false, error: "Invalid API key" },
+          { status: 401 }
+        )
+      }
+      userId = profile.id
+    } else {
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        return NextResponse.json(
+          { success: false, error: "Unauthorized. Please provide an API key or authenticate." },
+          { status: 401 }
+        )
+      }
+      userId = user.id
     }
 
     let userHistoricalAccuracy = 0.5
@@ -21,7 +44,7 @@ export async function POST(request: NextRequest) {
       const { data: userHistory, error: historyError } = await supabase
         .from("ml_feature_vectors")
         .select("reward_score")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(10)
 
