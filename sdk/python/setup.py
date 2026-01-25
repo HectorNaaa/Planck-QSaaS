@@ -1,18 +1,23 @@
 """
-Planck SDK - Setup configuration for PyPI distribution
+Planck SDK - Setup configuration for PyPI/GitHub distribution
+Lightweight installation with zero external dependencies.
 """
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
-with open("README.md", "r", encoding="utf-8") as f:
-    long_description = f.read()
+# Read README for long description (optional, fallback if not available)
+try:
+    with open("README.md", "r", encoding="utf-8") as f:
+        long_description = f.read()
+except FileNotFoundError:
+    long_description = "Planck Quantum SDK - Python client for quantum circuit simulation"
 
 setup(
     name="planck-sdk",
-    version="0.9.0",
+    version="0.9.1",
     author="Planck Technologies",
     author_email="hello@plancktechnologies.xyz",
-    description="Python SDK for Planck Quantum Digital Twins Platform",
+    description="Lightweight Python SDK for Planck Quantum Digital Twins Platform",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/HectorNaaa/Planck-QSaaS",
@@ -21,7 +26,8 @@ setup(
         "Bug Tracker": "https://github.com/HectorNaaa/Planck-QSaaS/issues",
         "Platform": "https://planck.plancktechnologies.xyz",
     },
-    packages=find_packages(),
+    packages=["planck_sdk"],
+    package_dir={"": "."},
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
@@ -38,7 +44,7 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
     python_requires=">=3.8",
-    install_requires=[],  # No external dependencies - uses stdlib only
+    install_requires=[],  # Zero dependencies - uses Python stdlib only
     extras_require={
         "dev": [
             "pytest>=7.0.0",
@@ -55,4 +61,5 @@ setup(
         "qasm",
         "planck",
     ],
+    zip_safe=True,
 )

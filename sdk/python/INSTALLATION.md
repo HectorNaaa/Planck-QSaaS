@@ -1,116 +1,142 @@
 # Planck SDK Installation Guide
 
-This guide covers different ways to install and use the Planck Python SDK.
+This guide covers different ways to install and use the Planck Python SDK.  
+**Zero dependencies** - the SDK uses only Python standard library.
 
-## Method 1: Install from Source (Recommended for Development)
+---
+
+## Method 1: pip install from GitHub ZIP (Recommended - No Git Required)
+
+The easiest method that works everywhere - no git installation needed:
+
+\`\`\`bash
+pip install https://github.com/HectorNaaa/Planck-QSaaS/archive/refs/heads/main.zip#subdirectory=sdk/python
+\`\`\`
 
 ### Prerequisites
 - Python 3.8 or higher
 - pip package manager
-- git (optional, for cloning)
 
-### Steps
+### Verify installation
+\`\`\`bash
+python -c "import planck_sdk; print(f'Planck SDK v{planck_sdk.__version__}')"
+\`\`\`
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/HectorNaaa/Planck-QSaaS.git
-   cd Planck-QSaaS/sdk/python
-   ```
+---
 
-2. **Install in development mode**:
-   ```bash
-   pip install -e .
-   ```
-   
-   This installs the package in "editable" mode, so any changes you make to the source code are immediately reflected.
+## Method 2: One-Line Remote Install (Minimal Footprint)
 
-3. **Verify installation**:
-   ```bash
-   python -c "from planck_sdk import PlanckClient; print('✓ Planck SDK installed successfully')"
-   ```
+Downloads only core SDK files directly to your Python environment:
 
-## Method 2: Build and Install as Wheel
+### Python
+\`\`\`python
+import urllib.request; exec(urllib.request.urlopen('https://raw.githubusercontent.com/HectorNaaa/Planck-QSaaS/main/sdk/python/install.py').read())
+\`\`\`
 
-1. **Install build tools**:
-   ```bash
-   pip install build
-   ```
+### Shell (curl)
+\`\`\`bash
+curl -sSL https://raw.githubusercontent.com/HectorNaaa/Planck-QSaaS/main/sdk/python/install.py | python3
+\`\`\`
 
-2. **Build the package**:
-   ```bash
-   cd Planck-QSaaS/sdk/python
-   python -m build
-   ```
-   
-   This creates a `dist/` directory with `.whl` and `.tar.gz` files.
+### Shell (wget)
+\`\`\`bash
+wget -qO- https://raw.githubusercontent.com/HectorNaaa/Planck-QSaaS/main/sdk/python/install.py | python3
+\`\`\`
 
-3. **Install the wheel**:
-   ```bash
-   pip install dist/planck_sdk-0.9.0-py3-none-any.whl
-   ```
+---
 
-## Method 3: Direct Install from GitHub
+## Method 3: Jupyter / Google Colab Setup
 
-Install directly from the GitHub repository:
+### Option A: Using subprocess (cleanest)
+\`\`\`python
+# Run this cell once
+import subprocess, sys
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", 
+    "https://github.com/HectorNaaa/Planck-QSaaS/archive/refs/heads/main.zip#subdirectory=sdk/python"])
 
-```bash
-pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
-```
+# Verify
+import planck_sdk
+print(f"Planck SDK v{planck_sdk.__version__} installed!")
+\`\`\`
 
-## Method 4: Install from PyPI (Future)
+### Option B: Using shell command
+\`\`\`python
+!pip install -q https://github.com/HectorNaaa/Planck-QSaaS/archive/refs/heads/main.zip#subdirectory=sdk/python
+\`\`\`
 
-Once published to PyPI:
-
-```bash
-pip install planck-sdk
-```
-
-## Jupyter Notebook Setup
-
-### Install in Jupyter Notebook
-
-```python
-# In a Jupyter cell
-!pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
-```
-
-### Or with local installation
-
-```python
-# In a Jupyter cell, from the sdk/python directory
-!pip install -e .
-```
-
-### Test in Jupyter
-
-```python
-from planck_sdk import PlanckClient
-
-client = PlanckClient(api_key="your_api_key")
-print("✓ SDK loaded successfully")
-```
-
-## Google Colab Setup
-
-In a Google Colab notebook:
-
-```python
-# Cell 1: Install
-!pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
-
-# Cell 2: Import and use
+### Test in notebook
+\`\`\`python
 from planck_sdk import PlanckClient
 
 client = PlanckClient(api_key="your_api_key")
 result = client.run(data=[1, 2, 3], algorithm="bell")
 result.plot_histogram()
-```
+\`\`\`
+
+---
+
+## Method 4: Install from PyPI (Future)
+
+Once published to PyPI:
+
+\`\`\`bash
+pip install planck-sdk
+\`\`\`
+
+---
+
+## Method 5: Install from Source (Development)
+
+### Prerequisites
+- Python 3.8 or higher
+- pip package manager
+- git (only for this method)
+
+### Steps
+
+1. **Clone the repository**:
+   \`\`\`bash
+   git clone https://github.com/HectorNaaa/Planck-QSaaS.git
+   cd Planck-QSaaS/sdk/python
+   \`\`\`
+
+2. **Install in development mode**:
+   \`\`\`bash
+   pip install -e .
+   \`\`\`
+   
+   This installs the package in "editable" mode for development.
+
+3. **Verify installation**:
+   \`\`\`bash
+   python -c "from planck_sdk import PlanckClient; print('Planck SDK installed')"
+   \`\`\`
+
+---
+
+## Method 6: Build and Install as Wheel
+
+1. **Install build tools**:
+   \`\`\`bash
+   pip install build
+   \`\`\`
+
+2. **Build the package**:
+   \`\`\`bash
+   cd Planck-QSaaS/sdk/python
+   python -m build
+   \`\`\`
+
+3. **Install the wheel**:
+   \`\`\`bash
+   pip install dist/planck_sdk-0.9.1-py3-none-any.whl
+   \`\`\`
 
 ## Virtual Environment Setup (Recommended)
 
 ### Using venv
 
-```bash
+\`\`\`bash
 # Create virtual environment
 python -m venv planck_env
 
@@ -125,11 +151,11 @@ pip install -e Planck-QSaaS/sdk/python
 
 # Deactivate when done
 deactivate
-```
+\`\`\`
 
 ### Using conda
 
-```bash
+\`\`\`bash
 # Create environment
 conda create -n planck python=3.10
 
@@ -141,7 +167,7 @@ pip install -e Planck-QSaaS/sdk/python
 
 # Deactivate
 conda deactivate
-```
+\`\`\`
 
 ## Troubleshooting
 
@@ -150,49 +176,49 @@ conda deactivate
 If you get `ModuleNotFoundError: No module named 'planck_sdk'`:
 
 1. Check installation:
-   ```bash
+   \`\`\`bash
    pip list | grep planck
-   ```
+   \`\`\`
 
 2. Verify Python path:
-   ```python
+   \`\`\`python
    import sys
    print(sys.path)
-   ```
+   \`\`\`
 
 3. Reinstall:
-   ```bash
+   \`\`\`bash
    pip uninstall planck-sdk
    pip install -e path/to/Planck-QSaaS/sdk/python
-   ```
+   \`\`\`
 
 ### Permission Errors
 
 If you get permission errors during installation:
 
-```bash
+\`\`\`bash
 # Install for current user only
 pip install --user -e .
-```
+\`\`\`
 
 ### Dependencies Issues
 
 The SDK has zero external dependencies and uses only Python standard library. If you encounter issues:
 
-```bash
+\`\`\`bash
 # Upgrade pip
 pip install --upgrade pip
 
 # Clean install
 pip cache purge
 pip install -e . --no-cache-dir
-```
+\`\`\`
 
 ## Verifying Installation
 
 Create a test script `test_planck.py`:
 
-```python
+\`\`\`python
 from planck_sdk import PlanckClient, QuantumCircuit, ExecutionResult
 from planck_sdk.exceptions import AuthenticationError, CircuitError
 
@@ -205,24 +231,24 @@ try:
     print("✓ Client initialization successful")
 except Exception as e:
     print(f"✗ Client test failed: {e}")
-```
+\`\`\`
 
 Run it:
-```bash
+\`\`\`bash
 python test_planck.py
-```
+\`\`\`
 
 ## Next Steps
 
 1. Get your API key from [https://planck.plancktechnologies.xyz/qsaas/settings](https://planck.plancktechnologies.xyz/qsaas/settings)
 2. Set up your environment variable:
-   ```bash
+   \`\`\`bash
    export PLANCK_API_KEY="your_api_key"
-   ```
+   \`\`\`
 3. Run the examples:
-   ```bash
+   \`\`\`bash
    python examples/basic_usage.py
-   ```
+   \`\`\`
 4. Check out the [README.md](README.md) for usage examples
 
 ## Support

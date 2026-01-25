@@ -6,7 +6,7 @@ Official API documentation for the Planck Quantum Digital Twins Platform.
 
 **No need to clone the repository!** Install and use directly:
 
-```python
+\`\`\`python
 # Install SDK directly from GitHub
 !pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
 
@@ -27,15 +27,15 @@ result = client.run(
 
 print(result.counts)
 print(f"Fidelity: {result.fidelity}")
-```
+\`\`\`
 
 Get your API key at: https://planck.plancktechnologies.xyz/qsaas/settings
 
 ## Base URL
 
-```
+\`\`\`
 https://planck.plancktechnologies.xyz
-```
+\`\`\`
 
 ## Authentication
 
@@ -43,9 +43,9 @@ All API requests require authentication using an API key. You can generate an AP
 
 ### API Key Header
 
-```http
+\`\`\`http
 X-API-Key: your_api_key_here
-```
+\`\`\`
 
 ## Rate Limiting
 
@@ -63,7 +63,7 @@ Generate a quantum circuit based on algorithm type and parameters.
 **Endpoint**: `POST /api/quantum/generate-circuit`
 
 **Request Body**:
-```json
+\`\`\`json
 {
   "algorithm": "Bell",
   "inputData": { "target": "01" },
@@ -71,10 +71,10 @@ Generate a quantum circuit based on algorithm type and parameters.
   "shots": 1024,
   "errorMitigation": "basic"
 }
-```
+\`\`\`
 
 **Response**:
-```json
+\`\`\`json
 {
   "success": true,
   "qasm": "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[2];\ncreg c[2];\nh q[0];\ncx q[0],q[1];\nmeasure q -> c;",
@@ -85,7 +85,7 @@ Generate a quantum circuit based on algorithm type and parameters.
   "recommendedShots": 1024,
   "metadata": {...}
 }
-```
+\`\`\`
 
 ### 2. Simulate Quantum Circuit
 
@@ -94,7 +94,7 @@ Execute a quantum circuit simulation.
 **Endpoint**: `POST /api/quantum/simulate`
 
 **Request Body**:
-```json
+\`\`\`json
 {
   "qasm": "OPENQASM 2.0;...",
   "shots": 1024,
@@ -105,10 +105,10 @@ Execute a quantum circuit simulation.
   "executionType": "simulation",
   "qubits": 2
 }
-```
+\`\`\`
 
 **Response**:
-```json
+\`\`\`json
 {
   "success": true,
   "counts": { "00": 512, "11": 512 },
@@ -118,7 +118,7 @@ Execute a quantum circuit simulation.
   "shots": 1024,
   "fidelity": 0.98
 }
-```
+\`\`\`
 
 ### 3. Transpile Circuit
 
@@ -127,16 +127,16 @@ Transpile a circuit for a specific backend topology.
 **Endpoint**: `POST /api/quantum/transpile`
 
 **Request Body**:
-```json
+\`\`\`json
 {
   "qasm": "OPENQASM 2.0;...",
   "backend": "quantum_qpu",
   "qubits": 5
 }
-```
+\`\`\`
 
 **Response**:
-```json
+\`\`\`json
 {
   "success": true,
   "transpiledQASM": "...",
@@ -144,7 +144,7 @@ Transpile a circuit for a specific backend topology.
   "mappedQubits": [0, 1, 2, 3, 4],
   "depth": 8
 }
-```
+\`\`\`
 
 ### 4. ML Recommendation
 
@@ -153,7 +153,7 @@ Get ML-powered recommendations for execution parameters.
 **Endpoint**: `POST /api/quantum/ml-recommend`
 
 **Request Body**:
-```json
+\`\`\`json
 {
   "qubits": 3,
   "depth": 5,
@@ -164,10 +164,10 @@ Get ML-powered recommendations for execution parameters.
   "targetLatency": 1000,
   "errorMitigation": "basic"
 }
-```
+\`\`\`
 
 **Response**:
-```json
+\`\`\`json
 {
   "success": true,
   "recommendedShots": 2048,
@@ -177,7 +177,7 @@ Get ML-powered recommendations for execution parameters.
   "reasoning": "Based on circuit complexity and historical performance",
   "basedOnExecutions": 150
 }
-```
+\`\`\`
 
 ### 5. Generate Digital Twin
 
@@ -186,7 +186,7 @@ Generate AI-powered insights about circuit execution.
 **Endpoint**: `POST /api/quantum/digital-twin`
 
 **Request Body**:
-```json
+\`\`\`json
 {
   "algorithm": "Bell",
   "inputData": {...},
@@ -205,10 +205,10 @@ Generate AI-powered insights about circuit execution.
     "errorMitigation": "basic"
   }
 }
-```
+\`\`\`
 
 **Response**:
-```json
+\`\`\`json
 {
   "success": true,
   "digital_twin": {
@@ -220,7 +220,7 @@ Generate AI-powered insights about circuit execution.
     "timestamp": "2026-01-25T..."
   }
 }
-```
+\`\`\`
 
 ### 6. Visualize Circuit
 
@@ -229,14 +229,14 @@ Generate SVG visualization of a quantum circuit.
 **Endpoint**: `POST /api/quantum/visualize`
 
 **Request Body**:
-```json
+\`\`\`json
 {
   "qasm": "OPENQASM 2.0;..."
 }
-```
+\`\`\`
 
 **Response**:
-```json
+\`\`\`json
 {
   "success": true,
   "image_data": "<svg>...</svg>",
@@ -249,18 +249,18 @@ Generate SVG visualization of a quantum circuit.
   "width": 800,
   "height": 200
 }
-```
+\`\`\`
 
 ## Error Responses
 
 All endpoints return errors in the following format:
 
-```json
+\`\`\`json
 {
   "success": false,
   "error": "Error message here"
 }
-```
+\`\`\`
 
 **Common HTTP Status Codes**:
 - `400` - Bad Request (invalid parameters)
@@ -275,14 +275,14 @@ For easier integration, use our official Python SDK.
 
 ### Installation (Remote - No Cloning Required)
 
-```bash
+\`\`\`bash
 # Install directly from GitHub (works in Colab, Jupyter, any Python)
 pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
-```
+\`\`\`
 
 ### Full Example
 
-```python
+\`\`\`python
 from planck_sdk import PlanckClient
 
 client = PlanckClient(
@@ -322,7 +322,7 @@ print(f"Recommended shots: {recommendations['recommended_shots']}")
 # Ask the AI assistant
 answer = client.ask("When should I use VQE vs QAOA?")
 print(answer)
-```
+\`\`\`
 
 See the [SDK documentation](./sdk/python/README.md) for complete examples and the [Colab notebook](./sdk/python/examples/planck_colab_quickstart.ipynb) for interactive tutorials.
 

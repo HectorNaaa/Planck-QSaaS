@@ -1,3 +1,5 @@
 include README.md
 include LICENSE
+include install.py
 recursive-include planck_sdk *.py
+include planck_sdk/py.typed
