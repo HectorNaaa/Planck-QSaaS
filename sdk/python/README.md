@@ -1,29 +1,53 @@
 # Planck SDK for Python
 
-Official Python SDK for the Planck Quantum Digital Twins Platform.
+Official lightweight Python SDK for the Planck Quantum Digital Twins Platform.  
+**Zero dependencies** - uses only Python standard library.
 
 ## Installation
 
-### Direct Install from GitHub (Recommended for Colab/Remote)
+### Method 1: pip install from GitHub (Recommended - No Git Required)
 
-Install directly without cloning - works in Google Colab, Jupyter, or any Python environment:
+Install directly from GitHub ZIP archive - no git installation needed:
 
 \`\`\`bash
-pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
+pip install https://github.com/HectorNaaa/Planck-QSaaS/archive/refs/heads/main.zip#subdirectory=sdk/python
 \`\`\`
 
-**Google Colab / Jupyter Notebook:**
+### Method 2: Google Colab / Jupyter Notebook (One Cell)
+
 \`\`\`python
-!pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
+# Run this cell once to install
+import subprocess, sys
+subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", 
+    "https://github.com/HectorNaaa/Planck-QSaaS/archive/refs/heads/main.zip#subdirectory=sdk/python"])
+print("Planck SDK installed!")
 \`\`\`
 
-### From PyPI (when published)
+Or using shell command in notebook:
+\`\`\`python
+!pip install -q https://github.com/HectorNaaa/Planck-QSaaS/archive/refs/heads/main.zip#subdirectory=sdk/python
+\`\`\`
+
+### Method 3: One-Line Remote Install Script
+
+For environments where you want minimal footprint (downloads only core SDK files):
+
+\`\`\`python
+import urllib.request; exec(urllib.request.urlopen('https://raw.githubusercontent.com/HectorNaaa/Planck-QSaaS/main/sdk/python/install.py').read())
+\`\`\`
+
+Or via curl:
+\`\`\`bash
+curl -sSL https://raw.githubusercontent.com/HectorNaaa/Planck-QSaaS/main/sdk/python/install.py | python3
+\`\`\`
+
+### Method 4: From PyPI (when published)
 
 \`\`\`bash
 pip install planck-sdk
 \`\`\`
 
-### From Source (for development)
+### Method 5: From Source (for development)
 
 \`\`\`bash
 # Clone the repository
@@ -32,6 +56,14 @@ cd Planck-QSaaS/sdk/python
 
 # Install in development mode
 pip install -e .
+\`\`\`
+
+## Verify Installation
+
+\`\`\`python
+import planck_sdk
+print(f"Planck SDK v{planck_sdk.__version__}")
+# Should print: Planck SDK v0.9.1
 \`\`\`
 
 ## Rate Limits & Restrictions

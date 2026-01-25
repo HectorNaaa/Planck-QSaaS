@@ -5,20 +5,22 @@ Planck SDK - Remote Quick Start Example
 This script can be run from ANY Python environment without cloning the repository.
 Just copy and paste this into your Python environment!
 
-Installation (run this first):
-    pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
+Installation (run this first - NO GIT REQUIRED):
+    pip install https://github.com/HectorNaaa/Planck-QSaaS/archive/refs/heads/main.zip#subdirectory=sdk/python
 
 Or in a Jupyter/Colab cell:
-    !pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
+    !pip install -q https://github.com/HectorNaaa/Planck-QSaaS/archive/refs/heads/main.zip#subdirectory=sdk/python
+
+Or one-line Python install:
+    import urllib.request; exec(urllib.request.urlopen('https://raw.githubusercontent.com/HectorNaaa/Planck-QSaaS/main/sdk/python/install.py').read())
 """
 
 # ============================================================================
 # STEP 1: Install (uncomment if running in a fresh environment)
 # ============================================================================
-# import subprocess
-# subprocess.check_call([
-#     "pip", "install", 
-#     "git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python"
+# import subprocess, sys
+# subprocess.check_call([sys.executable, "-m", "pip", "install", "-q",
+#     "https://github.com/HectorNaaa/Planck-QSaaS/archive/refs/heads/main.zip#subdirectory=sdk/python"
 # ])
 
 # ============================================================================
@@ -46,7 +48,7 @@ client = PlanckClient(
     base_url="https://planck.plancktechnologies.xyz"
 )
 
-print("Planck SDK v0.9.0 - Remote Connection Ready")
+print("Planck SDK v0.9.1 - Remote Connection Ready")
 print("=" * 50)
 
 # ============================================================================

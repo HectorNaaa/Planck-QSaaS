@@ -76,7 +76,7 @@ class PlanckClient:
         headers = {
             "Content-Type": "application/json",
             "X-API-Key": self.api_key,
-            "X-Planck-SDK": "python/0.9.0",
+            "X-Planck-SDK": "python/0.9.1",
         }
         
         body = json.dumps(data).encode("utf-8") if data else None
