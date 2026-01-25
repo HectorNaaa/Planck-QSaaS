@@ -15,11 +15,11 @@ setup(
     description="Python SDK for Planck Quantum Digital Twins Platform",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/plancktechnologies/planck-sdk-python",
+    url="https://github.com/HectorNaaa/Planck-QSaaS",
     project_urls={
-        "Documentation": "https://docs.plancktechnologies.xyz/sdk/python",
-        "Bug Tracker": "https://github.com/plancktechnologies/planck-sdk-python/issues",
-        "Changelog": "https://github.com/plancktechnologies/planck-sdk-python/blob/main/CHANGELOG.md",
+        "Documentation": "https://github.com/HectorNaaa/Planck-QSaaS/tree/main/sdk/python",
+        "Bug Tracker": "https://github.com/HectorNaaa/Planck-QSaaS/issues",
+        "Platform": "https://planck.plancktechnologies.xyz",
     },
     packages=find_packages(),
     classifiers=[

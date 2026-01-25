@@ -4,13 +4,26 @@ Official Python SDK for the Planck Quantum Digital Twins Platform.
 
 ## Installation
 
+### Direct Install from GitHub (Recommended for Colab/Remote)
+
+Install directly without cloning - works in Google Colab, Jupyter, or any Python environment:
+
+\`\`\`bash
+pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
+\`\`\`
+
+**Google Colab / Jupyter Notebook:**
+\`\`\`python
+!pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
+\`\`\`
+
 ### From PyPI (when published)
 
 \`\`\`bash
 pip install planck-sdk
 \`\`\`
 
-### From Source
+### From Source (for development)
 
 \`\`\`bash
 # Clone the repository
@@ -19,11 +32,6 @@ cd Planck-QSaaS/sdk/python
 
 # Install in development mode
 pip install -e .
-
-# Or build and install
-pip install build
-python -m build
-pip install dist/planck_sdk-0.9.0-py3-none-any.whl
 \`\`\`
 
 ## Rate Limits & Restrictions
@@ -197,5 +205,6 @@ client = PlanckClient(api_key=os.environ["PLANCK_API_KEY"])
 
 ## Support
 
-- Documentation: https://docs.plancktechnologies.xyz/sdk/python
+- Platform: https://planck.plancktechnologies.xyz
+- GitHub: https://github.com/HectorNaaa/Planck-QSaaS
 - Email: hello@plancktechnologies.xyz

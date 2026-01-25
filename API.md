@@ -2,6 +2,35 @@
 
 Official API documentation for the Planck Quantum Digital Twins Platform.
 
+## Quick Start (Google Colab / Jupyter / Any Python)
+
+**No need to clone the repository!** Install and use directly:
+
+```python
+# Install SDK directly from GitHub
+!pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
+
+# Import and use
+from planck_sdk import PlanckClient
+
+client = PlanckClient(
+    api_key="YOUR_API_KEY",  # Get from Settings > API Keys
+    base_url="https://planck.plancktechnologies.xyz"
+)
+
+# Run a quantum algorithm
+result = client.run(
+    data=[1.0, 2.0, 3.0, 4.0],
+    algorithm="vqe",
+    shots=1024
+)
+
+print(result.counts)
+print(f"Fidelity: {result.fidelity}")
+```
+
+Get your API key at: https://planck.plancktechnologies.xyz/qsaas/settings
+
 ## Base URL
 
 ```
@@ -242,34 +271,60 @@ All endpoints return errors in the following format:
 
 ## Python SDK
 
-For easier integration, use our official Python SDK:
+For easier integration, use our official Python SDK.
+
+### Installation (Remote - No Cloning Required)
 
 ```bash
-pip install planck-sdk
+# Install directly from GitHub (works in Colab, Jupyter, any Python)
+pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
 ```
+
+### Full Example
 
 ```python
 from planck_sdk import PlanckClient
 
-client = PlanckClient(api_key="your_api_key")
-
-# Generate and simulate a Bell state
-circuit = client.generate_circuit(
-    algorithm="Bell",
-    qubits=2,
-    shots=1024
+client = PlanckClient(
+    api_key="your_api_key",
+    base_url="https://planck.plancktechnologies.xyz"
 )
 
-result = client.simulate(
-    qasm=circuit.qasm,
+# Run any algorithm with your data
+result = client.run(
+    data=[1.0, 2.0, 3.0, 4.0, 5.0],
+    algorithm="vqe",      # vqe, grover, qaoa, qft, bell
     shots=1024,
-    backend="quantum_inspired_gpu"
+    error_mitigation="medium"
 )
 
 print(result.counts)
+print(f"Fidelity: {result.fidelity}")
+print(f"Runtime: {result.runtime_ms}ms")
+
+# Generate circuit without executing
+circuit = client.generate_circuit(
+    data=[1, 2, 3, 4],
+    algorithm="grover"
+)
+print(circuit.qasm)
+
+# Get ML recommendations
+recommendations = client.get_recommendations(
+    qubits=4,
+    depth=10,
+    gate_count=20,
+    algorithm="qaoa",
+    data_size=100
+)
+print(f"Recommended shots: {recommendations['recommended_shots']}")
+
+# Ask the AI assistant
+answer = client.ask("When should I use VQE vs QAOA?")
+print(answer)
 ```
 
-See the [SDK documentation](./sdk/python/README.md) for complete examples.
+See the [SDK documentation](./sdk/python/README.md) for complete examples and the [Colab notebook](./sdk/python/examples/planck_colab_quickstart.ipynb) for interactive tutorials.
 
 ## Support
 

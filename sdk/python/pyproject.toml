@@ -30,10 +30,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://plancktechnologies.xyz"
-Documentation = "https://docs.plancktechnologies.xyz/sdk/python"
-Repository = "https://github.com/plancktechnologies/planck-sdk-python"
-"Bug Tracker" = "https://github.com/plancktechnologies/planck-sdk-python/issues"
+Homepage = "https://planck.plancktechnologies.xyz"
+Documentation = "https://github.com/HectorNaaa/Planck-QSaaS/tree/main/sdk/python"
+Repository = "https://github.com/HectorNaaa/Planck-QSaaS"
+"Bug Tracker" = "https://github.com/HectorNaaa/Planck-QSaaS/issues"
 
 [project.optional-dependencies]
 dev = [
