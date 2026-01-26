@@ -1,23 +1,61 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
+import {
+  validateApiKey,
+  validateBackend,
+  validateQubits,
+  validateQASM,
+  createSafeErrorResponse,
+  validateRequestHeaders,
+} from "@/lib/security"
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate request headers
+    const headerValidation = validateRequestHeaders(request.headers)
+    if (!headerValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: headerValidation.error },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
-    const { qasm, backend, qubits } = body
+    
+    // Validate inputs
+    const backend = validateBackend(body.backend) || "quantum_qpu"
+    const qubits = validateQubits(body.qubits)
+    
+    // Validate QASM
+    const qasmValidation = validateQASM(body.qasm)
+    if (!qasmValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: qasmValidation.error },
+        { status: 400 }
+      )
+    }
+    const qasm = body.qasm
     
     // Authenticate via API key or session
     const apiKey = request.headers.get("x-api-key")
     const supabase = await createServerClient()
     
     if (apiKey) {
-      const { data: profile } = await supabase
+      // Validate API key format
+      if (!validateApiKey(apiKey)) {
+        return NextResponse.json(
+          { success: false, error: "Invalid API key format" },
+          { status: 401 }
+        )
+      }
+      
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("id")
         .eq("api_key", apiKey)
         .single()
       
-      if (!profile) {
+      if (profileError || !profile) {
         return NextResponse.json(
           { success: false, error: "Invalid API key" },
           { status: 401 }
@@ -52,8 +90,12 @@ export async function POST(request: NextRequest) {
       depth: transpiledCircuit.depth,
     })
   } catch (error) {
-    console.error("[v0] Transpilation error:", error)
-    return NextResponse.json({ success: false, error: "Failed to transpile circuit" }, { status: 500 })
+    const safeError = createSafeErrorResponse(error, "Failed to transpile circuit")
+    console.error("[API] Transpilation error:", error)
+    return NextResponse.json(
+      { success: false, error: safeError },
+      { status: 500 }
+    )
   }
 }
 
@@ -84,7 +126,12 @@ function getTopologyForBackend(backend: string) {
   return topologies[backend] || topologies.quantum_inspired_gpu
 }
 
-async function transpileCircuit(config: any) {
+async function transpileCircuit(config: {
+  qasm: string
+  backend: string
+  qubits: number
+  topology: any
+}) {
   // Simulate transpilation logic
   const swapCount = config.backend === "quantum_qpu" ? Math.floor(Math.random() * 5) : 0
 

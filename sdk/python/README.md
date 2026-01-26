@@ -5,73 +5,40 @@ Official lightweight Python SDK for the Planck Quantum Digital Twins Platform.
 
 ## Installation
 
-### Method 1: pip install from GitHub (Recommended - No Git Required)
+### Standard Installation (Recommended)
 
-Install directly from GitHub ZIP archive - no git installation needed:
+```bash
+pip install planck_sdk
+```
 
-\`\`\`bash
-pip install https://github.com/HectorNaaa/Planck-QSaaS/archive/refs/heads/main.zip#subdirectory=sdk/python
-\`\`\`
+### From GitHub (Development)
 
-### Method 2: Google Colab / Jupyter Notebook (One Cell)
+```bash
+pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
+```
 
-\`\`\`python
-# Run this cell once to install
-import subprocess, sys
-subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", 
-    "https://github.com/HectorNaaa/Planck-QSaaS/archive/refs/heads/main.zip#subdirectory=sdk/python"])
+### Google Colab / Jupyter Notebook
+
+```python
+# Install Planck SDK (run this cell once)
+!pip install -q planck_sdk
 print("Planck SDK installed!")
-\`\`\`
-
-Or using shell command in notebook:
-\`\`\`python
-!pip install -q https://github.com/HectorNaaa/Planck-QSaaS/archive/refs/heads/main.zip#subdirectory=sdk/python
-\`\`\`
-
-### Method 3: One-Line Remote Install Script
-
-For environments where you want minimal footprint (downloads only core SDK files):
-
-\`\`\`python
-import urllib.request; exec(urllib.request.urlopen('https://raw.githubusercontent.com/HectorNaaa/Planck-QSaaS/main/sdk/python/install.py').read())
-\`\`\`
-
-Or via curl:
-\`\`\`bash
-curl -sSL https://raw.githubusercontent.com/HectorNaaa/Planck-QSaaS/main/sdk/python/install.py | python3
-\`\`\`
-
-### Method 4: From PyPI (when published)
-
-\`\`\`bash
-pip install planck-sdk
-\`\`\`
-
-### Method 5: From Source (for development)
-
-\`\`\`bash
-# Clone the repository
-git clone https://github.com/HectorNaaa/Planck-QSaaS.git
-cd Planck-QSaaS/sdk/python
-
-# Install in development mode
-pip install -e .
-\`\`\`
+```
 
 ## Verify Installation
 
-\`\`\`python
+```python
 import planck_sdk
 print(f"Planck SDK v{planck_sdk.__version__}")
-# Should print: Planck SDK v0.9.1
-\`\`\`
+# Should print: Planck SDK v1.0.0
+```
 
 ## Rate Limits & Restrictions
 
 To ensure fair usage and prevent abuse, the Planck API enforces the following limits:
 
 - **Request Rate**: Maximum 1 request every 3 seconds per user
-- **Payload Size**: Maximum 1mb per request
+- **Payload Size**: Maximum 1MB per request
 
 The SDK automatically handles these limits:
 - Automatically waits 3 seconds between requests
@@ -89,7 +56,7 @@ If you exceed the rate limit, you'll receive an `APIError` with retry-after info
 
 ## Quick Start
 
-\`\`\`python
+```python
 from planck_sdk import PlanckClient
 
 # Initialize client with your API key
@@ -115,7 +82,7 @@ result.plot_histogram()
 
 # Save results
 result.save("my_execution.json")
-\`\`\`
+```
 
 ## Available Algorithms
 
@@ -126,10 +93,11 @@ result.save("my_execution.json")
 | `qaoa` | Quantum Approximate Optimization | Combinatorial optimization |
 | `qft` | Quantum Fourier Transform | Signal processing |
 | `bell` | Bell State Preparation | Entanglement, Testing |
+| `shor` | Shor's Algorithm | Factorization |
 
 ## Loading Data
 
-\`\`\`python
+```python
 # From a list
 result = client.run(data=[1, 2, 3, 4])
 
@@ -139,13 +107,43 @@ result = client.run(data={"values": [1, 2, 3], "weights": [0.5, 0.3, 0.2]})
 # From a file
 result = client.run(data="path/to/data.csv")
 result = client.run(data="path/to/data.json")
-\`\`\`
+```
 
-## Advanced Usage
+## API Reference
 
-### Generate Circuit Without Executing
+### PlanckClient
 
-\`\`\`python
+Main client for interacting with the Planck API.
+
+```python
+client = PlanckClient(
+    api_key="your_api_key",
+    base_url="https://planck.plancktechnologies.xyz",  # Optional
+    timeout=60  # Optional, request timeout in seconds
+)
+```
+
+### client.run()
+
+Generate and execute a quantum circuit.
+
+```python
+result = client.run(
+    data=[1.0, 2.0, 3.0, 4.0],  # Input data
+    algorithm="vqe",            # Algorithm type
+    shots=2048,                 # Number of measurements
+    backend="auto",             # Backend selection
+    error_mitigation="medium",  # Error mitigation level
+    circuit_name="My Circuit",  # Optional name
+    qubits=4                    # Optional qubit count
+)
+```
+
+### client.generate_circuit()
+
+Generate a quantum circuit without executing.
+
+```python
 circuit = client.generate_circuit(
     data=[1, 2, 3, 4],
     algorithm="grover",
@@ -158,11 +156,42 @@ print(f"Gates: {circuit.gate_count}")
 
 # Save QASM to file
 circuit.save("my_circuit.qasm")
-\`\`\`
+```
 
-### Get ML Recommendations
+### client.transpile()
 
-\`\`\`python
+Transpile a circuit for a specific backend topology.
+
+```python
+transpiled = client.transpile(
+    qasm=circuit.qasm,
+    backend="quantum_qpu",
+    qubits=5
+)
+
+print(f"Swap count: {transpiled['swap_count']}")
+print(f"New depth: {transpiled['depth']}")
+```
+
+### client.visualize()
+
+Generate an SVG visualization of a circuit.
+
+```python
+viz = client.visualize(qasm=circuit.qasm)
+
+# Save SVG to file
+with open("circuit.svg", "w") as f:
+    f.write(viz["image_data"])
+
+print(f"Circuit stats: {viz['stats']}")
+```
+
+### client.get_recommendations()
+
+Get ML-powered recommendations for execution parameters.
+
+```python
 recommendations = client.get_recommendations(
     qubits=8,
     depth=20,
@@ -174,43 +203,43 @@ recommendations = client.get_recommendations(
 print(f"Recommended shots: {recommendations['recommended_shots']}")
 print(f"Recommended backend: {recommendations['recommended_backend']}")
 print(f"Confidence: {recommendations['confidence']:.2f}")
-\`\`\`
+```
 
-### Custom Backend Selection
+### client.get_digital_twin()
 
-\`\`\`python
-# Force specific backend
-result = client.run(
-    data=my_data,
-    algorithm="qaoa",
-    backend="quantum_qpu",  # Options: auto, classical, hpc, quantum_qpu
-    error_mitigation="high"  # Options: none, low, medium, high
+Generate AI-powered insights about circuit execution.
+
+```python
+insights = client.get_digital_twin(
+    algorithm="vqe",
+    circuit_info={"qubits": 4, "gates": 20, "depth": 10},
+    execution_results={"probabilities": result.probabilities, "counts": result.counts},
+    backend_config={"shots": 2048, "errorMitigation": "medium"}
 )
-\`\`\`
 
-### List Previous Executions
+print(f"Interpretation: {insights['algorithm_interpretation']}")
+print(f"Key findings: {insights['key_findings']}")
+print(f"Recommendations: {insights['recommendations']}")
+```
 
-\`\`\`python
-executions = client.list_executions(limit=20)
+### client.ping()
 
-for exec in executions:
-    print(f"{exec['id']}: {exec['algorithm']} - {exec['status']}")
-\`\`\`
+Test API connectivity.
 
-### Retrieve Specific Execution
-
-\`\`\`python
-result = client.get_execution("execution_id_here")
-print(result.to_json())
-\`\`\`
+```python
+if client.ping():
+    print("Connected to Planck API!")
+else:
+    print("Connection failed")
+```
 
 ## Error Handling
 
-\`\`\`python
+```python
 from planck_sdk import PlanckClient, AuthenticationError, CircuitError, APIError
 
 try:
-    client = PlanckClient(api_key="invalid_key")
+    client = PlanckClient(api_key="your_api_key")
     result = client.run(data=[1, 2, 3])
 except AuthenticationError as e:
     print(f"Auth failed: {e}")
@@ -218,22 +247,32 @@ except CircuitError as e:
     print(f"Circuit error: {e}")
 except APIError as e:
     print(f"API error: {e}")
-\`\`\`
+```
 
 ## Environment Variables
 
 You can also set your API key via environment variable:
 
-\`\`\`bash
+```bash
 export PLANCK_API_KEY="sk_live_your_api_key"
-\`\`\`
+```
 
-\`\`\`python
+```python
 import os
 from planck_sdk import PlanckClient
 
 client = PlanckClient(api_key=os.environ["PLANCK_API_KEY"])
-\`\`\`
+```
+
+## Security
+
+The SDK implements several security measures:
+
+- **Input validation**: All inputs are validated before sending
+- **API key validation**: API keys are checked for proper format
+- **Rate limiting**: Automatic 3-second wait between requests
+- **Payload size limits**: Requests are limited to 1MB
+- **Sanitization**: Strings are sanitized to prevent injection attacks
 
 ## Support
 

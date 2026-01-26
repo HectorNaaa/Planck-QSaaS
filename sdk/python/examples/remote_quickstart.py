@@ -1,27 +1,22 @@
 #!/usr/bin/env python3
 """
 Planck SDK - Remote Quick Start Example
+========================================
 
-This script can be run from ANY Python environment without cloning the repository.
+This script can be run from ANY Python environment.
 Just copy and paste this into your Python environment!
 
-Installation (run this first - NO GIT REQUIRED):
-    pip install https://github.com/HectorNaaa/Planck-QSaaS/archive/refs/heads/main.zip#subdirectory=sdk/python
+Installation:
+    pip install planck_sdk
 
-Or in a Jupyter/Colab cell:
-    !pip install -q https://github.com/HectorNaaa/Planck-QSaaS/archive/refs/heads/main.zip#subdirectory=sdk/python
-
-Or one-line Python install:
-    import urllib.request; exec(urllib.request.urlopen('https://raw.githubusercontent.com/HectorNaaa/Planck-QSaaS/main/sdk/python/install.py').read())
+Get your API key at: https://planck.plancktechnologies.xyz/qsaas/settings
 """
 
 # ============================================================================
 # STEP 1: Install (uncomment if running in a fresh environment)
 # ============================================================================
 # import subprocess, sys
-# subprocess.check_call([sys.executable, "-m", "pip", "install", "-q",
-#     "https://github.com/HectorNaaa/Planck-QSaaS/archive/refs/heads/main.zip#subdirectory=sdk/python"
-# ])
+# subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "planck_sdk"])
 
 # ============================================================================
 # STEP 2: Import the SDK
@@ -48,12 +43,23 @@ client = PlanckClient(
     base_url="https://planck.plancktechnologies.xyz"
 )
 
-print("Planck SDK v0.9.1 - Remote Connection Ready")
+print("Planck SDK v1.0.0 - Remote Connection Ready")
 print("=" * 50)
 
 # ============================================================================
 # STEP 5: Run quantum algorithms
 # ============================================================================
+
+def example_health_check():
+    """Check API health and connectivity"""
+    print("\n[0] Checking API Health...")
+    
+    health = client.health_check()
+    print(f"    Status: {health.get('status', 'unknown')}")
+    print(f"    Version: {health.get('version', 'unknown')}")
+    
+    return health
+
 
 def example_vqe():
     """Run VQE (Variational Quantum Eigensolver)"""
@@ -66,7 +72,7 @@ def example_vqe():
         error_mitigation="medium"
     )
     
-    print(f"    Runtime: {result.runtime_ms:.1f}ms")
+    print(f"    Runtime: {result.execution_time_ms:.1f}ms")
     print(f"    Fidelity: {result.fidelity:.3f}")
     print(f"    Top 3 states: {dict(list(sorted(result.counts.items(), key=lambda x: -x[1])[:3]))}")
     
@@ -83,7 +89,7 @@ def example_grover():
         shots=2048
     )
     
-    print(f"    Runtime: {result.runtime_ms:.1f}ms")
+    print(f"    Runtime: {result.execution_time_ms:.1f}ms")
     print(f"    Fidelity: {result.fidelity:.3f}")
     
     return result
@@ -94,12 +100,11 @@ def example_generate_circuit():
     print("\n[3] Generating Bell State Circuit...")
     
     circuit = client.generate_circuit(
-        data=[1, 0, 1, 0],
-        algorithm="bell",
-        qubits=4
+        algorithm="bell_state",
+        num_qubits=4
     )
     
-    print(f"    Qubits: {circuit.qubits}")
+    print(f"    Qubits: {circuit.num_qubits}")
     print(f"    Depth: {circuit.depth}")
     print(f"    Gates: {circuit.gate_count}")
     print(f"    QASM preview: {circuit.qasm[:100]}...")
@@ -107,28 +112,81 @@ def example_generate_circuit():
     return circuit
 
 
-def example_ml_recommendations():
-    """Get ML-powered recommendations"""
-    print("\n[4] Getting ML Recommendations...")
+def example_simulate():
+    """Simulate a QASM circuit directly"""
+    print("\n[4] Simulating Custom QASM Circuit...")
     
-    recommendations = client.get_recommendations(
-        qubits=6,
-        depth=12,
-        gate_count=30,
-        algorithm="qaoa",
-        data_size=50
+    qasm = """
+OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+h q[0];
+cx q[0], q[1];
+measure q -> c;
+"""
+    
+    result = client.simulate(
+        qasm=qasm,
+        shots=1024,
+        noise_model="ideal"
     )
     
-    print(f"    Recommended shots: {recommendations['recommended_shots']}")
-    print(f"    Recommended backend: {recommendations['recommended_backend']}")
-    print(f"    Confidence: {recommendations['confidence']:.1%}")
+    print(f"    Runtime: {result.execution_time_ms:.1f}ms")
+    print(f"    Counts: {result.counts}")
+    
+    return result
+
+
+def example_ml_recommendations():
+    """Get ML-powered recommendations"""
+    print("\n[5] Getting ML Recommendations...")
+    
+    recommendations = client.get_ml_recommendations(
+        circuit_depth=12,
+        num_qubits=6,
+        gate_types=["h", "cx", "rz"]
+    )
+    
+    print(f"    Recommended backend: {recommendations.get('recommended_backend', 'N/A')}")
+    print(f"    Confidence: {recommendations.get('confidence', 0):.1%}")
     
     return recommendations
 
 
+def example_digital_twin():
+    """Create a digital twin analysis"""
+    print("\n[6] Creating Digital Twin Analysis...")
+    
+    qasm = """
+OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[2];
+creg c[2];
+h q[0];
+cx q[0], q[1];
+measure q -> c;
+"""
+    
+    twin = client.create_digital_twin(
+        qasm=qasm,
+        hardware_profile={
+            "backend": "ibm_simulator",
+            "t1": 50e-6,
+            "t2": 70e-6,
+            "gate_error": 0.001
+        }
+    )
+    
+    print(f"    Ideal fidelity: {twin.get('ideal_fidelity', 'N/A')}")
+    print(f"    Noisy fidelity: {twin.get('noisy_fidelity', 'N/A')}")
+    
+    return twin
+
+
 def example_ai_assistant():
     """Ask the AI assistant"""
-    print("\n[5] Asking AI Assistant...")
+    print("\n[7] Asking AI Assistant...")
     
     answer = client.ask("What algorithm should I use for optimization problems?")
     print(f"    Answer: {answer[:200]}...")
@@ -142,10 +200,13 @@ def example_ai_assistant():
 if __name__ == "__main__":
     try:
         # Run all examples
+        example_health_check()
         example_vqe()
         example_grover()
         example_generate_circuit()
+        example_simulate()
         example_ml_recommendations()
+        example_digital_twin()
         example_ai_assistant()
         
         print("\n" + "=" * 50)

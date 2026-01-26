@@ -1,23 +1,55 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
+import {
+  validateApiKey,
+  validateQASM,
+  createSafeErrorResponse,
+  validateRequestHeaders,
+} from "@/lib/security"
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate request headers
+    const headerValidation = validateRequestHeaders(request.headers)
+    if (!headerValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: headerValidation.error },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
-    const { qasm } = body
+    
+    // Validate QASM
+    const qasmValidation = validateQASM(body.qasm)
+    if (!qasmValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: qasmValidation.error },
+        { status: 400 }
+      )
+    }
+    const qasm = body.qasm
     
     // Authenticate via API key or session
     const apiKey = request.headers.get("x-api-key")
     const supabase = await createServerClient()
     
     if (apiKey) {
-      const { data: profile } = await supabase
+      // Validate API key format
+      if (!validateApiKey(apiKey)) {
+        return NextResponse.json(
+          { success: false, error: "Invalid API key format" },
+          { status: 401 }
+        )
+      }
+      
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("id")
         .eq("api_key", apiKey)
         .single()
       
-      if (!profile) {
+      if (profileError || !profile) {
         return NextResponse.json(
           { success: false, error: "Invalid API key" },
           { status: 401 }
@@ -33,12 +65,6 @@ export async function POST(request: NextRequest) {
         )
       }
     }
-
-    if (!qasm) {
-      return NextResponse.json({ success: false, error: "Missing QASM code" }, { status: 400 })
-    }
-
-    console.log("[v0] Generating circuit visualization from QASM")
 
     // Parse QASM to extract gates and structure
     const circuitData = parseQASM(qasm)
@@ -58,14 +84,12 @@ export async function POST(request: NextRequest) {
       width: 800,
       height: Math.max(200, circuitData.numQubits * 60 + 60),
     })
-  } catch (error: any) {
-    console.error("[v0] Visualization error:", error)
+  } catch (error) {
+    const safeError = createSafeErrorResponse(error, "Failed to generate circuit visualization")
+    console.error("[API] Visualization error:", error)
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message || "Failed to generate circuit visualization",
-      },
-      { status: 500 },
+      { success: false, error: safeError },
+      { status: 500 }
     )
   }
 }
@@ -88,7 +112,6 @@ function parseQASM(qasm: string): CircuitData {
 
   let numQubits = 0
   const gates: Gate[] = []
-  const currentTime = 0
   const qubitTimes: number[] = []
 
   for (const line of lines) {
@@ -229,7 +252,7 @@ function generateCircuitSVG(circuit: CircuitData): string {
         svg += `<rect x="${x - 20}" y="${y - 20}" width="40" height="40" fill="#10b981" stroke="#059669" stroke-width="2" rx="4"/>`
 
         // Gate label
-        const label = gate.type.toUpperCase()
+        const label = gate.type.toUpperCase().slice(0, 3)
         svg += `<text x="${x}" y="${y + 5}" font-family="Arial" font-size="14" font-weight="bold" fill="white" text-anchor="middle">${label}</text>`
       })
     }
