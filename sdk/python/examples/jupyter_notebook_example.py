@@ -1,143 +1,206 @@
 """
 Jupyter Notebook Example for Planck SDK
+========================================
 
 Copy these cells into a Jupyter notebook to get started quickly.
+
+Installation:
+    pip install planck_sdk
 """
 
+# =============================================================================
 # Cell 1: Installation
-"""
-# Install Planck SDK
-!pip install planck-sdk
+# =============================================================================
+# Run this cell first to install the SDK
+# !pip install -q planck_sdk
+# print("Planck SDK installed!")
 
-# Or install from source
-!pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
-"""
-
+# =============================================================================
 # Cell 2: Import and Setup
+# =============================================================================
 from planck_sdk import PlanckClient
 import os
 
-# Set your API key
+# Set your API key (get it from https://planck.plancktechnologies.xyz/qsaas/settings)
 API_KEY = "your_api_key_here"  # Or use: os.environ.get("PLANCK_API_KEY")
 
 # Initialize client
-client = PlanckClient(api_key=API_KEY)
+client = PlanckClient(
+    api_key=API_KEY,
+    base_url="https://planck.plancktechnologies.xyz"
+)
 
 # Test connection
 print("Testing connection...")
-if client.ping():
-    print("✓ Connected to Planck API successfully!")
+health = client.health_check()
+if health.get("status") == "healthy":
+    print(f"Connected to Planck API v{health.get('version', 'unknown')}!")
 else:
-    print("✗ Connection failed. Check your API key.")
+    print("Connection issue. Check your API key.")
 
+# =============================================================================
 # Cell 3: Simple Bell State
-result = client.run(
-    data=[1, 0],
-    algorithm="bell",
+# =============================================================================
+circuit = client.generate_circuit(
+    algorithm="bell_state",
+    num_qubits=2
+)
+
+result = client.simulate(
+    qasm=circuit.qasm,
     shots=2048
 )
 
-print(f"Execution ID: {result.execution_id}")
-print(f"Runtime: {result.runtime_ms:.2f}ms")
-result.plot_histogram()
+print(f"Bell State Results:")
+print(f"  Counts: {result.counts}")
+print(f"  Runtime: {result.execution_time_ms:.2f}ms")
 
+# =============================================================================
 # Cell 4: VQE for Optimization
+# =============================================================================
 result = client.run(
     data=[1.0, 2.0, 3.0, 4.0, 5.0],
     algorithm="vqe",
     shots=1024
 )
 
-print(f"Fidelity: {result.fidelity:.3f}")
-result.plot_histogram(top_n=10)
+print(f"VQE Results:")
+print(f"  Fidelity: {result.fidelity:.3f}")
+print(f"  Counts: {result.counts}")
 
+# =============================================================================
 # Cell 5: Grover's Search
-result = client.run(
-    data=list(range(1, 17)),  # Search space of 16 items
+# =============================================================================
+circuit = client.generate_circuit(
     algorithm="grover",
+    num_qubits=3,
+    parameters={"marked_state": "101"}
+)
+
+result = client.simulate(
+    qasm=circuit.qasm,
     shots=2048
 )
 
-print(f"Most frequent state: |{result.most_frequent}>")
-print(f"Success rate: {result.success_rate:.1f}%")
-result.plot_histogram()
+print(f"Grover Search Results:")
+print(f"  Looking for: |101>")
+print(f"  Counts: {result.counts}")
 
+# Find most frequent state
+most_frequent = max(result.counts.items(), key=lambda x: x[1])
+print(f"  Most frequent: |{most_frequent[0]}> ({most_frequent[1]} times)")
+
+# =============================================================================
 # Cell 6: QAOA for Optimization
-import random
-random.seed(42)
-
-# Generate random optimization problem data
-data = [[random.random() for _ in range(5)] for _ in range(10)]
-
-result = client.run(
-    data=data,
-    algorithm="qaoa",
-    shots=1024,
-    backend="auto"
-)
-
-result.plot_histogram()
-
-# Cell 7: Generate Circuit Only
+# =============================================================================
 circuit = client.generate_circuit(
-    data=[1, 2, 3, 4],
-    algorithm="grover",
-    qubits=4
+    algorithm="qaoa",
+    num_qubits=4,
+    parameters={"layers": 2, "gamma": 0.5, "beta": 0.3}
 )
 
-print(f"Circuit: {circuit}")
-print(f"\nQASM code:")
-print(circuit.qasm)
-
-# Cell 8: ML Recommendations
-recommendations = client.get_recommendations(
-    qubits=6,
-    depth=15,
-    gate_count=40,
-    algorithm="vqe",
-    data_size=50
-)
-
-print("ML Recommendations:")
-for key, value in recommendations.items():
-    print(f"  {key}: {value}")
-
-# Cell 9: Load Data from File
-# First, create a sample CSV file
-with open("sample_data.csv", "w") as f:
-    f.write("x,y,z\n")
-    for i in range(10):
-        f.write(f"{i},{i*2},{i*3}\n")
-
-# Load and run
-result = client.run(
-    data="sample_data.csv",
-    algorithm="vqe",
+result = client.simulate(
+    qasm=circuit.qasm,
     shots=1024
 )
 
-result.plot_histogram()
+print(f"QAOA Results:")
+print(f"  Counts: {result.counts}")
 
-# Cell 10: Save Results
-# Save result to JSON
-result.save("my_execution_result.json")
+# =============================================================================
+# Cell 7: Custom QASM Circuit
+# =============================================================================
+custom_qasm = """
+OPENQASM 2.0;
+include "qelib1.inc";
+qreg q[3];
+creg c[3];
+h q[0];
+h q[1];
+h q[2];
+cx q[0], q[1];
+cx q[1], q[2];
+measure q -> c;
+"""
 
-# Save circuit QASM
-if result.circuit:
-    result.circuit.save("my_circuit.qasm")
+result = client.simulate(
+    qasm=custom_qasm,
+    shots=1024
+)
 
-print("Results saved!")
+print(f"Custom Circuit Results:")
+print(f"  Counts: {result.counts}")
 
-# Cell 11: List Previous Executions
-executions = client.list_executions(limit=10)
+# =============================================================================
+# Cell 8: ML Recommendations
+# =============================================================================
+recommendations = client.get_ml_recommendations(
+    circuit_depth=15,
+    num_qubits=6,
+    gate_types=["h", "cx", "rz", "ry"]
+)
 
-print(f"Your last {len(executions)} executions:")
-for i, exec in enumerate(executions, 1):
-    print(f"{i}. {exec.get('id')}: {exec.get('algorithm')} - {exec.get('status')}")
+print("ML Recommendations:")
+print(f"  Backend: {recommendations.get('recommended_backend', 'N/A')}")
+print(f"  Confidence: {recommendations.get('confidence', 0):.1%}")
 
-# Cell 12: Ask the AI Assistant
+# =============================================================================
+# Cell 9: Digital Twin Analysis
+# =============================================================================
+twin = client.create_digital_twin(
+    qasm=custom_qasm,
+    hardware_profile={
+        "backend": "ibm_simulator",
+        "t1": 50e-6,
+        "t2": 70e-6,
+        "gate_error": 0.001
+    }
+)
+
+print("Digital Twin Analysis:")
+print(f"  Ideal fidelity: {twin.get('ideal_fidelity', 'N/A')}")
+print(f"  Noisy fidelity: {twin.get('noisy_fidelity', 'N/A')}")
+
+# =============================================================================
+# Cell 10: Transpile Circuit
+# =============================================================================
+transpiled = client.transpile(
+    qasm=custom_qasm,
+    target_backend="ibm_simulator",
+    optimization_level=2
+)
+
+print("Transpiled Circuit:")
+print(f"  Original depth: {transpiled.get('original_depth', 'N/A')}")
+print(f"  Optimized depth: {transpiled.get('optimized_depth', 'N/A')}")
+
+# =============================================================================
+# Cell 11: Ask the AI Assistant
+# =============================================================================
 answer = client.ask("What is VQE and when should I use it?")
-print(answer)
+print(f"AI Assistant Answer:\n{answer}")
 
-answer = client.ask("What was my average runtime in my last 5 executions?")
-print(answer)
+# =============================================================================
+# Cell 12: Visualize Results (requires matplotlib)
+# =============================================================================
+try:
+    import matplotlib.pyplot as plt
+    
+    # Get fresh results
+    result = client.simulate(qasm=custom_qasm, shots=1024)
+    
+    # Plot histogram
+    states = list(result.counts.keys())
+    counts = list(result.counts.values())
+    
+    plt.figure(figsize=(10, 6))
+    plt.bar(states, counts, color='steelblue', edgecolor='black')
+    plt.xlabel('Quantum State')
+    plt.ylabel('Counts')
+    plt.title('Quantum Circuit Measurement Results')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
+    
+except ImportError:
+    print("matplotlib not installed - run: pip install matplotlib")
