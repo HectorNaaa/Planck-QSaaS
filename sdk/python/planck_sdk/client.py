@@ -1,16 +1,20 @@
 """
 Planck SDK Client - Main interface for interacting with Planck Platform
+
+Install with: pip install planck_sdk
 """
 
 import json
 import time
+import re
+import html
 from typing import Any, Dict, List, Optional, Union
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
 from .circuit import QuantumCircuit
 from .result import ExecutionResult
-from .exceptions import AuthenticationError, APIError, CircuitError
+from .exceptions import AuthenticationError, APIError, CircuitError, ValidationError
 
 
 class PlanckClient:
@@ -23,6 +27,7 @@ class PlanckClient:
         timeout: Request timeout in seconds (default: 60)
     
     Example:
+        >>> from planck_sdk import PlanckClient
         >>> client = PlanckClient(api_key="sk_live_xxx")
         >>> result = client.run(data=[1,2,3], algorithm="grover")
         >>> print(result.counts)
@@ -32,6 +37,15 @@ class PlanckClient:
     MIN_REQUEST_INTERVAL = 3.0  # Minimum 3 seconds between requests
     MAX_PAYLOAD_SIZE = 1024 * 1024  # 1MB
     
+    # Supported algorithms
+    SUPPORTED_ALGORITHMS = ["vqe", "grover", "qaoa", "qft", "bell", "shor"]
+    
+    # Supported backends
+    SUPPORTED_BACKENDS = ["auto", "classical", "hpc", "quantum_qpu", "quantum_inspired_gpu", "hpc_gpu"]
+    
+    # Supported error mitigation levels
+    SUPPORTED_ERROR_MITIGATION = ["none", "low", "medium", "high", "basic", "advanced"]
+    
     def __init__(
         self,
         api_key: str,
@@ -39,13 +53,74 @@ class PlanckClient:
         timeout: int = 60
     ):
         if not api_key:
-            raise AuthenticationError("API key is required")
+            raise AuthenticationError("API key is required. Get yours at https://planck.plancktechnologies.xyz/qsaas/settings")
+        
+        # Validate API key format (basic check)
+        if not self._validate_api_key(api_key):
+            raise AuthenticationError("Invalid API key format. API keys should be alphanumeric.")
         
         self.api_key = api_key
         self.base_url = (base_url or self.DEFAULT_BASE_URL).rstrip("/")
         self.timeout = timeout
-        self._session_token: Optional[str] = None
         self._last_request_time: float = 0.0
+    
+    @staticmethod
+    def _validate_api_key(api_key: str) -> bool:
+        """Validate API key format to prevent injection attacks."""
+        # API keys should be alphanumeric with underscores/hyphens, 20-100 chars
+        if not api_key or len(api_key) < 10 or len(api_key) > 200:
+            return False
+        # Only allow alphanumeric, underscores, hyphens
+        return bool(re.match(r'^[a-zA-Z0-9_-]+$', api_key))
+    
+    @staticmethod
+    def _sanitize_string(value: str, max_length: int = 1000) -> str:
+        """Sanitize string input to prevent injection attacks."""
+        if not isinstance(value, str):
+            return str(value)[:max_length]
+        # HTML escape and truncate
+        sanitized = html.escape(value)
+        return sanitized[:max_length]
+    
+    @staticmethod
+    def _validate_algorithm(algorithm: str) -> str:
+        """Validate and normalize algorithm name."""
+        if not algorithm:
+            return "vqe"
+        normalized = algorithm.lower().strip()
+        # Map common variations
+        algorithm_map = {
+            "bell": "Bell",
+            "grover": "Grover", 
+            "shor": "Shor",
+            "vqe": "VQE",
+            "qaoa": "QAOA",
+            "qft": "QFT",
+        }
+        return algorithm_map.get(normalized, "VQE")
+    
+    def _validate_input_data(self, data: Any) -> Any:
+        """Validate and sanitize input data."""
+        if data is None:
+            raise ValidationError("Input data cannot be None")
+        
+        if isinstance(data, str):
+            # If it's a file path, just return it
+            return data
+        
+        if isinstance(data, (list, tuple)):
+            # Validate list elements
+            if len(data) > 10000:
+                raise ValidationError("Input data list too large. Maximum 10,000 elements.")
+            return list(data)
+        
+        if isinstance(data, dict):
+            # Validate dict size
+            if len(json.dumps(data)) > self.MAX_PAYLOAD_SIZE:
+                raise ValidationError("Input data dict too large. Maximum 1MB.")
+            return data
+        
+        raise ValidationError(f"Unsupported data type: {type(data)}. Use list, dict, or file path.")
     
     def _request(
         self,
@@ -53,7 +128,7 @@ class PlanckClient:
         endpoint: str,
         data: Optional[Dict] = None
     ) -> Dict[str, Any]:
-        """Make an HTTP request to the Planck API."""
+        """Make an HTTP request to the Planck API with security validations."""
         # Rate limiting: Wait at least 3 seconds between requests
         current_time = time.time()
         time_since_last_request = current_time - self._last_request_time
@@ -64,19 +139,23 @@ class PlanckClient:
         
         # Validate payload size
         if data:
-            payload_size = len(json.dumps(data).encode("utf-8"))
+            payload_str = json.dumps(data)
+            payload_size = len(payload_str.encode("utf-8"))
             if payload_size > self.MAX_PAYLOAD_SIZE:
                 raise APIError(
                     f"Payload size ({payload_size} bytes) exceeds maximum allowed size "
                     f"({self.MAX_PAYLOAD_SIZE} bytes). Please reduce your input data size."
                 )
         
-        url = f"{self.base_url}/api/quantum/{endpoint}"
+        # Build URL (sanitize endpoint)
+        clean_endpoint = re.sub(r'[^\w/-]', '', endpoint)
+        url = f"{self.base_url}/api/quantum/{clean_endpoint}"
         
         headers = {
             "Content-Type": "application/json",
             "X-API-Key": self.api_key,
-            "X-Planck-SDK": "python/0.9.1",
+            "X-Planck-SDK": "python/1.0.0",
+            "User-Agent": "PlanckSDK/1.0.0 Python",
         }
         
         body = json.dumps(data).encode("utf-8") if data else None
@@ -87,7 +166,8 @@ class PlanckClient:
         
         try:
             with urlopen(req, timeout=self.timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
+                response_body = response.read().decode("utf-8")
+                return json.loads(response_body)
         except HTTPError as e:
             error_body = e.read().decode("utf-8")
             try:
@@ -97,7 +177,7 @@ class PlanckClient:
                 message = error_body or str(e)
             
             if e.code == 401:
-                raise AuthenticationError(f"Authentication failed: {message}")
+                raise AuthenticationError(f"Authentication failed: {message}. Check your API key.")
             elif e.code == 400:
                 raise CircuitError(f"Invalid request: {message}")
             elif e.code == 429:
@@ -114,7 +194,9 @@ class PlanckClient:
             else:
                 raise APIError(f"API error ({e.code}): {message}")
         except URLError as e:
-            raise APIError(f"Connection error: {e.reason}")
+            raise APIError(f"Connection error: {e.reason}. Check your internet connection and API URL.")
+        except json.JSONDecodeError as e:
+            raise APIError(f"Invalid response from server: {e}")
     
     def run(
         self,
@@ -133,7 +215,7 @@ class PlanckClient:
         
         Args:
             data: Input data (list, dict, or file path to CSV/JSON)
-            algorithm: Algorithm type ('vqe', 'grover', 'qaoa', 'qft', 'bell')
+            algorithm: Algorithm type ('vqe', 'grover', 'qaoa', 'qft', 'bell', 'shor')
             shots: Number of measurement shots (auto-calculated if None)
             backend: Execution backend ('auto', 'classical', 'hpc', 'quantum_qpu')
             error_mitigation: Error mitigation level ('none', 'low', 'medium', 'high')
@@ -154,28 +236,55 @@ class PlanckClient:
             >>> print(result.counts)
             {'0000': 512, '0001': 256, ...}
         """
+        # Validate inputs
+        validated_data = self._validate_input_data(data)
+        validated_algorithm = self._validate_algorithm(algorithm)
+        
+        # Validate backend
+        if backend not in self.SUPPORTED_BACKENDS:
+            backend = "auto"
+        
+        # Validate error mitigation
+        if error_mitigation not in self.SUPPORTED_ERROR_MITIGATION:
+            error_mitigation = "medium"
+        
+        # Validate shots
+        if shots is not None:
+            shots = max(1, min(100000, int(shots)))
+        
+        # Validate qubits
+        if qubits is not None:
+            qubits = max(1, min(30, int(qubits)))
+        
         # Load data if file path provided
-        if isinstance(data, str):
-            data = self._load_data_file(data)
+        if isinstance(validated_data, str):
+            validated_data = self._load_data_file(validated_data)
         
         # First generate the circuit
         circuit = self.generate_circuit(
-            data=data,
-            algorithm=algorithm,
+            data=validated_data,
+            algorithm=validated_algorithm,
             qubits=qubits
         )
         
-        # Then simulate/execute
+        # Sanitize circuit name
+        safe_circuit_name = circuit_name
+        if safe_circuit_name:
+            safe_circuit_name = self._sanitize_string(circuit_name, 100)
+        else:
+            safe_circuit_name = f"SDK-{validated_algorithm}-{int(time.time())}"
+        
+        # Build payload
         payload = {
             "qasm": circuit.qasm,
             "shots": shots or circuit.recommended_shots,
             "backend": backend,
             "errorMitigation": error_mitigation,
-            "circuitName": circuit_name or f"SDK-{algorithm}-{int(time.time())}",
-            "algorithm": algorithm,
+            "circuitName": safe_circuit_name,
+            "algorithm": validated_algorithm,
             "executionType": "auto" if shots is None else "manual",
             "qubits": circuit.qubits,
-            "inputData": data,
+            "inputData": validated_data,
             "depth": circuit.depth,
             "gateCount": circuit.gate_count,
             "targetLatency": target_latency,
@@ -195,7 +304,7 @@ class PlanckClient:
             circuit=circuit,
             backend=backend,
             shots=shots or circuit.recommended_shots,
-            algorithm=algorithm
+            algorithm=validated_algorithm
         )
     
     def generate_circuit(
@@ -209,15 +318,20 @@ class PlanckClient:
         
         Args:
             data: Input data (list or dict)
-            algorithm: Algorithm type
+            algorithm: Algorithm type ('vqe', 'grover', 'qaoa', 'qft', 'bell', 'shor')
             qubits: Number of qubits (auto-calculated if None)
         
         Returns:
             QuantumCircuit object with QASM code and metadata
         """
+        validated_algorithm = self._validate_algorithm(algorithm)
+        
+        if qubits is not None:
+            qubits = max(1, min(30, int(qubits)))
+        
         payload = {
             "inputData": data,
-            "algorithm": algorithm,
+            "algorithm": validated_algorithm,
             "qubits": qubits,
         }
         
@@ -232,56 +346,116 @@ class PlanckClient:
             depth=response.get("depth", 1),
             gate_count=response.get("gateCount", 0),
             gates=response.get("gates", []),
-            algorithm=algorithm,
+            algorithm=validated_algorithm,
             recommended_shots=response.get("recommendedShots", 1024)
         )
     
-    def get_execution(self, execution_id: str) -> ExecutionResult:
-        """
-        Retrieve a previous execution by ID.
-        
-        Args:
-            execution_id: The execution ID returned from run()
-        
-        Returns:
-            ExecutionResult object
-        """
-        response = self._request("GET", f"executions/{execution_id}", None)
-        
-        return ExecutionResult(
-            execution_id=execution_id,
-            counts=response.get("counts", {}),
-            success_rate=response.get("success_rate", 0),
-            runtime_ms=response.get("runtime_ms", 0),
-            memory=response.get("memory", []),
-            circuit=None,
-            backend=response.get("backend", "unknown"),
-            shots=response.get("shots", 0),
-            algorithm=response.get("algorithm", "unknown")
-        )
-    
-    def list_executions(
+    def transpile(
         self,
-        limit: int = 10,
-        offset: int = 0
-    ) -> List[Dict[str, Any]]:
+        qasm: str,
+        backend: str = "quantum_qpu",
+        qubits: Optional[int] = None
+    ) -> Dict[str, Any]:
         """
-        List recent executions.
+        Transpile a circuit for a specific backend topology.
         
         Args:
-            limit: Maximum number of results (default: 10)
-            offset: Offset for pagination (default: 0)
+            qasm: OpenQASM 2.0 code
+            backend: Target backend
+            qubits: Number of qubits
         
         Returns:
-            List of execution summaries
+            Dict with transpiled QASM and metadata
         """
-        response = self._request(
-            "GET",
-            f"executions?limit={limit}&offset={offset}",
-            None
-        )
+        if not qasm or not isinstance(qasm, str):
+            raise ValidationError("QASM code is required")
         
-        return response.get("executions", [])
+        if qubits is not None:
+            qubits = max(1, min(30, int(qubits)))
+        
+        payload = {
+            "qasm": qasm,
+            "backend": backend,
+            "qubits": qubits or self._extract_qubit_count(qasm),
+        }
+        
+        response = self._request("POST", "transpile", payload)
+        
+        if not response.get("success"):
+            raise CircuitError(response.get("error", "Transpilation failed"))
+        
+        return {
+            "transpiled_qasm": response.get("transpiledQASM", ""),
+            "swap_count": response.get("swapCount", 0),
+            "mapped_qubits": response.get("mappedQubits", []),
+            "depth": response.get("depth", 0),
+        }
+    
+    def visualize(self, qasm: str) -> Dict[str, Any]:
+        """
+        Generate an SVG visualization of a quantum circuit.
+        
+        Args:
+            qasm: OpenQASM 2.0 code
+        
+        Returns:
+            Dict with SVG image data and stats
+        """
+        if not qasm or not isinstance(qasm, str):
+            raise ValidationError("QASM code is required")
+        
+        payload = {"qasm": qasm}
+        
+        response = self._request("POST", "visualize", payload)
+        
+        if not response.get("success"):
+            raise CircuitError(response.get("error", "Visualization failed"))
+        
+        return {
+            "image_data": response.get("image_data", ""),
+            "format": response.get("format", "svg"),
+            "stats": response.get("stats", {}),
+            "width": response.get("width", 800),
+            "height": response.get("height", 200),
+        }
+    
+    def get_digital_twin(
+        self,
+        algorithm: str,
+        circuit_info: Dict[str, Any],
+        execution_results: Dict[str, Any],
+        backend_config: Optional[Dict[str, Any]] = None,
+        input_data: Optional[Any] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate AI-powered insights about circuit execution.
+        
+        Args:
+            algorithm: Algorithm type used
+            circuit_info: Circuit metadata (qubits, gates, depth)
+            execution_results: Results from execution (probabilities, counts)
+            backend_config: Backend configuration used
+            input_data: Original input data
+        
+        Returns:
+            Dict with digital twin insights and recommendations
+        """
+        validated_algorithm = self._validate_algorithm(algorithm)
+        
+        payload = {
+            "algorithm": validated_algorithm,
+            "inputData": input_data,
+            "circuitInfo": circuit_info,
+            "executionResults": execution_results,
+            "backendConfig": backend_config or {},
+        }
+        
+        response = self._request("POST", "digital-twin", payload)
+        
+        if not response.get("success"):
+            raise APIError(response.get("error", "Digital twin generation failed"))
+        
+        return response.get("digital_twin", {})
     
     def get_recommendations(
         self,
@@ -304,21 +478,33 @@ class PlanckClient:
         Returns:
             Dict with recommended shots, backend, and confidence
         """
+        validated_algorithm = self._validate_algorithm(algorithm)
+        
+        # Validate numeric inputs
+        qubits = max(1, min(30, int(qubits)))
+        depth = max(1, min(1000, int(depth)))
+        gate_count = max(1, min(10000, int(gate_count)))
+        data_size = max(1, min(100000, int(data_size)))
+        
         payload = {
             "qubits": qubits,
             "depth": depth,
             "gateCount": gate_count,
-            "algorithm": algorithm,
+            "algorithm": validated_algorithm,
             "dataSize": data_size,
         }
         
         response = self._request("POST", "ml-recommend", payload)
+        
+        if not response.get("success"):
+            raise APIError(response.get("error", "ML recommendation failed"))
         
         return {
             "recommended_shots": response.get("recommendedShots", 1024),
             "recommended_backend": response.get("recommendedBackend", "classical"),
             "recommended_error_mitigation": response.get("recommendedErrorMitigation", "medium"),
             "confidence": response.get("confidence", 0.5),
+            "reasoning": response.get("reasoning", ""),
             "based_on_executions": response.get("basedOnExecutions", 0)
         }
     
@@ -326,8 +512,17 @@ class PlanckClient:
         """Load data from a file path."""
         import os
         
+        # Validate file path (basic security check)
+        if ".." in file_path or file_path.startswith("/etc") or file_path.startswith("/sys"):
+            raise ValidationError("Invalid file path")
+        
         if not os.path.exists(file_path):
             raise CircuitError(f"File not found: {file_path}")
+        
+        # Check file size
+        file_size = os.path.getsize(file_path)
+        if file_size > self.MAX_PAYLOAD_SIZE:
+            raise ValidationError(f"File too large ({file_size} bytes). Maximum is 1MB.")
         
         ext = os.path.splitext(file_path)[1].lower()
         
@@ -356,49 +551,30 @@ class PlanckClient:
                     # Return as list of lines
                     return content.strip().split("\n")
     
-    def ask(
-        self,
-        question: str,
-        include_history: bool = True
-    ) -> str:
-        """
-        Ask the Planck AI assistant a question about quantum computing or your executions.
-        
-        Args:
-            question: Your question about quantum computing or past executions
-            include_history: Include your execution history for context (default: True)
-        
-        Returns:
-            AI assistant's response as string
-        
-        Example:
-            >>> answer = client.ask("What is VQE and when should I use it?")
-            >>> print(answer)
-            
-            >>> answer = client.ask("What was my average runtime in the last 10 executions?")
-            >>> print(answer)
-        """
-        payload = {
-            "messages": [
-                {"role": "user", "content": question}
-            ],
-            "includeHistory": include_history
-        }
-        
-        response = self._request("POST", "assistant", payload)
-        
-        if not response.get("success"):
-            raise APIError(response.get("error", "AI assistant request failed"))
-        
-        return response.get("response", "")
+    @staticmethod
+    def _extract_qubit_count(qasm: str) -> int:
+        """Extract qubit count from QASM code."""
+        match = re.search(r'qreg\s+\w+\[(\d+)\]', qasm)
+        return int(match.group(1)) if match else 4
     
     def ping(self) -> bool:
         """Test API connectivity."""
         try:
-            self._request("GET", "health", None)
-            return True
-        except:
-            return False
+            response = self._request("POST", "health", {"ping": True})
+            return response.get("success", False)
+        except Exception:
+            # Try a simple generate-circuit call as health check
+            try:
+                self._request("POST", "generate-circuit", {
+                    "inputData": [1, 0],
+                    "algorithm": "Bell",
+                    "qubits": 2
+                })
+                return True
+            except AuthenticationError:
+                return False  # API is reachable but auth failed
+            except Exception:
+                return False
     
     def __repr__(self) -> str:
         return f"PlanckClient(base_url='{self.base_url}')"

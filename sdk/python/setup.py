@@ -1,6 +1,8 @@
 """
 Planck SDK - Setup configuration for PyPI/GitHub distribution
 Lightweight installation with zero external dependencies.
+
+Install with: pip install planck_sdk
 """
 
 from setuptools import setup
@@ -13,8 +15,8 @@ except FileNotFoundError:
     long_description = "Planck Quantum SDK - Python client for quantum circuit simulation"
 
 setup(
-    name="planck-sdk",
-    version="0.9.1",
+    name="planck_sdk",
+    version="1.0.0",
     author="Planck Technologies",
     author_email="hello@plancktechnologies.xyz",
     description="Lightweight Python SDK for Planck Quantum Digital Twins Platform",

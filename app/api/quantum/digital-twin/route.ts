@@ -1,12 +1,37 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
+import {
+  validateApiKey,
+  validateAlgorithm,
+  validateInputData,
+  validateUUID,
+  createSafeErrorResponse,
+  validateRequestHeaders,
+} from "@/lib/security"
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { algorithm, inputData, circuitInfo, executionResults, backendConfig } = body
+    // Validate request headers
+    const headerValidation = validateRequestHeaders(request.headers)
+    if (!headerValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: headerValidation.error },
+        { status: 403 }
+      )
+    }
 
-    console.log("[v0] Generating Digital Twin for:", algorithm)
+    const body = await request.json()
+    
+    // Validate and sanitize inputs
+    const algorithm = validateAlgorithm(body.algorithm)
+    
+    // Validate input data
+    const inputDataValidation = validateInputData(body.inputData)
+    const inputData = inputDataValidation.valid ? inputDataValidation.data : null
+    
+    const circuitInfo = body.circuitInfo || {}
+    const executionResults = body.executionResults || {}
+    const backendConfig = body.backendConfig || {}
 
     // Authenticate via API key or session
     const supabase = await createServerClient()
@@ -14,13 +39,21 @@ export async function POST(request: NextRequest) {
     let userId: string | null = null
     
     if (apiKey) {
-      const { data: profile } = await supabase
+      // Validate API key format
+      if (!validateApiKey(apiKey)) {
+        return NextResponse.json(
+          { success: false, error: "Invalid API key format" },
+          { status: 401 }
+        )
+      }
+      
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("id")
         .eq("api_key", apiKey)
         .single()
       
-      if (!profile) {
+      if (profileError || !profile) {
         return NextResponse.json(
           { success: false, error: "Invalid API key" },
           { status: 401 }
@@ -39,23 +72,25 @@ export async function POST(request: NextRequest) {
       userId = user.id
     }
 
-    // Since we can't spawn processes in browser environment, we implement the logic here
+    // Generate digital twin insights
     const digitalTwin = generateDigitalTwinInsights(algorithm, inputData, circuitInfo, executionResults, backendConfig)
 
-    // Save to Supabase if execution_id is provided
-    if (executionResults?.execution_id) {
-      const { error: updateError } = await supabase
-        .from("execution_logs")
-        .update({
-          digital_twin: digitalTwin,
-        })
-        .eq("user_id", userId)
-        .eq("id", executionResults.execution_id)
+    // Save to Supabase if execution_id is provided and valid
+    if (executionResults?.execution_id && validateUUID(executionResults.execution_id)) {
+      try {
+        const { error: updateError } = await supabase
+          .from("execution_logs")
+          .update({
+            digital_twin: digitalTwin,
+          })
+          .eq("user_id", userId)
+          .eq("id", executionResults.execution_id)
 
-      if (updateError) {
-        console.error("[v0] Failed to save Digital Twin to Supabase:", updateError)
-      } else {
-        console.log("[v0] Digital Twin saved to Supabase successfully")
+        if (updateError) {
+          console.error("[API] Failed to save Digital Twin to Supabase:", updateError.message)
+        }
+      } catch (saveError) {
+        console.error("[API] Error saving digital twin:", saveError)
       }
     }
 
@@ -64,13 +99,11 @@ export async function POST(request: NextRequest) {
       digital_twin: digitalTwin,
     })
   } catch (error) {
-    console.error("[v0] Digital Twin generation error:", error)
+    const safeError = createSafeErrorResponse(error, "Failed to generate Digital Twin")
+    console.error("[API] Digital Twin generation error:", error)
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to generate Digital Twin",
-      },
-      { status: 500 },
+      { success: false, error: safeError },
+      { status: 500 }
     )
   }
 }
@@ -91,7 +124,7 @@ function generateDigitalTwinInsights(
     .slice(0, 5)
 
   const maxState = sortedProbs[0]?.[0] || "0"
-  const maxProb = sortedProbs[0]?.[1] || 0
+  const maxProb = (sortedProbs[0]?.[1] as number) || 0
 
   // Calculate entropy (measure of randomness)
   let entropy = 0
@@ -110,7 +143,7 @@ function generateDigitalTwinInsights(
       algorithmInterpretation = "Bell state entanglement successfully demonstrated"
       keyFindings = [
         `Maximum entanglement achieved with entropy: ${entropy.toFixed(3)}`,
-        `Dominant state: |${maxState}⟩ with probability ${(maxProb * 100).toFixed(2)}%`,
+        `Dominant state: |${maxState}> with probability ${(maxProb * 100).toFixed(2)}%`,
         "Quantum correlation verified between qubit pairs",
       ]
       break
@@ -118,7 +151,7 @@ function generateDigitalTwinInsights(
       algorithmInterpretation = "Grover's search algorithm amplified target states"
       keyFindings = [
         `Search space reduced to ${sortedProbs.length} dominant states`,
-        `Target state |${maxState}⟩ found with ${(maxProb * 100).toFixed(2)}% probability`,
+        `Target state |${maxState}> found with ${(maxProb * 100).toFixed(2)}% probability`,
         `Quadratic speedup achieved over classical search`,
       ]
       break
@@ -134,7 +167,7 @@ function generateDigitalTwinInsights(
       algorithmInterpretation = "Variational Quantum Eigensolver converging to ground state"
       keyFindings = [
         `Energy landscape entropy: ${entropy.toFixed(3)}`,
-        `Ground state candidate: |${maxState}⟩`,
+        `Ground state candidate: |${maxState}>`,
         `Optimization in progress with ${circuitInfo?.gates || 0} parameterized gates`,
       ]
       break
@@ -142,15 +175,23 @@ function generateDigitalTwinInsights(
       algorithmInterpretation = "QAOA optimization exploring solution space"
       keyFindings = [
         `Optimal solution probability: ${(maxProb * 100).toFixed(2)}%`,
-        `Solution state: |${maxState}⟩`,
+        `Solution state: |${maxState}>`,
         `Mixing and cost layers applied for combinatorial optimization`,
+      ]
+      break
+    case "QFT":
+      algorithmInterpretation = "Quantum Fourier Transform completed"
+      keyFindings = [
+        `Frequency domain representation obtained`,
+        `Dominant frequency state: |${maxState}>`,
+        `Transform fidelity achieved across ${circuitInfo?.qubits || 0} qubits`,
       ]
       break
     default:
       algorithmInterpretation = "Quantum circuit execution completed"
       keyFindings = [
         `Output state distribution entropy: ${entropy.toFixed(3)}`,
-        `Most probable outcome: |${maxState}⟩ (${(maxProb * 100).toFixed(2)}%)`,
+        `Most probable outcome: |${maxState}> (${(maxProb * 100).toFixed(2)}%)`,
         `Circuit complexity: ${circuitInfo?.gates || 0} gates, depth ${circuitInfo?.depth || 0}`,
       ]
   }

@@ -3,9 +3,33 @@ import { createServerClient } from "@/lib/supabase/server"
 import { CppMLEngine } from "@/lib/ml/cpp-ml-engine"
 import { calculateFidelity } from "@/lib/backend-selector"
 import { checkRateLimit, getRetryAfter, validatePayloadSize } from "@/lib/rate-limiter"
+import {
+  validateApiKey,
+  validateAlgorithm,
+  validateBackend,
+  validateErrorMitigation,
+  validateQubits,
+  validateShots,
+  validateDepth,
+  validateGateCount,
+  validateQASM,
+  validateInputData,
+  sanitizeCircuitName,
+  createSafeErrorResponse,
+  validateRequestHeaders,
+} from "@/lib/security"
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate request headers
+    const headerValidation = validateRequestHeaders(request.headers)
+    if (!headerValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: headerValidation.error },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
 
     // Validate payload size (1MB max)
@@ -15,23 +39,41 @@ export async function POST(request: NextRequest) {
         { status: 413 }
       )
     }
-    const {
-      qasm,
-      shots,
-      backend,
-      errorMitigation,
-      circuitName,
-      algorithm,
-      executionType,
-      qubits,
-      inputData,
-      depth,
-      gateCount,
-      targetLatency,
-      predictedShots,
-      predictedBackend,
-      predictedFidelity,
-    } = body
+
+    // Extract and validate all inputs
+    const qasm = body.qasm
+    const shots = validateShots(body.shots)
+    const backend = validateBackend(body.backend)
+    const errorMitigation = validateErrorMitigation(body.errorMitigation)
+    const circuitName = sanitizeCircuitName(body.circuitName)
+    const algorithm = validateAlgorithm(body.algorithm)
+    const executionType = body.executionType === "manual" ? "manual" : "auto"
+    const qubits = validateQubits(body.qubits)
+    const depth = validateDepth(body.depth)
+    const gateCount = validateGateCount(body.gateCount)
+    const targetLatency = body.targetLatency ? Math.max(0, Math.min(60000, Number(body.targetLatency))) : null
+    const predictedShots = body.predictedShots ? validateShots(body.predictedShots) : null
+    const predictedBackend = body.predictedBackend ? validateBackend(body.predictedBackend) : null
+    const predictedFidelity = body.predictedFidelity ? Math.max(0, Math.min(1, Number(body.predictedFidelity))) : null
+
+    // Validate QASM code
+    const qasmValidation = validateQASM(qasm)
+    if (!qasmValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: qasmValidation.error },
+        { status: 400 }
+      )
+    }
+
+    // Validate input data
+    const inputDataValidation = validateInputData(body.inputData)
+    if (!inputDataValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: inputDataValidation.error },
+        { status: 400 }
+      )
+    }
+    const inputData = inputDataValidation.data
 
     const supabase = await createServerClient()
     
@@ -40,14 +82,22 @@ export async function POST(request: NextRequest) {
     let userId: string | null = null
     
     if (apiKey) {
-      // Authenticate via API key
-      const { data: profile } = await supabase
+      // Validate API key format first
+      if (!validateApiKey(apiKey)) {
+        return NextResponse.json(
+          { success: false, error: "Invalid API key format" },
+          { status: 401 }
+        )
+      }
+      
+      // Authenticate via API key using parameterized query
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("id")
         .eq("api_key", apiKey)
         .single()
       
-      if (!profile) {
+      if (profileError || !profile) {
         return NextResponse.json(
           { success: false, error: "Invalid API key" },
           { status: 401 }
@@ -101,9 +151,9 @@ export async function POST(request: NextRequest) {
       .from("execution_logs")
       .insert({
         user_id: userId,
-        circuit_name: circuitName || "Unnamed Circuit",
-        algorithm: algorithm || "Unknown",
-        execution_type: executionType || "auto",
+        circuit_name: circuitName,
+        algorithm: algorithm,
+        execution_type: executionType,
         backend,
         status: "completed",
         success_rate: results.successRate,
@@ -142,35 +192,44 @@ export async function POST(request: NextRequest) {
       .select("id")
       .single()
 
+    if (insertError) {
+      console.error("[API] Failed to insert execution log:", insertError.message)
+    }
+
     if (insertedLog?.id && inputData) {
       const dataSize = JSON.stringify(inputData).length
 
-      await CppMLEngine.recordExecution(
-        {
-          qubits,
-          depth,
-          gateCount,
-          algorithm,
-          dataSize,
-          dataComplexity: 0.5,
-          targetLatency: targetLatency || 0,
-          errorMitigation,
-          userHistoricalAccuracy: 0.5,
-        },
-        insertedLog.id,
-        userId,
-        {
-          actualShots: shots,
-          actualBackend: backend,
-          actualRuntime: results.runtime,
-          actualSuccessRate: results.successRate,
-          actualFidelity,
-          predictedShots: predictedShots || shots,
-          predictedBackend: predictedBackend || backend,
-          predictedRuntime: results.runtime,
-          predictedFidelity: predictedFidelity || actualFidelity,
-        },
-      )
+      try {
+        await CppMLEngine.recordExecution(
+          {
+            qubits,
+            depth,
+            gateCount,
+            algorithm,
+            dataSize,
+            dataComplexity: 0.5,
+            targetLatency: targetLatency || 0,
+            errorMitigation,
+            userHistoricalAccuracy: 0.5,
+          },
+          insertedLog.id,
+          userId,
+          {
+            actualShots: shots,
+            actualBackend: backend,
+            actualRuntime: results.runtime,
+            actualSuccessRate: results.successRate,
+            actualFidelity,
+            predictedShots: predictedShots || shots,
+            predictedBackend: predictedBackend || backend,
+            predictedRuntime: results.runtime,
+            predictedFidelity: predictedFidelity || actualFidelity,
+          },
+        )
+      } catch (mlError) {
+        // ML recording is non-critical, log but don't fail
+        console.error("[API] ML recording failed:", mlError)
+      }
     }
 
     return NextResponse.json({
@@ -180,17 +239,28 @@ export async function POST(request: NextRequest) {
       runtime: results.runtime,
       memory: results.memory,
       execution_id: insertedLog?.id,
+      fidelity: actualFidelity,
     })
   } catch (error) {
-    return NextResponse.json({ success: false, error: "Failed to simulate circuit" }, { status: 500 })
+    const safeError = createSafeErrorResponse(error, "Failed to simulate circuit")
+    console.error("[API] Simulate error:", error)
+    return NextResponse.json(
+      { success: false, error: safeError },
+      { status: 500 }
+    )
   }
 }
 
-async function simulateQuantumCircuit(config: any) {
-  const { shots, backend, errorMitigation } = config
+async function simulateQuantumCircuit(config: {
+  qasm: string
+  shots: number
+  backend: string
+  errorMitigation: string
+}) {
+  const { shots, backend, errorMitigation, qasm } = config
 
   const counts: Record<string, number> = {}
-  const qubits = extractQubitCount(config.qasm)
+  const qubits = extractQubitCount(qasm)
 
   for (let i = 0; i < shots; i++) {
     let outcome = ""
@@ -210,7 +280,9 @@ async function simulateQuantumCircuit(config: any) {
         low: 0.05,
         medium: 0.1,
         high: 0.15,
-      }[errorMitigation] || 0
+        basic: 0.08,
+        advanced: 0.12,
+      }[errorMitigation] || 0.1
 
     Object.keys(counts).forEach((key) => {
       counts[key] = Math.floor(counts[key] * (1 + mitigationFactor * Math.random()))
@@ -232,6 +304,6 @@ async function simulateQuantumCircuit(config: any) {
 }
 
 function extractQubitCount(qasm: string): number {
-  const match = qasm.match(/qreg q\[(\d+)\]/)
+  const match = qasm.match(/qreg\s+\w+\[(\d+)\]/)
   return match ? Number.parseInt(match[1]) : 4
 }

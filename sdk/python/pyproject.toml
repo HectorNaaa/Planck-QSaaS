@@ -3,8 +3,8 @@ requires = ["setuptools>=45", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "planck-sdk"
-version = "0.9.1"
+name = "planck_sdk"
+version = "1.0.0"
 description = "Lightweight Python SDK for Planck Quantum Digital Twins Platform"
 readme = "README.md"
 requires-python = ">=3.8"

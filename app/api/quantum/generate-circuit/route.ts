@@ -1,33 +1,67 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
+import {
+  validateApiKey,
+  validateAlgorithm,
+  validateQubits,
+  validateInputData,
+  createSafeErrorResponse,
+  validateRequestHeaders,
+} from "@/lib/security"
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate request headers
+    const headerValidation = validateRequestHeaders(request.headers)
+    if (!headerValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: headerValidation.error },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
-    console.log("[v0] Generate circuit request:", body)
-    const { algorithm, inputData, qubits, shots, errorMitigation } = body
+    
+    // Validate and sanitize inputs
+    const algorithm = validateAlgorithm(body.algorithm)
+    const qubits = body.qubits ? validateQubits(body.qubits) : null
+    
+    // Validate input data
+    const inputDataValidation = validateInputData(body.inputData)
+    if (!inputDataValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: inputDataValidation.error },
+        { status: 400 }
+      )
+    }
+    const inputData = inputDataValidation.data
     
     // Check for API key authentication
     const apiKey = request.headers.get("x-api-key")
     const supabase = await createServerClient()
     
-    let userId: string | null = null
-    
     if (apiKey) {
+      // Validate API key format
+      if (!validateApiKey(apiKey)) {
+        return NextResponse.json(
+          { success: false, error: "Invalid API key format" },
+          { status: 401 }
+        )
+      }
+      
       // Authenticate via API key
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("id")
         .eq("api_key", apiKey)
         .single()
       
-      if (!profile) {
+      if (profileError || !profile) {
         return NextResponse.json(
           { success: false, error: "Invalid API key" },
           { status: 401 }
         )
       }
-      userId = profile.id
     } else {
       // Authenticate via session
       const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -38,27 +72,9 @@ export async function POST(request: NextRequest) {
           { status: 401 }
         )
       }
-      userId = user.id
     }
 
-    const pythonScript = `
-import sys
-import json
-from quantum_circuit_generator import QuantumCircuitGenerator
-
-# Parse input
-config = json.loads(sys.argv[1])
-generator = QuantumCircuitGenerator(config)
-
-# Generate circuit based on algorithm and data
-circuit_data = generator.generate_circuit()
-
-# Output QASM and metadata
-print(json.dumps(circuit_data))
-`
-
-    // In production, execute the Python script with spawn/exec
-    // For now, return a simulated response based on the algorithm
+    // Generate circuit based on algorithm and data
     const circuitData = await generateCircuitFromAlgorithm(algorithm, inputData, qubits)
 
     return NextResponse.json({
@@ -72,20 +88,18 @@ print(json.dumps(circuit_data))
       metadata: circuitData.metadata,
     })
   } catch (error) {
-    console.error("[v0] Circuit generation error:", error)
+    const safeError = createSafeErrorResponse(error, "Failed to generate circuit")
+    console.error("[API] Circuit generation error:", error)
     return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Failed to generate circuit",
-      },
-      { status: 500 },
+      { success: false, error: safeError },
+      { status: 500 }
     )
   }
 }
 
-async function generateCircuitFromAlgorithm(algorithm: string, inputData: any, qubits: number) {
+async function generateCircuitFromAlgorithm(algorithm: string, inputData: any, qubits: number | null) {
   const dataAnalysis = analyzeInputData(inputData)
-  const adaptedQubits = Math.max(qubits, dataAnalysis.recommendedQubits)
+  const adaptedQubits = Math.max(qubits || 2, dataAnalysis.recommendedQubits)
 
   // Simulate calling the Python generator
   const algorithmGenerators: Record<string, any> = {
@@ -131,6 +145,12 @@ measure q[1] -> c[1];`,
       qubits: adaptedQubits,
       depth: 6 + dataAnalysis.layers,
       gates: generateQAOAGates(adaptedQubits),
+    },
+    QFT: {
+      qasm: generateQFTQASM(adaptedQubits),
+      qubits: adaptedQubits,
+      depth: adaptedQubits * 2,
+      gates: generateQFTGates(adaptedQubits),
     },
   }
 
@@ -194,7 +214,7 @@ function analyzeInputData(inputData: any) {
       const keys = Object.keys(inputData)
       size = keys.length
       features = size
-      complexity = Math.ceil(Math.log2(size))
+      complexity = Math.ceil(Math.log2(size || 2))
       layers = Math.min(2, Math.floor(size / 4))
     }
 
@@ -204,7 +224,7 @@ function analyzeInputData(inputData: any) {
     // Cap at reasonable maximum
     recommendedQubits = Math.min(recommendedQubits, 20)
   } catch (error) {
-    console.error("[v0] Error analyzing input data:", error)
+    console.error("[API] Error analyzing input data:", error)
   }
 
   return {
@@ -395,6 +415,42 @@ function generateQAOAGates(qubits: number) {
   for (let i = 0; i < qubits - 1; i++) {
     gates.push({ type: "cx", targets: [i + 1], control: i })
     gates.push({ type: "rz", targets: [i + 1], parameter: Math.random() })
+  }
+  return gates
+}
+
+function generateQFTQASM(qubits: number): string {
+  let qasm = `OPENQASM 2.0;\ninclude "qelib1.inc";\n\n`
+  qasm += `qreg q[${qubits}];\ncreg c[${qubits}];\n\n`
+  qasm += `// Quantum Fourier Transform circuit\n`
+
+  for (let i = 0; i < qubits; i++) {
+    qasm += `h q[${i}];\n`
+    for (let j = i + 1; j < qubits; j++) {
+      const angle = Math.PI / Math.pow(2, j - i)
+      qasm += `cp(${angle.toFixed(4)}) q[${j}],q[${i}];\n`
+    }
+  }
+
+  // Swap qubits
+  for (let i = 0; i < Math.floor(qubits / 2); i++) {
+    qasm += `swap q[${i}],q[${qubits - 1 - i}];\n`
+  }
+
+  for (let i = 0; i < qubits; i++) {
+    qasm += `measure q[${i}] -> c[${i}];\n`
+  }
+
+  return qasm
+}
+
+function generateQFTGates(qubits: number) {
+  const gates = []
+  for (let i = 0; i < qubits; i++) {
+    gates.push({ type: "h", targets: [i] })
+    for (let j = i + 1; j < qubits; j++) {
+      gates.push({ type: "cp", targets: [i], control: j, parameter: Math.PI / Math.pow(2, j - i) })
+    }
   }
   return gates
 }

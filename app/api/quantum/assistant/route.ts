@@ -1,32 +1,102 @@
-import { streamText, convertToModelMessages } from "ai"
-import { createClient } from "@supabase/supabase-js"
+import { type NextRequest, NextResponse } from "next/server"
+import { streamText } from "ai"
+import { createServerClient } from "@/lib/supabase/server"
+import {
+  validateApiKey,
+  sanitizeString,
+  createSafeErrorResponse,
+  validateRequestHeaders,
+} from "@/lib/security"
 
-export async function POST(req: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { messages, userId } = await req.json()
-
-    // Fetch user's execution history for context
-    let executionContext = ""
-    if (userId) {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    // Validate request headers
+    const headerValidation = validateRequestHeaders(request.headers)
+    if (!headerValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: headerValidation.error },
+        { status: 403 }
       )
+    }
 
-      const { data: recentExecutions } = await supabase
-        .from("execution_logs")
-        .select("circuit_name, algorithm, qubits_used, runtime_ms, status, created_at")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(10)
+    const body = await request.json()
+    const { messages, includeHistory } = body
 
-      if (recentExecutions && recentExecutions.length > 0) {
-        executionContext = `
+    // Validate messages
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Messages array is required" },
+        { status: 400 }
+      )
+    }
+
+    // Sanitize messages
+    const sanitizedMessages = messages.map((msg: any) => ({
+      role: msg.role === "assistant" ? "assistant" : "user",
+      content: sanitizeString(msg.content, 5000),
+    }))
+
+    // Check for API key authentication
+    const apiKey = request.headers.get("x-api-key")
+    const supabase = await createServerClient()
+    let userId: string | null = null
+
+    if (apiKey) {
+      // Validate API key format
+      if (!validateApiKey(apiKey)) {
+        return NextResponse.json(
+          { success: false, error: "Invalid API key format" },
+          { status: 401 }
+        )
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("api_key", apiKey)
+        .single()
+
+      if (profileError || !profile) {
+        return NextResponse.json(
+          { success: false, error: "Invalid API key" },
+          { status: 401 }
+        )
+      }
+      userId = profile.id
+    } else {
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+      if (authError || !user) {
+        return NextResponse.json(
+          { success: false, error: "Unauthorized. Please provide an API key or authenticate." },
+          { status: 401 }
+        )
+      }
+      userId = user.id
+    }
+
+    // Fetch user's execution history for context if requested
+    let executionContext = ""
+    if (includeHistory !== false && userId) {
+      try {
+        const { data: recentExecutions } = await supabase
+          .from("execution_logs")
+          .select("circuit_name, algorithm, qubits_used, runtime_ms, status, created_at")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(10)
+
+        if (recentExecutions && recentExecutions.length > 0) {
+          executionContext = `
 User's recent quantum executions:
-${recentExecutions.map((e, i) => 
+${recentExecutions.map((e, i) =>
   `${i + 1}. "${e.circuit_name}" - ${e.algorithm || "Custom"} algorithm, ${e.qubits_used} qubits, ${e.runtime_ms?.toFixed(3) || "N/A"}ms runtime, status: ${e.status}`
 ).join("\n")}
 `
+        }
+      } catch (historyError) {
+        console.error("[API] Error fetching execution history:", historyError)
+        // Continue without history
       }
     }
 
@@ -49,18 +119,21 @@ Important guidelines:
 - Suggest optimizations based on their usage patterns
 - Stay focused on quantum computing topics`
 
+    // Use streaming response
     const result = streamText({
       model: "openai/gpt-4o-mini",
       system: systemPrompt,
-      messages: await convertToModelMessages(messages),
+      messages: sanitizedMessages,
       maxTokens: 500,
     })
 
-    return result.toUIMessageStreamResponse()
+    return result.toTextStreamResponse()
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: "Failed to process request" }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+    const safeError = createSafeErrorResponse(error, "Failed to process assistant request")
+    console.error("[API] Assistant error:", error)
+    return NextResponse.json(
+      { success: false, error: safeError },
+      { status: 500 }
     )
   }
 }

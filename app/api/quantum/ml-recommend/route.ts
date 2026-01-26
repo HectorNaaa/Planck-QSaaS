@@ -1,11 +1,39 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { CppMLEngine } from "@/lib/ml/cpp-ml-engine"
 import { createServerClient } from "@/lib/supabase/server"
+import {
+  validateApiKey,
+  validateAlgorithm,
+  validateQubits,
+  validateDepth,
+  validateGateCount,
+  validateNumber,
+  createSafeErrorResponse,
+  validateRequestHeaders,
+} from "@/lib/security"
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate request headers
+    const headerValidation = validateRequestHeaders(request.headers)
+    if (!headerValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: headerValidation.error },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
-    const { qubits, depth, gateCount, algorithm, dataSize, dataComplexity, targetLatency, errorMitigation } = body
+    
+    // Validate and sanitize inputs
+    const qubits = validateQubits(body.qubits)
+    const depth = validateDepth(body.depth)
+    const gateCount = validateGateCount(body.gateCount)
+    const algorithm = validateAlgorithm(body.algorithm)
+    const dataSize = validateNumber(body.dataSize, 1, 100000, 100)
+    const dataComplexity = validateNumber(body.dataComplexity, 0, 10, 1)
+    const targetLatency = validateNumber(body.targetLatency, 0, 60000, 1000)
+    const errorMitigation = body.errorMitigation || "medium"
 
     const supabase = await createServerClient()
     
@@ -14,13 +42,21 @@ export async function POST(request: NextRequest) {
     let userId: string | null = null
     
     if (apiKey) {
-      const { data: profile } = await supabase
+      // Validate API key format
+      if (!validateApiKey(apiKey)) {
+        return NextResponse.json(
+          { success: false, error: "Invalid API key format" },
+          { status: 401 }
+        )
+      }
+      
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("id")
         .eq("api_key", apiKey)
         .single()
       
-      if (!profile) {
+      if (profileError || !profile) {
         return NextResponse.json(
           { success: false, error: "Invalid API key" },
           { status: 401 }
@@ -60,7 +96,7 @@ export async function POST(request: NextRequest) {
     } catch (tableError: any) {
       // ML tables not yet created, use default heuristics
       if (tableError.code !== "PGRST205") {
-        console.error("Error checking ML history:", tableError)
+        console.error("[API] Error checking ML history:", tableError)
       }
     }
 
@@ -86,7 +122,11 @@ export async function POST(request: NextRequest) {
       basedOnExecutions: recommendation.basedOnExecutions,
     })
   } catch (error) {
-    console.error("ML recommendation error:", error)
-    return NextResponse.json({ success: false, error: "Failed to get ML recommendation" }, { status: 500 })
+    const safeError = createSafeErrorResponse(error, "Failed to get ML recommendation")
+    console.error("[API] ML recommendation error:", error)
+    return NextResponse.json(
+      { success: false, error: safeError },
+      { status: 500 }
+    )
   }
 }

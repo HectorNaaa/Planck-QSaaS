@@ -28,6 +28,16 @@ class ValidationError(PlanckError):
     pass
 
 
+class RateLimitError(APIError):
+    """Raised when rate limit is exceeded."""
+    pass
+
+
+class PayloadTooLargeError(APIError):
+    """Raised when request payload exceeds size limit."""
+    pass
+
+
 class TimeoutError(PlanckError):
     """Raised when request times out."""
     pass
