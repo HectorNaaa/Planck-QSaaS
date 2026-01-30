@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/page-header"
 import type { CircuitData } from "@/lib/qasm-generator"
 import { selectOptimalBackend, calculateFidelity, estimateRuntime } from "@/lib/backend-selector"
 import { DigitalTwinPanel } from "@/components/runner/digital-twin-panel"
+import { Collapsible } from "@/components/ui/collapsible"
 
 export default function RunnerPage() {
   const [isRunning, setIsRunning] = useState(false)
@@ -739,9 +740,11 @@ const adaptiveShots = calculateAdaptiveShots({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {dataUploaded && circuitImageUrl ? (
-            <Card className="p-6 shadow-lg">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-foreground">Circuit Visualizer</h2>
+            <Collapsible
+              title="Circuit Visualizer"
+              defaultOpen={false}
+              className="shadow-lg"
+              headerAction={
                 <Button
                   onClick={handleDownloadCircuitImage}
                   size="sm"
@@ -751,7 +754,8 @@ const adaptiveShots = calculateAdaptiveShots({
                   <Download size={16} />
                   Download
                 </Button>
-              </div>
+              }
+            >
               <div className="rounded-lg min-h-96 border border-border flex items-center justify-center bg-secondary overflow-hidden">
                 <img
                   src={circuitImageUrl || "/placeholder.svg"}
@@ -759,7 +763,7 @@ const adaptiveShots = calculateAdaptiveShots({
                   className="w-full h-auto object-contain"
                 />
               </div>
-            </Card>
+            </Collapsible>
           ) : (
             <Card className="p-6 shadow-lg bg-card px-4 py-4">
               <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Visualizer</h2>
@@ -772,9 +776,11 @@ const adaptiveShots = calculateAdaptiveShots({
           )}
 
           {dataUploaded && circuitCode ? (
-            <Card className="p-6 shadow-lg bg-card">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-foreground">Circuit Code</h2>
+            <Collapsible
+              title="Circuit Code"
+              defaultOpen={false}
+              className="shadow-lg"
+              headerAction={
                 <div className="flex gap-2">
                   {isCodeEditable ? (
                     <Button onClick={handleSaveCode} size="sm" className="bg-primary">
@@ -795,7 +801,8 @@ const adaptiveShots = calculateAdaptiveShots({
                     Download
                   </Button>
                 </div>
-              </div>
+              }
+            >
               {isCodeEditable ? (
                 <textarea
                   value={circuitCode}
@@ -809,7 +816,7 @@ const adaptiveShots = calculateAdaptiveShots({
                     : `// Upload data and select algorithm to generate circuit code`}
                 </pre>
               )}
-            </Card>
+            </Collapsible>
           ) : (
             <Card className="p-6 shadow-lg bg-card px-4 py-4">
               <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Code</h2>
