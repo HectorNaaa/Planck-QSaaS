@@ -739,9 +739,102 @@ const adaptiveShots = calculateAdaptiveShots({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {dataUploaded && circuitImageUrl ? (
+          {/* Main execution pipeline - Always visible */}
+          <Card className="p-6 shadow-lg bg-card px-4 py-4">
+            <h2 className="text-2xl font-bold text-foreground mb-4">Execution Pipeline</h2>
+            {!dataUploaded ? (
+              <div className="rounded-lg min-h-64 border border-border border-dashed flex items-center justify-center bg-secondary/30">
+                <p className="text-muted-foreground px-3 py-3">
+                  Upload data and select an algorithm to start the pipeline
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-500 text-white font-bold">
+                    1
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-foreground">Data Uploaded</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {circuitName} algorithm with {qubits} qubits
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-500 text-white font-bold">
+                    2
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-foreground">Circuit Generated</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {circuitData?.gates.length || 0} gates, depth {circuitData?.depth || 0}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-full ${results ? 'bg-green-500' : 'bg-gray-300'} text-white font-bold`}>
+                    3
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-foreground">Circuit Execution</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {results ? `Completed in ${results.runtime_ms}ms` : 'Ready to run'}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-full ${results ? 'bg-green-500' : 'bg-gray-300'} text-white font-bold`}>
+                    4
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-foreground">Results Generated</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {results ? `Success rate: ${results.success_rate.toFixed(2)}%` : 'Waiting for execution'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
+
+          {/* Results section - Primary display */}
+          {results ? (
+            <div className="space-y-6">
+              <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} />
+              {results && uploadedData && circuitCode && (
+                <DigitalTwinPanel
+                  algorithm={circuitName}
+                  inputData={uploadedData}
+                  circuitInfo={{
+                    qubits,
+                    depth: circuitData?.depth || 0,
+                    gates: circuitData?.gates || [],
+                    qasm: circuitCode,
+                  }}
+                  executionResults={{
+                    counts: results.counts || {},
+                    shots: results.total_shots || shots,
+                    success_rate: results.success_rate || 0,
+                    runtime_ms: results.runtime_ms || 0,
+                  }}
+                  backendConfig={{
+                    backend,
+                    error_mitigation: errorMitigation,
+                    transpiled: true,
+                  }}
+                />
+              )}
+            </div>
+          ) : null}
+
+          {/* Circuit Visualizer - Optional/Secondary */}
+          {dataUploaded && circuitImageUrl && (
             <Collapsible
-              title="Circuit Visualizer"
+              title="Circuit Visualizer (Optional)"
               defaultOpen={false}
               className="shadow-lg"
               headerAction={
@@ -764,20 +857,12 @@ const adaptiveShots = calculateAdaptiveShots({
                 />
               </div>
             </Collapsible>
-          ) : (
-            <Card className="p-6 shadow-lg bg-card px-4 py-4">
-              <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Visualizer</h2>
-              <div className="rounded-lg min-h-96 border border-border border-dashed flex items-center justify-center bg-secondary/30">
-                <p className="text-muted-foreground px-3 py-3">
-                  Upload data and select an algorithm to generate circuit
-                </p>
-              </div>
-            </Card>
           )}
 
-          {dataUploaded && circuitCode ? (
+          {/* Circuit Code Editor - Optional/Secondary */}
+          {dataUploaded && circuitCode && (
             <Collapsible
-              title="Circuit Code"
+              title="Circuit Code Editor (Optional)"
               defaultOpen={false}
               className="shadow-lg"
               headerAction={
@@ -817,49 +902,6 @@ const adaptiveShots = calculateAdaptiveShots({
                 </pre>
               )}
             </Collapsible>
-          ) : (
-            <Card className="p-6 shadow-lg bg-card px-4 py-4">
-              <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Code</h2>
-              <div className="rounded-lg min-h-96 border border-border border-dashed flex items-center justify-center bg-secondary/30 px-0">
-                <p className="text-muted-foreground px-3 py-3">Circuit code will appear here after generation</p>
-              </div>
-            </Card>
-          )}
-
-          {results ? (
-            <div className="space-y-6">
-              <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} />
-              {results && uploadedData && circuitCode && (
-                <DigitalTwinPanel
-                  algorithm={circuitName}
-                  inputData={uploadedData}
-                  circuitInfo={{
-                    qubits,
-                    depth: circuitData?.depth || 0,
-                    gates: circuitData?.gates || [],
-                    qasm: circuitCode,
-                  }}
-                  executionResults={{
-                    counts: results.counts || {},
-                    shots: results.total_shots || shots,
-                    success_rate: results.success_rate || 0,
-                    runtime_ms: results.runtime_ms || 0,
-                  }}
-                  backendConfig={{
-                    backend,
-                    error_mitigation: errorMitigation,
-                    transpiled: true,
-                  }}
-                />
-              )}
-            </div>
-          ) : (
-            <Card className="p-6 shadow-lg px-4 py-4">
-              <h2 className="text-2xl font-bold text-foreground mb-4">Circuit Results</h2>
-              <div className="rounded-lg min-h-96 border border-border border-dashed flex items-center justify-center bg-secondary/30">
-                <p className="text-muted-foreground px-3 py-3">Results will appear here after execution</p>
-              </div>
-            </Card>
           )}
         </div>
 
