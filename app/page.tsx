@@ -238,13 +238,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-center relative z-10">
-          <div className="inline-block">
-            <p className="text-2xl md:text-3xl lg:text-4xl font-bold text-[#578e7e]">
-              More than 1 Trillion simultaneous states
-            </p>
-          </div>
-        </section>
+
 
         <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 my-0 relative z-10">
           <h2 className="text-4xl font-bold text-foreground mb-12 text-center relative z-10">Features</h2>
