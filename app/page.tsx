@@ -166,16 +166,6 @@ export default function LandingPage() {
           </div>
 
           <div className="flex flex-col items-center gap-12 relative z-10">
-            <div className="hn-floating-cat absolute inset-0 pointer-events-none z-0">
-              <Image
-                src="/images/schrodinger-20planck-20landing.png"
-                alt=""
-                width={360}
-                height={360}
-                className="w-[240px] h-[240px] sm:w-[288px] sm:h-[288px] md:w-[360px] md:h-[360px] object-contain"
-              />
-            </div>
-
             <div className="text-center space-y-6">
               <h1
                 className="hn-slogan-wrap text-5xl md:text-7xl font-bold text-foreground text-balance relative"
@@ -387,63 +377,6 @@ export default function LandingPage() {
         [data-hn-hero] .hn-slogan-wrap {
           position: relative;
           display: inline-block;
-        }
-
-        /* Enhanced floating cat animation with smoother fade in/out and 150% larger size */
-        .hn-floating-cat {
-          animation: hn-float-cat 15s ease-in-out infinite;
-        }
-
-        @keyframes hn-float-cat {
-          0% {
-            transform: translate(-20%, -20%) scale(0) rotate(0deg);
-            opacity: 0;
-          }
-          8% {
-            transform: translate(20%, 10%) scale(1) rotate(20deg);
-            opacity: 0.5;
-          }
-          20% {
-            transform: translate(80%, 20%) scale(1.1) rotate(45deg);
-            opacity: 0.6;
-          }
-          28% {
-            opacity: 0;
-          }
-          35% {
-            transform: translate(10%, 60%) scale(0) rotate(-30deg);
-            opacity: 0;
-          }
-          43% {
-            transform: translate(30%, 75%) scale(1) rotate(-45deg);
-            opacity: 0.5;
-          }
-          55% {
-            transform: translate(70%, 80%) scale(0.9) rotate(0deg);
-            opacity: 0.55;
-          }
-          63% {
-            opacity: 0;
-          }
-          70% {
-            transform: translate(90%, 30%) scale(0) rotate(90deg);
-            opacity: 0;
-          }
-          78% {
-            transform: translate(85%, 50%) scale(1.2) rotate(60deg);
-            opacity: 0.6;
-          }
-          90% {
-            transform: translate(50%, 40%) scale(0.8) rotate(-20deg);
-            opacity: 0.5;
-          }
-          98% {
-            opacity: 0;
-          }
-          100% {
-            transform: translate(-20%, -20%) scale(0) rotate(0deg);
-            opacity: 0;
-          }
         }
       `}</style>
 
