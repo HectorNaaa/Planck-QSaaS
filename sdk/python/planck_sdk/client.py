@@ -17,9 +17,9 @@ from .result import ExecutionResult
 from .exceptions import AuthenticationError, APIError, CircuitError, ValidationError
 
 
-class PlanckClient:
+class PlanckUser:
     """
-    Main client for interacting with the Planck Quantum Digital Twins Platform.
+    Main user interface for interacting with the Planck Quantum Digital Twins Platform.
     
     Args:
         api_key: Your Planck API key (found in Settings > API Keys)
@@ -27,9 +27,9 @@ class PlanckClient:
         timeout: Request timeout in seconds (default: 60)
     
     Example:
-        >>> from planck_sdk import PlanckClient
-        >>> client = PlanckClient(api_key="sk_live_xxx")
-        >>> result = client.run(data=[1,2,3], algorithm="grover")
+        >>> from planck_sdk import PlanckUser
+        >>> user = PlanckUser(api_key="sk_live_xxx")
+        >>> result = user.run(data=[1,2,3], algorithm="grover")
         >>> print(result.counts)
     """
     
@@ -577,4 +577,4 @@ class PlanckClient:
                 return False
     
     def __repr__(self) -> str:
-        return f"PlanckClient(base_url='{self.base_url}')"
+        return f"PlanckUser(base_url='{self.base_url}')"

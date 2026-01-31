@@ -9,12 +9,12 @@ Installation:
     pip install planck_sdk
 
 Quick Start:
-    from planck_sdk import PlanckClient
+    from planck_sdk import PlanckUser
     
-    client = PlanckClient(api_key="your_api_key")
+    user = PlanckUser(api_key="your_api_key")
     
     # Generate and run a quantum circuit
-    result = client.run(
+    result = user.run(
         data=[1.0, 2.0, 3.0, 4.0],
         algorithm="vqe",
         shots=1024
@@ -31,13 +31,17 @@ __version__ = "1.0.0"
 __author__ = "Planck Technologies"
 __github__ = "https://github.com/HectorNaaa/Planck-QSaaS"
 
-from .client import PlanckClient
+from .client import PlanckUser
 from .circuit import QuantumCircuit
 from .result import ExecutionResult
 from .exceptions import PlanckError, AuthenticationError, CircuitError, APIError
 
+# Backwards compatibility alias
+PlanckClient = PlanckUser
+
 __all__ = [
-    "PlanckClient",
+    "PlanckUser",
+    "PlanckClient",  # Keep for backwards compatibility
     "QuantumCircuit", 
     "ExecutionResult",
     "PlanckError",
