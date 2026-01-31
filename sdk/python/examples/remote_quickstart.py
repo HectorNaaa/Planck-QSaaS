@@ -21,7 +21,7 @@ Get your API key at: https://planck.plancktechnologies.xyz/qsaas/settings
 # ============================================================================
 # STEP 2: Import the SDK
 # ============================================================================
-from planck_sdk import PlanckClient, QuantumCircuit, ExecutionResult
+from planck_sdk import PlanckUser, QuantumCircuit, ExecutionResult
 from planck_sdk import AuthenticationError, CircuitError, APIError
 
 # ============================================================================
@@ -36,9 +36,9 @@ API_KEY = "YOUR_API_KEY_HERE"  # <-- Replace with your actual API key
 # API_KEY = os.environ.get("PLANCK_API_KEY", "YOUR_API_KEY_HERE")
 
 # ============================================================================
-# STEP 4: Initialize the client
+# STEP 4: Initialize the user
 # ============================================================================
-client = PlanckClient(
+user = PlanckUser(
     api_key=API_KEY,
     base_url="https://planck.plancktechnologies.xyz"
 )
@@ -54,7 +54,7 @@ def example_health_check():
     """Check API health and connectivity"""
     print("\n[0] Checking API Health...")
     
-    health = client.health_check()
+    health = user.health_check()
     print(f"    Status: {health.get('status', 'unknown')}")
     print(f"    Version: {health.get('version', 'unknown')}")
     
@@ -65,7 +65,7 @@ def example_vqe():
     """Run VQE (Variational Quantum Eigensolver)"""
     print("\n[1] Running VQE Algorithm...")
     
-    result = client.run(
+    result = user.run(
         data=[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0],
         algorithm="vqe",
         shots=1024,
@@ -83,7 +83,7 @@ def example_grover():
     """Run Grover's Search Algorithm"""
     print("\n[2] Running Grover's Search...")
     
-    result = client.run(
+    result = user.run(
         data=[0, 1, 1, 0],  # Pattern to search
         algorithm="grover",
         shots=2048
@@ -99,7 +99,7 @@ def example_generate_circuit():
     """Generate a circuit without executing"""
     print("\n[3] Generating Bell State Circuit...")
     
-    circuit = client.generate_circuit(
+    circuit = user.generate_circuit(
         algorithm="bell_state",
         num_qubits=4
     )
@@ -126,7 +126,7 @@ cx q[0], q[1];
 measure q -> c;
 """
     
-    result = client.simulate(
+    result = user.simulate(
         qasm=qasm,
         shots=1024,
         noise_model="ideal"
@@ -142,7 +142,7 @@ def example_ml_recommendations():
     """Get ML-powered recommendations"""
     print("\n[5] Getting ML Recommendations...")
     
-    recommendations = client.get_ml_recommendations(
+    recommendations = user.get_ml_recommendations(
         circuit_depth=12,
         num_qubits=6,
         gate_types=["h", "cx", "rz"]
@@ -168,7 +168,7 @@ cx q[0], q[1];
 measure q -> c;
 """
     
-    twin = client.create_digital_twin(
+    twin = user.create_digital_twin(
         qasm=qasm,
         hardware_profile={
             "backend": "ibm_simulator",
@@ -188,7 +188,7 @@ def example_ai_assistant():
     """Ask the AI assistant"""
     print("\n[7] Asking AI Assistant...")
     
-    answer = client.ask("What algorithm should I use for optimization problems?")
+    answer = user.ask("What algorithm should I use for optimization problems?")
     print(f"    Answer: {answer[:200]}...")
     
     return answer

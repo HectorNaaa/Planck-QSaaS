@@ -16,18 +16,18 @@ This example demonstrates:
 """
 
 import os
-from planck_sdk import PlanckClient, AuthenticationError, CircuitError, APIError
+from planck_sdk import PlanckUser, AuthenticationError, CircuitError, APIError
 
 # Get API key from environment or use directly
 API_KEY = os.environ.get("PLANCK_API_KEY", "your_api_key_here")
 
 
 def main():
-    # Initialize client
-    print("Initializing Planck client...")
+    # Initialize user
+    print("Initializing Planck user...")
     
     try:
-        client = PlanckClient(api_key=API_KEY)
+        user = PlanckUser(api_key=API_KEY)
     except AuthenticationError as e:
         print(f"Authentication error: {e}")
         print("Please set PLANCK_API_KEY environment variable or provide a valid API key")
@@ -35,7 +35,7 @@ def main():
     
     # Test connection
     print("Testing connection...")
-    if not client.ping():
+    if not user.ping():
         print("Failed to connect to Planck API. Check your API key and internet connection.")
         return
     
@@ -47,7 +47,7 @@ def main():
     print("=" * 60)
     
     try:
-        result = client.run(
+        result = user.run(
             data=[1, 0],  # Simple input data
             algorithm="bell",
             shots=2048
@@ -72,7 +72,7 @@ def main():
     print("=" * 60)
     
     try:
-        result = client.run(
+        result = user.run(
             data=[1.0, 2.0, 3.0, 4.0],
             algorithm="vqe",
             shots=1024,
@@ -90,7 +90,7 @@ def main():
     print("=" * 60)
     
     try:
-        circuit = client.generate_circuit(
+        circuit = user.generate_circuit(
             data=[1, 2, 3, 4, 5, 6, 7, 8],
             algorithm="grover",
             qubits=3
@@ -116,7 +116,7 @@ def main():
     print("=" * 60)
     
     try:
-        recommendations = client.get_recommendations(
+        recommendations = user.get_recommendations(
             qubits=8,
             depth=20,
             gate_count=50,
@@ -140,14 +140,14 @@ def main():
     
     try:
         # Generate a circuit first
-        circuit = client.generate_circuit(
+        circuit = user.generate_circuit(
             data=[1, 2, 3],
             algorithm="bell",
             qubits=2
         )
         
         # Transpile for quantum hardware
-        transpiled = client.transpile(
+        transpiled = user.transpile(
             qasm=circuit.qasm,
             backend="quantum_qpu",
             qubits=2
@@ -166,13 +166,13 @@ def main():
     print("=" * 60)
     
     try:
-        circuit = client.generate_circuit(
+        circuit = user.generate_circuit(
             data=[1, 0],
             algorithm="bell",
             qubits=2
         )
         
-        viz = client.visualize(qasm=circuit.qasm)
+        viz = user.visualize(qasm=circuit.qasm)
         
         print(f"Visualization generated:")
         print(f"  Format: {viz['format']}")
@@ -201,7 +201,7 @@ def main():
         )
         
         # Get insights
-        insights = client.get_digital_twin(
+        insights = user.get_digital_twin(
             algorithm="vqe",
             circuit_info={
                 "qubits": result.circuit.qubits if result.circuit else 4,

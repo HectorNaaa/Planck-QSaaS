@@ -54,19 +54,19 @@ If you exceed the rate limit, you'll receive an `APIError` with retry-after info
 3. Generate a new API key
 4. Copy and save it securely (it won't be shown again)
 
-## Quick Start
+## Quick Start (v0.9)
 
 ```python
-from planck_sdk import PlanckClient
+from planck_sdk import PlanckUser
 
-# Initialize client with your API key
-client = PlanckClient(
+# Initialize user with your API key (new in v0.9)
+user = PlanckUser(
     api_key="your_api_key_here",
     base_url="https://planck.plancktechnologies.xyz"  # Optional, this is the default
 )
 
 # Run a quantum circuit with your data
-result = client.run(
+result = user.run(
     data=[1.0, 2.0, 3.0, 4.0, 5.0],
     algorithm="vqe",
     shots=2048
@@ -74,8 +74,8 @@ result = client.run(
 
 # View results
 print(result.counts)
-print(f"Fidelity: {result.fidelity:.3f}")
-print(f"Runtime: {result.runtime_ms:.1f}ms")
+print(f"Success Rate: {result.success_rate:.2f}%")
+print(f"Runtime: {result.runtime_ms}ms")
 
 # Plot histogram
 result.plot_histogram()
@@ -83,6 +83,8 @@ result.plot_histogram()
 # Save results
 result.save("my_execution.json")
 ```
+
+**Note:** `PlanckClient` is still supported for backwards compatibility, but `PlanckUser` is the recommended naming in v0.9.
 
 ## Available Algorithms
 

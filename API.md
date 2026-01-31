@@ -2,30 +2,33 @@
 
 Official API documentation for the Planck Quantum Digital Twins Platform.
 
-## Quick Start (Python SDK)
+## Quick Start (Python SDK v0.9)
 
 ```bash
 pip install planck_sdk
 ```
 
 ```python
-from planck_sdk import PlanckClient
+from planck_sdk import PlanckUser
 
-client = PlanckClient(
+# Initialize user (new in v0.9)
+user = PlanckUser(
     api_key="YOUR_API_KEY",  # Get from Settings > API Keys
     base_url="https://planck.plancktechnologies.xyz"
 )
 
 # Run a quantum algorithm
-result = client.run(
+result = user.run(
     data=[1.0, 2.0, 3.0, 4.0],
     algorithm="vqe",
     shots=1024
 )
 
 print(result.counts)
-print(f"Fidelity: {result.fidelity}")
+print(f"Success Rate: {result.success_rate}%")
 ```
+
+**Note:** `PlanckClient` is still supported for backwards compatibility, but `PlanckUser` is recommended.
 
 Get your API key at: https://planck.plancktechnologies.xyz/qsaas/settings
 
@@ -322,18 +325,19 @@ For easier integration, use our official Python SDK.
 pip install planck_sdk
 ```
 
-### Full Example
+### Full Example (SDK v0.9)
 
 ```python
-from planck_sdk import PlanckClient
+from planck_sdk import PlanckUser
 
-client = PlanckClient(
+# Initialize user (recommended naming in v0.9)
+user = PlanckUser(
     api_key="your_api_key",
     base_url="https://planck.plancktechnologies.xyz"
 )
 
 # Run any algorithm with your data
-result = client.run(
+result = user.run(
     data=[1.0, 2.0, 3.0, 4.0, 5.0],
     algorithm="vqe",      # vqe, grover, qaoa, qft, bell, shor
     shots=1024,
@@ -341,18 +345,18 @@ result = client.run(
 )
 
 print(result.counts)
-print(f"Fidelity: {result.fidelity}")
+print(f"Success Rate: {result.success_rate}%")
 print(f"Runtime: {result.runtime_ms}ms")
 
 # Generate circuit without executing
-circuit = client.generate_circuit(
+circuit = user.generate_circuit(
     data=[1, 2, 3, 4],
     algorithm="grover"
 )
 print(circuit.qasm)
 
 # Get ML recommendations
-recommendations = client.get_recommendations(
+recommendations = user.get_recommendations(
     qubits=4,
     depth=10,
     gate_count=20,
@@ -362,19 +366,19 @@ recommendations = client.get_recommendations(
 print(f"Recommended shots: {recommendations['recommended_shots']}")
 
 # Transpile for specific backend
-transpiled = client.transpile(
+transpiled = user.transpile(
     qasm=circuit.qasm,
     backend="quantum_qpu"
 )
 print(f"Swap count: {transpiled['swap_count']}")
 
 # Generate circuit visualization
-viz = client.visualize(qasm=circuit.qasm)
+viz = user.visualize(qasm=circuit.qasm)
 with open("circuit.svg", "w") as f:
     f.write(viz["image_data"])
 
 # Get digital twin insights
-insights = client.get_digital_twin(
+insights = user.get_digital_twin(
     algorithm="vqe",
     circuit_info={"qubits": 4, "gates": 20, "depth": 10},
     execution_results={"probabilities": result.probabilities, "counts": result.counts}
