@@ -253,7 +253,8 @@ export default function SettingsPage() {
         "Basic analytics",
         "Community support",
       ],
-      current: false,
+      current: true,
+      comingSoon: false,
     },
     {
       name: "Pro",
@@ -269,7 +270,8 @@ export default function SettingsPage() {
         "Error Mitigation",
         "API access",
       ],
-      current: true,
+      current: false,
+      comingSoon: true,
     },
     {
       name: "Enterprise",
@@ -288,6 +290,7 @@ export default function SettingsPage() {
         "Team education",
       ],
       current: false,
+      comingSoon: false,
     },
   ]
 
@@ -624,35 +627,17 @@ export default function SettingsPage() {
               <Button
                 className={plan.current ? "bg-primary hover:bg-primary/90" : ""}
                 variant={plan.current ? undefined : "outline"}
+                disabled={plan.comingSoon}
               >
-                {plan.current ? "Current Plan" : "Choose Plan"}
+                {plan.current ? "Current Plan" : plan.comingSoon ? "Coming Soon" : plan.name === "Enterprise" ? "Contact Us" : "Choose Plan"}
               </Button>
             </div>
           ))}
         </div>
 
-        <h3 className="text-xl font-bold text-foreground mb-4">Billing History</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">Date</th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">Description</th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">Amount</th>
-                <th className="text-left py-3 px-4 text-muted-foreground font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr className="border-b border-border hover:bg-secondary/50 transition">
-                <td className="py-3 px-4 text-foreground">Nov 1, 2024</td>
-                <td className="py-3 px-4 text-foreground">Pro Plan - Monthly</td>
-                <td className="py-3 px-4 text-foreground">€49.00</td>
-                <td className="py-3 px-4">
-                  <span className="inline-block px-3 py-1 rounded-full text-sm bg-primary/20 text-primary">Paid</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <div className="border-t border-border pt-6">
+          <h3 className="text-xl font-bold text-foreground mb-2">Billing</h3>
+          <p className="text-muted-foreground">Coming Soon</p>
         </div>
       </Card>
 
