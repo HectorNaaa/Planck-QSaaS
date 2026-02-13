@@ -21,13 +21,13 @@ Installation:
 from planck_sdk import PlanckClient
 import os
 
-# Set your API key (get it from https://planck.plancktechnologies.xyz/qsaas/settings)
+# Set your API key (get it from https://www.plancktechnologies.xyz/qsaas/settings)
 API_KEY = "your_api_key_here"  # Or use: os.environ.get("PLANCK_API_KEY")
 
 # Initialize client
 client = PlanckClient(
     api_key=API_KEY,
-    base_url="https://planck.plancktechnologies.xyz"
+    base_url="https://www.plancktechnologies.xyz"
 )
 
 # Test connection

@@ -23,7 +23,7 @@ class PlanckUser:
     
     Args:
         api_key: Your Planck API key (found in Settings > API Keys)
-        base_url: API base URL (default: https://planck.plancktechnologies.xyz)
+        base_url: API base URL (default: https://www.plancktechnologies.xyz)
         timeout: Request timeout in seconds (default: 60)
     
     Example:
@@ -33,7 +33,7 @@ class PlanckUser:
         >>> print(result.counts)
     """
     
-    DEFAULT_BASE_URL = "https://planck.plancktechnologies.xyz"
+    DEFAULT_BASE_URL = "https://www.plancktechnologies.xyz"
     MIN_REQUEST_INTERVAL = 3.0  # Minimum 3 seconds between requests
     MAX_PAYLOAD_SIZE = 1024 * 1024  # 1MB
     
@@ -53,7 +53,7 @@ class PlanckUser:
         timeout: int = 60
     ):
         if not api_key:
-            raise AuthenticationError("API key is required. Get yours at https://planck.plancktechnologies.xyz/qsaas/settings")
+            raise AuthenticationError("API key is required. Get yours at https://www.plancktechnologies.xyz/qsaas/settings")
         
         # Validate API key format (basic check)
         if not self._validate_api_key(api_key):

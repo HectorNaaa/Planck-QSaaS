@@ -26,7 +26,7 @@ setup(
     project_urls={
         "Documentation": "https://github.com/HectorNaaa/Planck-QSaaS/tree/main/sdk/python",
         "Bug Tracker": "https://github.com/HectorNaaa/Planck-QSaaS/issues",
-        "Platform": "https://planck.plancktechnologies.xyz",
+        "Platform": "https://www.plancktechnologies.xyz",
     },
     packages=["planck_sdk"],
     package_dir={"": "."},

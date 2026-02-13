@@ -38,7 +38,7 @@ from planck_sdk import PlanckClient
 
 client = PlanckClient(
     api_key="your_api_key",
-    base_url="https://planck.plancktechnologies.xyz"
+    base_url="https://www.plancktechnologies.xyz"
 )
 
 # Check connection
@@ -195,7 +195,7 @@ print(f"SDK Version: {__import__('planck_sdk').__version__}")
 # Test client initialization
 client = PlanckClient(
     api_key="your_api_key",
-    base_url="https://planck.plancktechnologies.xyz"
+    base_url="https://www.plancktechnologies.xyz"
 )
 
 # Check health
@@ -213,7 +213,7 @@ python test_planck.py
 
 ## Next Steps
 
-1. Get your API key from [https://planck.plancktechnologies.xyz/qsaas/settings](https://planck.plancktechnologies.xyz/qsaas/settings)
+1. Get your API key from [https://www.plancktechnologies.xyz/qsaas/settings](https://www.plancktechnologies.xyz/qsaas/settings)
 2. Set up your environment variable (optional):
    ```bash
    export PLANCK_API_KEY="your_api_key"
