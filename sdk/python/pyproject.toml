@@ -32,7 +32,7 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://planck.plancktechnologies.xyz"
+Homepage = "https://plancktechnologies.xyz"
 Documentation = "https://github.com/HectorNaaa/Planck-QSaaS/tree/main/sdk/python"
 Repository = "https://github.com/HectorNaaa/Planck-QSaaS"
 "Bug Tracker" = "https://github.com/HectorNaaa/Planck-QSaaS/issues"
