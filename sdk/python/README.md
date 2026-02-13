@@ -51,8 +51,13 @@ If you exceed the rate limit, you'll receive an `APIError` with retry-after info
 
 1. Sign up at [https://planck.plancktechnologies.xyz](https://planck.plancktechnologies.xyz)
 2. Navigate to Settings > API Keys
-3. Generate a new API key
+3. Generate a new API key (v0.9 format: 64-character alphanumeric string)
 4. Copy and save it securely (it won't be shown again)
+
+**API Key Format (v0.9):**
+- Pure alphanumeric hexadecimal string (64 characters)
+- Example: `a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456`
+- Old format with `plk_` prefix is no longer supported - please regenerate if you have an old key
 
 ## Quick Start (v0.9)
 
