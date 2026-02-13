@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { cookies } from "next/headers"
 import crypto from "crypto"
+import type { GenerateApiKeyResponse, GetApiKeyResponse, RevokeApiKeyResponse } from "@/lib/types/api-keys"
+import { validateApiKeyFormat, debugApiKey } from "@/lib/types/api-keys"
 
 export async function updateUserAccount(data: {
   email?: string
@@ -152,7 +154,7 @@ export async function deleteUserAccount() {
   }
 }
 
-export async function generateApiKey() {
+export async function generateApiKey(): Promise<GenerateApiKeyResponse> {
   const supabase = await createClient()
 
   const {
@@ -165,8 +167,18 @@ export async function generateApiKey() {
   }
 
   try {
-    // Generate a secure API key
-    const apiKey = `plk_${crypto.randomBytes(32).toString("hex")}`
+    // Generate a secure alphanumeric API key (64 characters)
+    // Format: Pure alphanumeric string for better compatibility and simplicity
+    const apiKey = crypto.randomBytes(32).toString("hex")
+
+    // Validate the generated key format
+    const validation = validateApiKeyFormat(apiKey)
+    if (!validation.isValid) {
+      console.error("[API Key Generation] Invalid key format:", debugApiKey(apiKey))
+      return { error: "Failed to generate valid API key format" }
+    }
+
+    console.log("[API Key Generation] New key generated:", debugApiKey(apiKey))
 
     // Update user profile with new API key
     const { error: updateError } = await supabase
@@ -193,7 +205,7 @@ export async function generateApiKey() {
       shots: 0,
       runtime_ms: 0,
       success_rate: 1.0,
-      error_mitigation: "New API key created",
+      error_mitigation: "New API key created (v0.9 format)",
       created_at: new Date().toISOString(),
       completed_at: new Date().toISOString(),
     })
@@ -205,7 +217,7 @@ export async function generateApiKey() {
   }
 }
 
-export async function getApiKey() {
+export async function getApiKey(): Promise<GetApiKeyResponse> {
   const supabase = await createClient()
 
   const {
@@ -240,7 +252,7 @@ export async function getApiKey() {
   }
 }
 
-export async function revokeApiKey() {
+export async function revokeApiKey(): Promise<RevokeApiKeyResponse> {
   const supabase = await createClient()
 
   const {
