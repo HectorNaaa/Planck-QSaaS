@@ -49,7 +49,7 @@ If you exceed the rate limit, you'll receive an `APIError` with retry-after info
 
 ## Getting Your API Key
 
-1. Sign up at [https://planck.plancktechnologies.xyz](https://planck.plancktechnologies.xyz)
+1. Sign up at [https://plancktechnologies.xyz](https://plancktechnologies.xyz)
 2. Navigate to Settings > API Keys
 3. Generate a new API key (v0.9 format: 64-character alphanumeric string)
 4. Copy and save it securely (it won't be shown again)
@@ -67,7 +67,7 @@ from planck_sdk import PlanckUser
 # Initialize user with your API key (new in v0.9)
 user = PlanckUser(
     api_key="your_api_key_here",
-    base_url="https://planck.plancktechnologies.xyz"  # Optional, this is the default
+    base_url="https://plancktechnologies.xyz"  # Optional, this is the default
 )
 
 # Run a quantum circuit with your data
@@ -125,7 +125,7 @@ Main client for interacting with the Planck API.
 ```python
 client = PlanckClient(
     api_key="your_api_key",
-    base_url="https://planck.plancktechnologies.xyz",  # Optional
+    base_url="https://plancktechnologies.xyz",  # Optional
     timeout=60  # Optional, request timeout in seconds
 )
 ```
@@ -283,6 +283,6 @@ The SDK implements several security measures:
 
 ## Support
 
-- Platform: https://planck.plancktechnologies.xyz
+- Platform: https://plancktechnologies.xyz
 - GitHub: https://github.com/HectorNaaa/Planck-QSaaS
 - Email: hello@plancktechnologies.xyz
