@@ -5,8 +5,9 @@
 
 // Regex patterns for validation
 const PATTERNS = {
-  // API key: alphanumeric with underscores/hyphens, 10-200 chars
-  API_KEY: /^[a-zA-Z0-9_-]{10,200}$/,
+  // API key: Pure alphanumeric (hex), 64 chars (v0.9 format)
+  // Legacy format also supported: alphanumeric with underscores/hyphens, 10-200 chars
+  API_KEY: /^[a-fA-F0-9]{64}$|^[a-zA-Z0-9_-]{10,200}$/,
   // UUID format
   UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
   // Algorithm names: alphanumeric, 1-50 chars

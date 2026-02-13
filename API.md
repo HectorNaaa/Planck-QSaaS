@@ -42,6 +42,12 @@ https://planck.plancktechnologies.xyz
 
 All API requests require authentication using an API key. You can generate an API key from your [Settings page](https://planck.plancktechnologies.xyz/qsaas/settings).
 
+### API Key Format (v0.9)
+
+- **Format**: Pure alphanumeric hexadecimal string (64 characters)
+- **Example**: `a1b2c3d4e5f6789012345678901234567890abcdef1234567890abcdef123456`
+- **Note**: Old format with `plk_` prefix is no longer supported. Please regenerate your API key if you have an old one.
+
 ### API Key Header
 
 ```http
