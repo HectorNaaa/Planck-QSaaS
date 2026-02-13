@@ -24,7 +24,7 @@ Quick Start:
     print(result.fidelity)
 
 Get your API key at:
-    https://planck.plancktechnologies.xyz/qsaas/settings
+    https://plancktechnologies.xyz/qsaas/settings
 """
 
 __version__ = "1.0.0"

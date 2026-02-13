@@ -57,7 +57,7 @@ def verify_installation():
         print("  from planck_sdk import PlanckClient")
         print("  client = PlanckClient(api_key='your_api_key')")
         print("  result = client.run(data=[1,2,3,4], algorithm='vqe')")
-        print("\nGet your API key at: https://planck.plancktechnologies.xyz/qsaas/settings")
+        print("\nGet your API key at: https://plancktechnologies.xyz/qsaas/settings")
         return True
     except ImportError:
         print("Installation verification failed. Please try again.")

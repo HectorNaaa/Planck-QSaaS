@@ -9,7 +9,7 @@ Just copy and paste this into your Python environment!
 Installation:
     pip install planck_sdk
 
-Get your API key at: https://planck.plancktechnologies.xyz/qsaas/settings
+Get your API key at: https://plancktechnologies.xyz/qsaas/settings
 """
 
 # ============================================================================
@@ -27,7 +27,7 @@ from planck_sdk import AuthenticationError, CircuitError, APIError
 # ============================================================================
 # STEP 3: Configure your API key
 # ============================================================================
-# Get your API key from: https://planck.plancktechnologies.xyz/qsaas/settings
+# Get your API key from: https://plancktechnologies.xyz/qsaas/settings
 
 API_KEY = "YOUR_API_KEY_HERE"  # <-- Replace with your actual API key
 
@@ -40,7 +40,7 @@ API_KEY = "YOUR_API_KEY_HERE"  # <-- Replace with your actual API key
 # ============================================================================
 user = PlanckUser(
     api_key=API_KEY,
-    base_url="https://planck.plancktechnologies.xyz"
+    base_url="https://plancktechnologies.xyz"
 )
 
 print("Planck SDK v1.0.0 - Remote Connection Ready")
@@ -216,7 +216,7 @@ if __name__ == "__main__":
     except AuthenticationError as e:
         print(f"\nAuthentication Error: {e}")
         print("Make sure to replace YOUR_API_KEY_HERE with your actual API key.")
-        print("Get your key at: https://planck.plancktechnologies.xyz/qsaas/settings")
+        print("Get your key at: https://plancktechnologies.xyz/qsaas/settings")
         
     except CircuitError as e:
         print(f"\nCircuit Error: {e}")
