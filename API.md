@@ -15,6 +15,7 @@ from planck_sdk import PlanckUser
 user = PlanckUser(
     api_key="YOUR_API_KEY",  # Get from Settings > API Keys
     base_url="https://www.plancktechnologies.xyz"
+    base_url="https://plancktechnologies.xyz"
 )
 
 # Run a quantum algorithm
@@ -30,17 +31,18 @@ print(f"Success Rate: {result.success_rate}%")
 
 **Note:** `PlanckClient` is still supported for backwards compatibility, but `PlanckUser` is recommended.
 
-Get your API key at: https://www.plancktechnologies.xyz/qsaas/settings
+Get your API key at: https://plancktechnologies.xyz/qsaas/settings
+Get your API key at: https://plancktechnologies.xyz/qsaas/settings
 
 ## Base URL
 
 ```
-https://www.plancktechnologies.xyz
+https://plancktechnologies.xyz
 ```
 
 ## Authentication
 
-All API requests require authentication using an API key. You can generate an API key from your [Settings page](https://www.plancktechnologies.xyz/qsaas/settings).
+All API requests require authentication using an API key. You can generate an API key from your [Settings page](https://plancktechnologies.xyz/qsaas/settings).
 
 ### API Key Format (v0.9)
 
@@ -339,7 +341,7 @@ from planck_sdk import PlanckUser
 # Initialize user (recommended naming in v0.9)
 user = PlanckUser(
     api_key="your_api_key",
-    base_url="https://www.plancktechnologies.xyz"
+    base_url="https://plancktechnologies.xyz"
 )
 
 # Run any algorithm with your data
@@ -398,7 +400,7 @@ See the [SDK documentation](./sdk/python/README.md) for complete examples.
 
 - **Email**: hello@plancktechnologies.xyz
 - **GitHub**: https://github.com/HectorNaaa/Planck-QSaaS
-- **Docs**: https://www.plancktechnologies.xyz
+- **Docs**: https://plancktechnologies.xyz
 
 ## Version
 
