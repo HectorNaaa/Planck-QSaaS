@@ -34,19 +34,19 @@ print("Planck SDK installed!")
 
 ### Quick start in notebook
 ```python
-from planck_sdk import PlanckClient
+from planck_sdk import PlanckUser
 
-client = PlanckClient(
+user = PlanckUser(
     api_key="your_api_key",
     base_url="https://plancktechnologies.xyz"
 )
 
 # Check connection
-health = client.health_check()
+health = user.health_check()
 print(f"API Status: {health.get('status')}")
 
 # Run a circuit
-result = client.run(data=[1, 2, 3, 4], algorithm="bell_state")
+result = user.run(data=[1, 2, 3, 4], algorithm="bell")
 print(f"Counts: {result.counts}")
 ```
 
@@ -76,7 +76,7 @@ print(f"Counts: {result.counts}")
 
 3. **Verify installation**:
    ```bash
-   python -c "from planck_sdk import PlanckClient; print('Planck SDK installed')"
+   python -c "from planck_sdk import PlanckUser; print('Planck SDK installed')"
    ```
 
 ---
@@ -186,21 +186,21 @@ pip install planck_sdk --no-cache-dir
 Create a test script `test_planck.py`:
 
 ```python
-from planck_sdk import PlanckClient, QuantumCircuit, ExecutionResult
+from planck_sdk import PlanckUser, QuantumCircuit, ExecutionResult
 from planck_sdk.exceptions import AuthenticationError, CircuitError, APIError
 
 print("All imports successful")
 print(f"SDK Version: {__import__('planck_sdk').__version__}")
 
 # Test client initialization
-client = PlanckClient(
+user = PlanckUser(
     api_key="your_api_key",
     base_url="https://plancktechnologies.xyz"
 )
 
 # Check health
 try:
-    health = client.health_check()
+    health = user.health_check()
     print(f"API Status: {health.get('status')}")
 except Exception as e:
     print(f"Health check failed: {e}")

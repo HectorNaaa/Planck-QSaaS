@@ -280,8 +280,6 @@ async function simulateQuantumCircuit(config: {
         low: 0.05,
         medium: 0.1,
         high: 0.15,
-        basic: 0.08,
-        advanced: 0.12,
       }[errorMitigation] || 0.1
 
     Object.keys(counts).forEach((key) => {

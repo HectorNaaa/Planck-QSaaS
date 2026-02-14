@@ -106,52 +106,65 @@ result.save("my_execution.json")
 
 ```python
 # From a list
-result = client.run(data=[1, 2, 3, 4])
+result = user.run(data=[1, 2, 3, 4])
 
 # From a dictionary
-result = client.run(data={"values": [1, 2, 3], "weights": [0.5, 0.3, 0.2]})
+result = user.run(data={"values": [1, 2, 3], "weights": [0.5, 0.3, 0.2]})
 
 # From a file
-result = client.run(data="path/to/data.csv")
-result = client.run(data="path/to/data.json")
+result = user.run(data="path/to/data.csv")
+result = user.run(data="path/to/data.json")
 ```
 
 ## API Reference
 
-### PlanckClient
+### PlanckUser
 
-Main client for interacting with the Planck API.
+Main client for interacting with the Planck API. (`PlanckClient` is a backwards-compatible alias.)
 
 ```python
-client = PlanckClient(
+user = PlanckUser(
     api_key="your_api_key",
     base_url="https://plancktechnologies.xyz",  # Optional
     timeout=60  # Optional, request timeout in seconds
 )
 ```
 
-### client.run()
+### user.run()
 
 Generate and execute a quantum circuit.
 
 ```python
-result = client.run(
-    data=[1.0, 2.0, 3.0, 4.0],  # Input data
-    algorithm="vqe",            # Algorithm type
-    shots=2048,                 # Number of measurements
-    backend="auto",             # Backend selection
-    error_mitigation="medium",  # Error mitigation level
-    circuit_name="My Circuit",  # Optional name
-    qubits=4                    # Optional qubit count
+result = user.run(
+    data=[1.0, 2.0, 3.0, 4.0],  # Input data (list, dict, or file path)
+    algorithm="vqe",              # 'vqe' | 'grover' | 'qaoa' | 'qft' | 'bell' | 'shor'
+    shots=2048,                   # 1-100000 (auto-calculated if omitted)
+    backend="auto",               # 'auto' | 'quantum_inspired_gpu' | 'hpc_gpu' | 'quantum_qpu'
+    error_mitigation="medium",    # 'none' | 'low' | 'medium' | 'high'
+    circuit_name="My Circuit",    # Optional name
+    qubits=4                      # 1-30, auto-calculated if omitted
 )
 ```
 
-### client.generate_circuit()
+### user.simulate()
+
+Execute a raw QASM circuit directly (skip the generate-circuit step).
+
+```python
+result = user.simulate(
+    qasm='OPENQASM 2.0; ...',     # OpenQASM 2.0 code
+    shots=1024,                    # 1-100000
+    backend="auto",                # 'auto' | 'quantum_inspired_gpu' | 'hpc_gpu' | 'quantum_qpu'
+    error_mitigation="medium",     # 'none' | 'low' | 'medium' | 'high'
+)
+```
+
+### user.generate_circuit()
 
 Generate a quantum circuit without executing.
 
 ```python
-circuit = client.generate_circuit(
+circuit = user.generate_circuit(
     data=[1, 2, 3, 4],
     algorithm="grover",
     qubits=4
@@ -165,12 +178,12 @@ print(f"Gates: {circuit.gate_count}")
 circuit.save("my_circuit.qasm")
 ```
 
-### client.transpile()
+### user.transpile()
 
 Transpile a circuit for a specific backend topology.
 
 ```python
-transpiled = client.transpile(
+transpiled = user.transpile(
     qasm=circuit.qasm,
     backend="quantum_qpu",
     qubits=5
@@ -180,12 +193,12 @@ print(f"Swap count: {transpiled['swap_count']}")
 print(f"New depth: {transpiled['depth']}")
 ```
 
-### client.visualize()
+### user.visualize()
 
 Generate an SVG visualization of a circuit.
 
 ```python
-viz = client.visualize(qasm=circuit.qasm)
+viz = user.visualize(qasm=circuit.qasm)
 
 # Save SVG to file
 with open("circuit.svg", "w") as f:
@@ -194,12 +207,12 @@ with open("circuit.svg", "w") as f:
 print(f"Circuit stats: {viz['stats']}")
 ```
 
-### client.get_recommendations()
+### user.get_recommendations()
 
 Get ML-powered recommendations for execution parameters.
 
 ```python
-recommendations = client.get_recommendations(
+recommendations = user.get_recommendations(
     qubits=8,
     depth=20,
     gate_count=50,
@@ -212,12 +225,12 @@ print(f"Recommended backend: {recommendations['recommended_backend']}")
 print(f"Confidence: {recommendations['confidence']:.2f}")
 ```
 
-### client.get_digital_twin()
+### user.get_digital_twin()
 
 Generate AI-powered insights about circuit execution.
 
 ```python
-insights = client.get_digital_twin(
+insights = user.get_digital_twin(
     algorithm="vqe",
     circuit_info={"qubits": 4, "gates": 20, "depth": 10},
     execution_results={"probabilities": result.probabilities, "counts": result.counts},
@@ -229,12 +242,22 @@ print(f"Key findings: {insights['key_findings']}")
 print(f"Recommendations: {insights['recommendations']}")
 ```
 
-### client.ping()
+### user.health_check()
 
-Test API connectivity.
+Full health check returning status details.
 
 ```python
-if client.ping():
+health = user.health_check()
+print(f"Status: {health.get('status')}")
+print(f"Version: {health.get('version')}")
+```
+
+### user.ping()
+
+Quick connectivity test.
+
+```python
+if user.ping():
     print("Connected to Planck API!")
 else:
     print("Connection failed")
@@ -243,11 +266,11 @@ else:
 ## Error Handling
 
 ```python
-from planck_sdk import PlanckClient, AuthenticationError, CircuitError, APIError
+from planck_sdk import PlanckUser, AuthenticationError, CircuitError, APIError
 
 try:
-    client = PlanckClient(api_key="your_api_key")
-    result = client.run(data=[1, 2, 3])
+    user = PlanckUser(api_key="your_api_key")
+    result = user.run(data=[1, 2, 3])
 except AuthenticationError as e:
     print(f"Auth failed: {e}")
 except CircuitError as e:
@@ -266,9 +289,9 @@ export PLANCK_API_KEY="sk_live_your_api_key"
 
 ```python
 import os
-from planck_sdk import PlanckClient
+from planck_sdk import PlanckUser
 
-client = PlanckClient(api_key=os.environ["PLANCK_API_KEY"])
+user = PlanckUser(api_key=os.environ["PLANCK_API_KEY"])
 ```
 
 ## Security

@@ -40,11 +40,11 @@ class PlanckUser:
     # Supported algorithms
     SUPPORTED_ALGORITHMS = ["vqe", "grover", "qaoa", "qft", "bell", "shor"]
     
-    # Supported backends
-    SUPPORTED_BACKENDS = ["auto", "classical", "hpc", "quantum_qpu", "quantum_inspired_gpu", "hpc_gpu"]
+    # Supported backends — must match API (security.ts) and UI (execution-settings.tsx)
+    SUPPORTED_BACKENDS = ["auto", "quantum_inspired_gpu", "hpc_gpu", "quantum_qpu"]
     
-    # Supported error mitigation levels
-    SUPPORTED_ERROR_MITIGATION = ["none", "low", "medium", "high", "basic", "advanced"]
+    # Supported error mitigation levels — must match API (security.ts) and UI (circuit-settings.tsx)
+    SUPPORTED_ERROR_MITIGATION = ["none", "low", "medium", "high"]
     
     def __init__(
         self,
@@ -216,12 +216,12 @@ class PlanckUser:
         Args:
             data: Input data (list, dict, or file path to CSV/JSON)
             algorithm: Algorithm type ('vqe', 'grover', 'qaoa', 'qft', 'bell', 'shor')
-            shots: Number of measurement shots (auto-calculated if None)
-            backend: Execution backend ('auto', 'classical', 'hpc', 'quantum_qpu')
+            shots: Number of measurement shots (1-100000, auto-calculated if None)
+            backend: Execution backend ('auto', 'quantum_inspired_gpu', 'hpc_gpu', 'quantum_qpu')
             error_mitigation: Error mitigation level ('none', 'low', 'medium', 'high')
             circuit_name: Optional name for the execution
             target_latency: Target latency in ms (affects backend selection)
-            qubits: Number of qubits (auto-calculated if None)
+            qubits: Number of qubits (1-30, auto-calculated if None)
             wait: Wait for completion (default: True)
         
         Returns:
@@ -501,7 +501,7 @@ class PlanckUser:
         
         return {
             "recommended_shots": response.get("recommendedShots", 1024),
-            "recommended_backend": response.get("recommendedBackend", "classical"),
+            "recommended_backend": response.get("recommendedBackend", "quantum_inspired_gpu"),
             "recommended_error_mitigation": response.get("recommendedErrorMitigation", "medium"),
             "confidence": response.get("confidence", 0.5),
             "reasoning": response.get("reasoning", ""),
@@ -557,24 +557,101 @@ class PlanckUser:
         match = re.search(r'qreg\s+\w+\[(\d+)\]', qasm)
         return int(match.group(1)) if match else 4
     
+    def health_check(self) -> Dict[str, Any]:
+        """
+        Full health check against the API, returns status details.
+        
+        Returns:
+            Dict with keys like 'status', 'version', 'timestamp', etc.
+        
+        Raises:
+            APIError: If the health endpoint is unreachable.
+        """
+        response = self._request("POST", "health", {"ping": True})
+        return response
+
     def ping(self) -> bool:
-        """Test API connectivity."""
+        """
+        Quick connectivity test. Returns True if the API responds, False otherwise.
+        """
         try:
-            response = self._request("POST", "health", {"ping": True})
-            return response.get("success", False)
+            resp = self.health_check()
+            return resp.get("success", False)
         except Exception:
-            # Try a simple generate-circuit call as health check
-            try:
-                self._request("POST", "generate-circuit", {
-                    "inputData": [1, 0],
-                    "algorithm": "Bell",
-                    "qubits": 2
-                })
-                return True
-            except AuthenticationError:
-                return False  # API is reachable but auth failed
-            except Exception:
-                return False
+            return False
+    
+    def simulate(
+        self,
+        qasm: str,
+        shots: int = 1024,
+        backend: str = "auto",
+        error_mitigation: str = "medium",
+        circuit_name: Optional[str] = None,
+        algorithm: str = "vqe",
+        qubits: Optional[int] = None,
+    ) -> ExecutionResult:
+        """
+        Execute a raw QASM circuit directly (skip generate-circuit step).
+        
+        Args:
+            qasm: OpenQASM 2.0 code to execute
+            shots: Number of measurement shots (1-100000)
+            backend: Execution backend ('auto', 'quantum_inspired_gpu', 'hpc_gpu', 'quantum_qpu')
+            error_mitigation: Error mitigation level ('none', 'low', 'medium', 'high')
+            circuit_name: Optional name for the execution
+            algorithm: Algorithm label for logging ('vqe', 'grover', 'qaoa', 'qft', 'bell', 'shor')
+            qubits: Number of qubits (auto-extracted from QASM if None)
+        
+        Returns:
+            ExecutionResult with counts, fidelity, and metadata.
+        
+        Example:
+            >>> result = user.simulate(
+            ...     qasm='OPENQASM 2.0;\\ninclude "qelib1.inc";\\nqreg q[2];\\ncreg c[2];\\nh q[0];\\ncx q[0],q[1];\\nmeasure q -> c;',
+            ...     shots=2048,
+            ... )
+            >>> print(result.counts)
+        """
+        if not qasm or not isinstance(qasm, str):
+            raise ValidationError("QASM code is required")
+        
+        if backend not in self.SUPPORTED_BACKENDS:
+            backend = "auto"
+        if error_mitigation not in self.SUPPORTED_ERROR_MITIGATION:
+            error_mitigation = "medium"
+        
+        shots = max(1, min(100000, int(shots)))
+        detected_qubits = qubits or self._extract_qubit_count(qasm)
+        validated_algorithm = self._validate_algorithm(algorithm)
+        safe_name = self._sanitize_string(circuit_name, 100) if circuit_name else f"SDK-simulate-{int(time.time())}"
+        
+        payload = {
+            "qasm": qasm,
+            "shots": shots,
+            "backend": backend,
+            "errorMitigation": error_mitigation,
+            "circuitName": safe_name,
+            "algorithm": validated_algorithm,
+            "executionType": "manual",
+            "qubits": detected_qubits,
+        }
+        
+        response = self._request("POST", "simulate", payload)
+        
+        if not response.get("success"):
+            raise CircuitError(response.get("error", "Simulation failed"))
+        
+        return ExecutionResult(
+            execution_id=response.get("execution_id"),
+            counts=response.get("counts", {}),
+            success_rate=response.get("successRate", 0),
+            runtime_ms=response.get("runtime", 0),
+            memory=response.get("memory", []),
+            circuit=None,
+            backend=backend,
+            shots=shots,
+            algorithm=validated_algorithm,
+        )
     
     def __repr__(self) -> str:
         return f"PlanckUser(base_url='{self.base_url}')"

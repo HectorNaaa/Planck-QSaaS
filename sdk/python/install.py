@@ -12,8 +12,8 @@ Alternative (from GitHub):
     pip install git+https://github.com/HectorNaaa/Planck-QSaaS.git#subdirectory=sdk/python
 
 After installation:
-    from planck_sdk import PlanckClient
-    client = PlanckClient(api_key="your_api_key")
+    from planck_sdk import PlanckUser
+    user = PlanckUser(api_key="your_api_key")
 """
 
 import os
@@ -54,9 +54,9 @@ def verify_installation():
         import planck_sdk
         print(f"\nPlanck SDK v{planck_sdk.__version__} installed successfully!")
         print("\nQuick Start:")
-        print("  from planck_sdk import PlanckClient")
-        print("  client = PlanckClient(api_key='your_api_key')")
-        print("  result = client.run(data=[1,2,3,4], algorithm='vqe')")
+        print("  from planck_sdk import PlanckUser")
+        print("  user = PlanckUser(api_key='your_api_key')")
+        print("  result = user.run(data=[1,2,3,4], algorithm='vqe')")
         print("\nGet your API key at: https://plancktechnologies.xyz/qsaas/settings")
         return True
     except ImportError:
