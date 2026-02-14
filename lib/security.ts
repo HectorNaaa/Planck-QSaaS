@@ -32,24 +32,20 @@ const ALLOWED_ALGORITHMS = new Set([
   'qft', 'QFT',
 ])
 
-// Allowed backends
+// Allowed backends — must match UI (execution-settings.tsx) + SDK
 const ALLOWED_BACKENDS = new Set([
   'auto',
-  'classical',
-  'hpc',
+  'quantum_inspired_gpu',
   'hpc_gpu',
   'quantum_qpu',
-  'quantum_inspired_gpu',
 ])
 
-// Allowed error mitigation levels
+// Allowed error mitigation levels — must match UI (circuit-settings.tsx) + SDK
 const ALLOWED_ERROR_MITIGATION = new Set([
   'none',
   'low',
   'medium',
   'high',
-  'basic',
-  'advanced',
 ])
 
 /**

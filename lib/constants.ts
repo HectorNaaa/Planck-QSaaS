@@ -49,6 +49,16 @@ export const QUANTUM_TEMPLATES = [
     icon: "/images/qaoa-20icon-20planck.png",
     format: "QASM",
   },
+  {
+    id: "qft",
+    name: "QFT",
+    description: "Quantum Fourier Transform for phase estimation, signal processing and quantum arithmetic.",
+    shortDescription: "Quantum Fourier Transform for phase estimation, signal processing and quantum arithmetic",
+    minQubits: 4,
+    difficulty: "Intermediate",
+    icon: "/images/qft-20icon-20planck.png",
+    format: "QASM",
+  },
 ]
 
 export const QUANTUM_ALGORITHMS = QUANTUM_TEMPLATES.map((t) => ({
