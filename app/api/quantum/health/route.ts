@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
     
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("id, full_name")
+      .select("id, name")
       .eq("api_key", apiKey)
       .single()
     

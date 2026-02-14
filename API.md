@@ -14,6 +14,7 @@ from planck_sdk import PlanckUser
 # Initialize user (new in v0.9)
 user = PlanckUser(
     api_key="YOUR_API_KEY",  # Get from Settings > API Keys
+    base_url="https://www.plancktechnologies.xyz"
     base_url="https://plancktechnologies.xyz"
 )
 
@@ -30,6 +31,7 @@ print(f"Success Rate: {result.success_rate}%")
 
 **Note:** `PlanckClient` is still supported for backwards compatibility, but `PlanckUser` is recommended.
 
+Get your API key at: https://plancktechnologies.xyz/qsaas/settings
 Get your API key at: https://plancktechnologies.xyz/qsaas/settings
 
 ## Base URL
