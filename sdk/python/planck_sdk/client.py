@@ -228,7 +228,7 @@ class PlanckUser:
             ExecutionResult object with counts, fidelity, and metadata
         
         Example:
-            >>> result = client.run(
+            >>> result = user.run(
             ...     data=[1.0, 2.0, 3.0, 4.0],
             ...     algorithm="vqe",
             ...     shots=2048
