@@ -3,8 +3,8 @@ import { createServerClient } from "@/lib/supabase/server"
 import { CppMLEngine } from "@/lib/ml/cpp-ml-engine"
 import { calculateFidelity } from "@/lib/backend-selector"
 import { checkRateLimit, getRetryAfter, validatePayloadSize } from "@/lib/rate-limiter"
+import { authenticateRequest } from "@/lib/api-auth"
 import {
-  validateApiKey,
   validateAlgorithm,
   validateBackend,
   validateErrorMitigation,
@@ -75,47 +75,17 @@ export async function POST(request: NextRequest) {
     }
     const inputData = inputDataValidation.data
 
-    const supabase = await createServerClient()
-    
-    // Check for API key authentication
-    const apiKey = request.headers.get("x-api-key")
-    let userId: string | null = null
-    
-    if (apiKey) {
-      // Validate API key format first
-      if (!validateApiKey(apiKey)) {
-        return NextResponse.json(
-          { success: false, error: "Invalid API key format" },
-          { status: 401 }
-        )
-      }
-      
-      // Authenticate via API key using parameterized query
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("api_key", apiKey)
-        .single()
-      
-      if (profileError || !profile) {
-        return NextResponse.json(
-          { success: false, error: "Invalid API key" },
-          { status: 401 }
-        )
-      }
-      userId = profile.id
-    } else {
-      // Authenticate via session
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
-      
-      if (authError || !user) {
-        return NextResponse.json(
-          { success: false, error: "Unauthorized. Please provide an API key or authenticate." },
-          { status: 401 }
-        )
-      }
-      userId = user.id
+    // Authenticate (API-key via service-role or session cookie)
+    const auth = await authenticateRequest(request)
+    if (!auth.ok) {
+      return NextResponse.json(
+        { success: false, error: auth.error },
+        { status: auth.status }
+      )
     }
+    const userId = auth.userId!
+
+    const supabase = await createServerClient()
 
     // Rate limiting: 1 request per 3 seconds per user
     const identifier = userId

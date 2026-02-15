@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase/server"
+import { getAdminClient } from "@/lib/supabase/admin"
 import { validateApiKey } from "@/lib/security"
+import { maskKey } from "@/lib/api-auth"
 
 /**
  * Health check endpoint for the Planck API
@@ -22,19 +23,24 @@ export async function GET(request: NextRequest) {
     
     // Authenticated health check
     if (!validateApiKey(apiKey)) {
+      console.warn("[Health] Invalid API key format, masked:", maskKey(apiKey))
       return NextResponse.json(
         { success: false, error: "Invalid API key format" },
         { status: 401 }
       )
     }
     
-    const supabase = await createServerClient()
+    const admin = getAdminClient()
     
-    const { data: profile, error: profileError } = await supabase
+    const { data: profile, error: profileError } = await admin
       .from("profiles")
       .select("id, name")
       .eq("api_key", apiKey)
       .single()
+
+    if (profileError) {
+      console.warn("[Health] DB lookup failed for key", maskKey(apiKey), "| error:", profileError.message)
+    }
     
     if (profileError || !profile) {
       return NextResponse.json(
@@ -79,19 +85,24 @@ export async function POST(request: NextRequest) {
       
       // Authenticated ping
       if (!validateApiKey(apiKey)) {
+        console.warn("[Health] Invalid API key format, masked:", maskKey(apiKey))
         return NextResponse.json(
           { success: false, error: "Invalid API key format" },
           { status: 401 }
         )
       }
       
-      const supabase = await createServerClient()
+      const admin = getAdminClient()
       
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile, error: profileError } = await admin
         .from("profiles")
         .select("id")
         .eq("api_key", apiKey)
         .single()
+
+      if (profileError) {
+        console.warn("[Health] DB lookup failed for key", maskKey(apiKey), "| error:", profileError.message)
+      }
       
       if (profileError || !profile) {
         return NextResponse.json(
