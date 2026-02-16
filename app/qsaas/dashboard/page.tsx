@@ -27,6 +27,9 @@ interface RecentCircuit {
   qubits_used: number
   runtime_ms: number
   created_at: string
+  backend_selected: string | null
+  backend_reason: string | null
+  backend_hint: string | null
 }
 
 export default function DashboardPage() {
@@ -43,6 +46,26 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadDashboardData()
+  }, [timeRange])
+
+  // Realtime: auto-refresh when new rows arrive in execution_logs
+  useEffect(() => {
+    const supabase = createBrowserClient()
+    const channel = supabase
+      .channel("dashboard-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "execution_logs" },
+        () => {
+          // Reload dashboard data when a new execution is logged
+          loadDashboardData()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [timeRange])
 
   async function loadDashboardData() {
@@ -230,6 +253,7 @@ export default function DashboardPage() {
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Algorithm</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Name</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Status</th>
+                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Backend</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Qubits</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Runtime</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Timestamp</th>
@@ -261,6 +285,27 @@ export default function DashboardPage() {
                             ? "◀ Running"
                             : "✗ Failed"}
                       </span>
+                    </td>
+                    <td className="py-3 px-4">
+                      {circuit.backend_selected ? (
+                        <span
+                          className="inline-block px-2 py-1 rounded text-xs font-mono bg-muted text-muted-foreground"
+                          title={circuit.backend_reason || undefined}
+                        >
+                          {circuit.backend_selected === "quantum_inspired_gpu"
+                            ? "QI-GPU"
+                            : circuit.backend_selected === "hpc_gpu"
+                              ? "HPC"
+                              : circuit.backend_selected === "quantum_qpu"
+                                ? "QPU"
+                                : circuit.backend_selected}
+                          {circuit.backend_hint && (
+                            <span className="ml-1 text-primary/60" title={`Hint: ${circuit.backend_hint}`}>*</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">--</span>
+                      )}
                     </td>
                     <td className="py-3 px-4 text-foreground">{circuit.qubits_used}</td>
                     <td className="py-3 px-4 text-foreground">

@@ -76,10 +76,18 @@ export function CircuitResults({ backend, results, qubits, onDownload }: Circuit
       {isExpanded && (
         <div className="space-y-4">
           {/* Backend Info */}
-          <div className="p-3 bg-primary/10 rounded-lg border border-primary">
+          <div className="p-3 bg-primary/10 rounded-lg border border-primary space-y-1">
             <p className="text-sm font-medium text-foreground">
-              Backend: {backendNames[backend as keyof typeof backendNames]}
+              Backend: {backendNames[backend as keyof typeof backendNames] || backend}
             </p>
+            {results?.backendReason && (
+              <p className="text-xs text-muted-foreground">{results.backendReason}</p>
+            )}
+            {results?.backendHint && results.backendHint !== backend && (
+              <p className="text-xs text-muted-foreground">
+                Requested: {backendNames[results.backendHint as keyof typeof backendNames] || results.backendHint}
+              </p>
+            )}
           </div>
 
           {/* Benchmarks */}
