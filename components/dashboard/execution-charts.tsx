@@ -75,12 +75,9 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
   }
 
   const backendMap: { [key: string]: number } = {
-    classical: 1,
-    Classical: 1,
-    hpc: 2,
-    HPC: 2,
+    quantum_inspired_gpu: 1,
+    hpc_gpu: 2,
     quantum_qpu: 3,
-    "Quantum QPU": 3,
   }
 
   const backendData = {
@@ -200,7 +197,11 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
             if (datasetLabel === "Backend Type") {
               const log = logs[context.dataIndex]
               const backendDisplay =
-                log.backend === "quantum_qpu" ? "Quantum QPU" : log.backend === "hpc" ? "HPC" : "Classical"
+                log.backend === "quantum_qpu"
+                  ? "Quantum QPU"
+                  : log.backend === "hpc_gpu"
+                    ? "HPC GPU"
+                    : "QI-GPU"
               return `${log.circuit_name} - ${backendDisplay}`
             } else if (datasetLabel === "Qubits") {
               return `Qubits: ${context.parsed.y}`
@@ -225,7 +226,7 @@ export function ExecutionCharts({ logs, timeRange }: ExecutionChartsProps) {
         },
         ticks: {
           callback: (value: any) => {
-            const backends = ["", "Clas", "HPC", "QPU"]
+            const backends = ["", "QI-GPU", "HPC", "QPU"]
             return backends[value] || ""
           },
           stepSize: 1,

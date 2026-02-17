@@ -21,9 +21,11 @@ class ExecutionResult:
         runtime_ms: Execution runtime in milliseconds
         memory: List of measurement outcomes
         circuit: The executed QuantumCircuit (if available)
-        backend: Backend used for execution
+        backend: Effective backend that was actually used (resolved by policy)
         shots: Number of shots executed
         algorithm: Algorithm type
+        backend_reason: Human-readable explanation of why this backend was chosen
+        backend_hint: The backend the user originally requested (None if 'auto')
     """
     execution_id: Optional[str]
     counts: Dict[str, int]
@@ -34,6 +36,8 @@ class ExecutionResult:
     backend: str = "unknown"
     shots: int = 0
     algorithm: str = "unknown"
+    backend_reason: Optional[str] = None
+    backend_hint: Optional[str] = None
     
     @property
     def fidelity(self) -> float:
@@ -57,7 +61,7 @@ class ExecutionResult:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert result to dictionary representation."""
-        return {
+        d: Dict[str, Any] = {
             "execution_id": self.execution_id,
             "counts": self.counts,
             "success_rate": self.success_rate,
@@ -66,10 +70,13 @@ class ExecutionResult:
             "most_frequent": self.most_frequent,
             "probabilities": self.probabilities,
             "backend": self.backend,
+            "backend_reason": self.backend_reason,
+            "backend_hint": self.backend_hint,
             "shots": self.shots,
             "algorithm": self.algorithm,
             "circuit": self.circuit.to_dict() if self.circuit else None,
         }
+        return d
     
     def to_json(self, indent: int = 2) -> str:
         """Convert result to JSON string."""
@@ -118,6 +125,11 @@ class ExecutionResult:
         print(f"Total shots: {self.shots}")
         print(f"Unique states: {len(self.counts)}")
         print(f"Fidelity: {self.fidelity:.3f}")
+        print(f"Backend: {self.backend}")
+        if self.backend_reason:
+            print(f"Reason: {self.backend_reason}")
+        if self.backend_hint:
+            print(f"Hint: {self.backend_hint}")
     
     def __repr__(self) -> str:
         return (

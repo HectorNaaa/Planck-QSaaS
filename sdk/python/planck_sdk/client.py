@@ -295,6 +295,9 @@ class PlanckUser:
         if not response.get("success"):
             raise CircuitError(response.get("error", "Execution failed"))
         
+        # The API resolves the effective backend via the policy engine.
+        effective_backend = response.get("backend", backend)
+        
         return ExecutionResult(
             execution_id=response.get("execution_id"),
             counts=response.get("counts", {}),
@@ -302,9 +305,11 @@ class PlanckUser:
             runtime_ms=response.get("runtime", 0),
             memory=response.get("memory", []),
             circuit=circuit,
-            backend=backend,
+            backend=effective_backend,
             shots=shots or circuit.recommended_shots,
-            algorithm=validated_algorithm
+            algorithm=validated_algorithm,
+            backend_reason=response.get("backendReason"),
+            backend_hint=response.get("backendHint"),
         )
     
     def generate_circuit(
@@ -641,6 +646,8 @@ class PlanckUser:
         if not response.get("success"):
             raise CircuitError(response.get("error", "Simulation failed"))
         
+        effective_backend = response.get("backend", backend)
+        
         return ExecutionResult(
             execution_id=response.get("execution_id"),
             counts=response.get("counts", {}),
@@ -648,10 +655,66 @@ class PlanckUser:
             runtime_ms=response.get("runtime", 0),
             memory=response.get("memory", []),
             circuit=None,
-            backend=backend,
+            backend=effective_backend,
             shots=shots,
             algorithm=validated_algorithm,
+            backend_reason=response.get("backendReason"),
+            backend_hint=response.get("backendHint"),
         )
+    
+    def list_executions(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        status: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        List past executions for this user.
+        
+        Args:
+            limit: Maximum number of executions to return (1-100, default 20)
+            offset: Pagination offset (default 0)
+            status: Filter by status ('completed', 'failed', 'running')
+        
+        Returns:
+            Dict with 'executions' list, 'total' count, 'limit', 'offset'.
+        """
+        limit = max(1, min(100, int(limit)))
+        offset = max(0, int(offset))
+        
+        qs = f"limit={limit}&offset={offset}"
+        if status and status in ("completed", "failed", "running"):
+            qs += f"&status={status}"
+        
+        url = f"{self.base_url}/api/quantum/executions?{qs}"
+        
+        headers = {
+            "Content-Type": "application/json",
+            "X-API-Key": self.api_key,
+            "X-Planck-SDK": "python/1.0.0",
+            "User-Agent": "PlanckSDK/1.0.0 Python",
+        }
+        
+        from urllib.request import Request, urlopen
+        from urllib.error import HTTPError
+        
+        req = Request(url, headers=headers, method="GET")
+        
+        try:
+            with urlopen(req, timeout=self.timeout) as resp:
+                body = resp.read().decode("utf-8")
+                return json.loads(body)
+        except HTTPError as e:
+            error_body = e.read().decode("utf-8")
+            try:
+                error_data = json.loads(error_body)
+                message = error_data.get("error", str(e))
+            except Exception:
+                message = error_body or str(e)
+            
+            if e.code == 401:
+                raise AuthenticationError(f"Authentication failed: {message}")
+            raise APIError(f"API error ({e.code}): {message}")
     
     def __repr__(self) -> str:
         return f"PlanckUser(base_url='{self.base_url}')"

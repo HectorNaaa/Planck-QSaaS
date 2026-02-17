@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
 import { CppMLEngine } from "@/lib/ml/cpp-ml-engine"
 import { calculateFidelity } from "@/lib/backend-selector"
+import { selectBackend } from "@/lib/backend-policy"
 import { checkRateLimit, getRetryAfter, validatePayloadSize } from "@/lib/rate-limiter"
 import { authenticateRequest } from "@/lib/api-auth"
 import {
@@ -108,14 +109,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ── Backend policy selection ───────────────────────────────────
+    const resolvedQubits = qubits || extractQubitCount(qasm)
+    const policyResult = selectBackend({
+      qubits: resolvedQubits,
+      depth: depth || 1,
+      gateCount: gateCount || 1,
+      shots,
+      targetLatency,
+      errorMitigation,
+      backendHint: backend,
+    })
+    const effectiveBackend = policyResult.backendId
+
     const results = await simulateQuantumCircuit({
       qasm,
       shots,
-      backend,
+      backend: effectiveBackend,
       errorMitigation,
     })
 
-    const actualFidelity = calculateFidelity(backend, qubits, depth)
+    const actualFidelity = calculateFidelity(effectiveBackend, resolvedQubits, depth)
 
     const { data: insertedLog, error: insertError } = await supabase
       .from("execution_logs")
@@ -124,21 +138,28 @@ export async function POST(request: NextRequest) {
         circuit_name: circuitName,
         algorithm: algorithm,
         execution_type: executionType,
-        backend,
+        backend: effectiveBackend,
         status: "completed",
         success_rate: results.successRate,
         runtime_ms: results.runtime,
-        qubits_used: qubits || extractQubitCount(qasm),
+        qubits_used: resolvedQubits,
         shots,
         error_mitigation: errorMitigation,
+        // New backend-selection audit columns
+        backend_selected: effectiveBackend,
+        backend_reason: policyResult.reason,
+        backend_hint: backend === "auto" ? null : backend,
+        backend_metadata: policyResult.metadata,
+        backend_assigned_at: new Date().toISOString(),
         circuit_data: {
           qasm_code: qasm,
           input_data: inputData,
           algorithm_params: {
             algorithm,
-            qubits,
+            qubits: resolvedQubits,
             shots,
-            backend,
+            backend: effectiveBackend,
+            backend_hint: backend,
             error_mitigation: errorMitigation,
             depth,
             gate_count: gateCount,
@@ -152,7 +173,7 @@ export async function POST(request: NextRequest) {
             fidelity: actualFidelity,
           },
           backend_config: {
-            backend,
+            backend: effectiveBackend,
             shots,
             error_mitigation: errorMitigation,
           },
@@ -172,7 +193,7 @@ export async function POST(request: NextRequest) {
       try {
         await CppMLEngine.recordExecution(
           {
-            qubits,
+            qubits: resolvedQubits,
             depth,
             gateCount,
             algorithm,
@@ -186,12 +207,12 @@ export async function POST(request: NextRequest) {
           userId,
           {
             actualShots: shots,
-            actualBackend: backend,
+            actualBackend: effectiveBackend,
             actualRuntime: results.runtime,
             actualSuccessRate: results.successRate,
             actualFidelity,
             predictedShots: predictedShots || shots,
-            predictedBackend: predictedBackend || backend,
+            predictedBackend: predictedBackend || effectiveBackend,
             predictedRuntime: results.runtime,
             predictedFidelity: predictedFidelity || actualFidelity,
           },
@@ -210,6 +231,9 @@ export async function POST(request: NextRequest) {
       memory: results.memory,
       execution_id: insertedLog?.id,
       fidelity: actualFidelity,
+      backend: effectiveBackend,
+      backendReason: policyResult.reason,
+      backendHint: backend === "auto" ? null : backend,
     })
   } catch (error) {
     const safeError = createSafeErrorResponse(error, "Failed to simulate circuit")
