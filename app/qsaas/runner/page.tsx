@@ -361,6 +361,7 @@ const adaptiveShots = calculateAdaptiveShots({
           executionType,
           qubits,
           targetLatency,
+          inputData: uploadedData,
         }),
       })
 
@@ -594,8 +595,6 @@ const adaptiveShots = calculateAdaptiveShots({
 
       if (error) {
         console.error("[v0] Error saving circuit to Supabase:", error)
-      } else {
-        console.log("[v0] Circuit saved successfully with all backend results and complete QASM code")
       }
     } catch (error) {
       console.error("[v0] Error saving circuit to Supabase:", error)

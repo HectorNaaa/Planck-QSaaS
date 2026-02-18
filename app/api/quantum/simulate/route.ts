@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase/server"
+import { getAdminClient } from "@/lib/supabase/admin"
 import { CppMLEngine } from "@/lib/ml/cpp-ml-engine"
 import { calculateFidelity } from "@/lib/backend-selector"
 import { selectBackend } from "@/lib/backend-policy"
@@ -49,6 +50,8 @@ export async function POST(request: NextRequest) {
     const circuitName = sanitizeCircuitName(body.circuitName)
     const algorithm = validateAlgorithm(body.algorithm)
     const executionType = body.executionType === "manual" ? "manual" : "auto"
+    // Tag origin: SDK requests send X-Planck-SDK header
+    const source = request.headers.get("x-planck-sdk") ? "sdk" : "ui"
     const qubits = validateQubits(body.qubits)
     const depth = validateDepth(body.depth)
     const gateCount = validateGateCount(body.gateCount)
@@ -86,7 +89,11 @@ export async function POST(request: NextRequest) {
     }
     const userId = auth.userId!
 
-    const supabase = await createServerClient()
+    // Use admin client for SDK (api_key) requests to bypass RLS,
+    // session client for browser requests that already pass RLS.
+    const supabase = auth.method === "api_key"
+      ? getAdminClient()
+      : await createServerClient()
 
     // Rate limiting: 1 request per 3 seconds per user
     const identifier = userId
@@ -152,6 +159,7 @@ export async function POST(request: NextRequest) {
         backend_metadata: policyResult.metadata,
         backend_assigned_at: new Date().toISOString(),
         circuit_data: {
+          source,
           qasm_code: qasm,
           input_data: inputData,
           algorithm_params: {
