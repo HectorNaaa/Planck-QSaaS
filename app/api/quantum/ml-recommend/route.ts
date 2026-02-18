@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { CppMLEngine } from "@/lib/ml/cpp-ml-engine"
 import { createServerClient } from "@/lib/supabase/server"
+import { getAdminClient } from "@/lib/supabase/admin"
 import { authenticateRequest } from "@/lib/api-auth"
 import {
   validateAlgorithm,
@@ -45,7 +46,10 @@ export async function POST(request: NextRequest) {
     }
     const userId = auth.userId!
 
-    const supabase = await createServerClient()
+    // Use admin client for SDK requests to bypass RLS
+    const supabase = auth.method === "api_key"
+      ? getAdminClient()
+      : await createServerClient()
 
     let userHistoricalAccuracy = 0.5
     try {

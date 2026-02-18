@@ -30,6 +30,7 @@ interface RecentCircuit {
   backend_selected: string | null
   backend_reason: string | null
   backend_hint: string | null
+  circuit_data: { source?: string } | null
 }
 
 export default function DashboardPage() {
@@ -250,6 +251,7 @@ export default function DashboardPage() {
             <table className="w-full">
               <thead className="bg-secondary sticky top-0 z-10">
                 <tr className="border-b border-border">
+                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Source</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Algorithm</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Name</th>
                   <th className="text-left py-3 px-4 text-muted-foreground font-medium">Status</th>
@@ -263,6 +265,17 @@ export default function DashboardPage() {
               <tbody>
                 {recentCircuits.map((circuit) => (
                   <tr key={circuit.id} className="border-b border-border hover:bg-secondary/50 transition">
+                    <td className="py-3 px-4">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                          circuit.circuit_data?.source === "sdk"
+                            ? "bg-blue-500/20 text-blue-400"
+                            : "bg-emerald-500/20 text-emerald-400"
+                        }`}
+                      >
+                        {circuit.circuit_data?.source === "sdk" ? "SDK" : "UI"}
+                      </span>
+                    </td>
                     <td className="py-3 px-4">
                       <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-primary/20 text-primary">
                         {circuit.algorithm || "N/A"}

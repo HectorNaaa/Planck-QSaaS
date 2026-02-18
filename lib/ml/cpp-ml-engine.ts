@@ -5,6 +5,7 @@
  */
 
 import { createServerClient } from "@/lib/supabase/server"
+import { getAdminClient } from "@/lib/supabase/admin"
 
 interface CircuitFeatures {
   qubits: number
@@ -282,7 +283,9 @@ export class CppMLEngine {
     },
   ): Promise<void> {
     try {
-      const supabase = await createServerClient()
+      // Use admin client to bypass RLS — this is a trusted server-side write
+      // on behalf of an already-authenticated user (userId comes from api-auth).
+      const supabase = getAdminClient()
 
       // Generate feature vector
       const featureVector = await this.vectorizeFeatures(features)
