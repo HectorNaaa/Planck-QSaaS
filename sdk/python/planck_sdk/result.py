@@ -38,6 +38,7 @@ class ExecutionResult:
     algorithm: str = "unknown"
     backend_reason: Optional[str] = None
     backend_hint: Optional[str] = None
+    digital_twin: Optional[Dict[str, Any]] = None
     
     @property
     def fidelity(self) -> float:
@@ -59,6 +60,42 @@ class ExecutionResult:
             return {}
         return {k: v / total for k, v in self.counts.items()}
     
+    @property
+    def overview(self) -> Optional[Dict[str, Any]]:
+        """Digital Twin overview: interpretation + performance metrics + quantum metrics."""
+        if not self.digital_twin:
+            return None
+        return {
+            "interpretation": self.digital_twin.get("interpretation", ""),
+            "performance_metrics": self.digital_twin.get("performance_metrics", {}),
+            "quantum_metrics": self.digital_twin.get("quantum_metrics", {}),
+        }
+    
+    @property
+    def analysis(self) -> Optional[Dict[str, Any]]:
+        """Digital Twin analysis: behavior insights, data patterns, topology."""
+        if not self.digital_twin:
+            return None
+        return {
+            "behavior_insights": self.digital_twin.get("behavior_insights", []),
+            "data_patterns": self.digital_twin.get("data_patterns", []),
+            "topology_insights": self.digital_twin.get("topology_insights", []),
+        }
+    
+    @property
+    def recommendations(self) -> Optional[List[str]]:
+        """Digital Twin system recommendations."""
+        if not self.digital_twin:
+            return None
+        return self.digital_twin.get("system_recommendations", [])
+    
+    @property
+    def performance(self) -> Optional[Dict[str, str]]:
+        """Digital Twin performance metrics (executionSpeed, convergence, reliability)."""
+        if not self.digital_twin:
+            return None
+        return self.digital_twin.get("performance_metrics", {})
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert result to dictionary representation."""
         d: Dict[str, Any] = {
@@ -75,6 +112,7 @@ class ExecutionResult:
             "shots": self.shots,
             "algorithm": self.algorithm,
             "circuit": self.circuit.to_dict() if self.circuit else None,
+            "digital_twin": self.digital_twin,
         }
         return d
     
@@ -130,6 +168,17 @@ class ExecutionResult:
             print(f"Reason: {self.backend_reason}")
         if self.backend_hint:
             print(f"Hint: {self.backend_hint}")
+        if self.digital_twin:
+            pm = self.digital_twin.get("performance_metrics", {})
+            print(f"\nDigital Twin:")
+            print(f"  Speed: {pm.get('executionSpeed', 'N/A')}")
+            print(f"  Convergence: {pm.get('convergence', 'N/A')}")
+            print(f"  Reliability: {pm.get('reliability', 'N/A')}")
+            recs = self.digital_twin.get("system_recommendations", [])
+            if recs:
+                print(f"  Recommendations:")
+                for r in recs[:3]:
+                    print(f"    -> {r}")
     
     def __repr__(self) -> str:
         return (

@@ -116,13 +116,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ── Backend policy selection ───────────────────────────────────
+    // ── Resolve qubits & adaptive shots ──────────────────────────
     const resolvedQubits = qubits || extractQubitCount(qasm)
+    const resolvedDepth = depth || 1
+    const resolvedGateCount = gateCount || 1
+
+    // When executionType is "auto" and no explicit shots are provided,
+    // compute adaptive shots from circuit complexity (same formula as UI).
+    const effectiveShots = (executionType === "auto" && (!shots || shots === 1024))
+      ? calculateAdaptiveShots(resolvedQubits, resolvedDepth, resolvedGateCount)
+      : shots
+
+    // ── Backend policy selection ───────────────────────────────────
     const policyResult = selectBackend({
       qubits: resolvedQubits,
-      depth: depth || 1,
-      gateCount: gateCount || 1,
-      shots,
+      depth: resolvedDepth,
+      gateCount: resolvedGateCount,
+      shots: effectiveShots,
       targetLatency,
       errorMitigation,
       backendHint: backend,
@@ -131,7 +141,7 @@ export async function POST(request: NextRequest) {
 
     const results = await simulateQuantumCircuit({
       qasm,
-      shots,
+      shots: effectiveShots,
       backend: effectiveBackend,
       errorMitigation,
     })
@@ -150,7 +160,7 @@ export async function POST(request: NextRequest) {
         success_rate: results.successRate,
         runtime_ms: results.runtime,
         qubits_used: resolvedQubits,
-        shots,
+        shots: effectiveShots,
         error_mitigation: errorMitigation,
         // New backend-selection audit columns
         backend_selected: effectiveBackend,
@@ -165,7 +175,7 @@ export async function POST(request: NextRequest) {
           algorithm_params: {
             algorithm,
             qubits: resolvedQubits,
-            shots,
+            shots: effectiveShots,
             backend: effectiveBackend,
             backend_hint: backend,
             error_mitigation: errorMitigation,
@@ -182,7 +192,7 @@ export async function POST(request: NextRequest) {
           },
           backend_config: {
             backend: effectiveBackend,
-            shots,
+            shots: effectiveShots,
             error_mitigation: errorMitigation,
           },
         },
@@ -214,12 +224,12 @@ export async function POST(request: NextRequest) {
           insertedLog.id,
           userId,
           {
-            actualShots: shots,
+            actualShots: effectiveShots,
             actualBackend: effectiveBackend,
             actualRuntime: results.runtime,
             actualSuccessRate: results.successRate,
             actualFidelity,
-            predictedShots: predictedShots || shots,
+            predictedShots: predictedShots || effectiveShots,
             predictedBackend: predictedBackend || effectiveBackend,
             predictedRuntime: results.runtime,
             predictedFidelity: predictedFidelity || actualFidelity,
@@ -237,6 +247,7 @@ export async function POST(request: NextRequest) {
       successRate: results.successRate,
       runtime: results.runtime,
       memory: results.memory,
+      total_shots: effectiveShots,
       execution_id: insertedLog?.id,
       fidelity: actualFidelity,
       backend: effectiveBackend,
@@ -306,4 +317,20 @@ async function simulateQuantumCircuit(config: {
 function extractQubitCount(qasm: string): number {
   const match = qasm.match(/qreg\s+\w+\[(\d+)\]/)
   return match ? Number.parseInt(match[1]) : 4
+}
+
+/**
+ * Compute adaptive shots based on circuit complexity.
+ * Mirrors the client-side `calculateAdaptiveShots` in runner/page.tsx
+ * so SDK and UI produce identical values for the same circuit.
+ */
+function calculateAdaptiveShots(qubits: number, depth: number, gateCount: number): number {
+  const baseShots = 512
+  const qubitFactor = Math.pow(1.3, qubits - 4)
+  const depthFactor = 1 + depth / 200
+  const gateFactor = 1 + gateCount / 500
+  const errorAccumulation = gateCount * 0.001
+  const errorFactor = 1 + errorAccumulation
+  const calculated = Math.round(baseShots * qubitFactor * depthFactor * gateFactor * errorFactor)
+  return Math.min(10000, Math.max(100, calculated))
 }

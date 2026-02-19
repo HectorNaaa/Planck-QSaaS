@@ -298,6 +298,39 @@ class PlanckUser:
         # The API resolves the effective backend via the policy engine.
         effective_backend = response.get("backend", backend)
         
+        # Use the resolved shots from the API (adaptive if auto)
+        resolved_shots = response.get("total_shots", shots or circuit.recommended_shots)
+        
+        # Auto-call Digital Twin to get insights, metrics, and recommendations
+        digital_twin_data = None
+        try:
+            digital_twin_data = self.get_digital_twin(
+                algorithm=validated_algorithm,
+                circuit_info={
+                    "qubits": circuit.qubits,
+                    "depth": circuit.depth,
+                    "gates": circuit.gates,
+                    "qasm": circuit.qasm,
+                },
+                execution_results={
+                    "counts": response.get("counts", {}),
+                    "shots": resolved_shots,
+                    "success_rate": response.get("successRate", 0),
+                    "runtime_ms": response.get("runtime", 0),
+                    "execution_id": response.get("execution_id"),
+                },
+                backend_config={
+                    "backend": effective_backend,
+                    "error_mitigation": error_mitigation,
+                    "transpiled": True,
+                    "noise_model": "realistic" if effective_backend == "quantum_qpu" else "ideal",
+                },
+                input_data=validated_data,
+            )
+        except Exception:
+            # Digital Twin is non-critical; don't fail the execution
+            pass
+        
         return ExecutionResult(
             execution_id=response.get("execution_id"),
             counts=response.get("counts", {}),
@@ -306,10 +339,11 @@ class PlanckUser:
             memory=response.get("memory", []),
             circuit=circuit,
             backend=effective_backend,
-            shots=shots or circuit.recommended_shots,
+            shots=resolved_shots,
             algorithm=validated_algorithm,
             backend_reason=response.get("backendReason"),
             backend_hint=response.get("backendHint"),
+            digital_twin=digital_twin_data,
         )
     
     def generate_circuit(
