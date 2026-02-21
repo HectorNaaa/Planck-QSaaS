@@ -53,24 +53,32 @@ export async function POST(request: NextRequest) {
 
     let userHistoricalAccuracy = 0.5
     try {
+      // Try mega-table first, fall back to legacy
       const { data: userHistory, error: historyError } = await supabase
-        .from("ml_feature_vectors")
+        .from("ml_execution_features")
         .select("reward_score")
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
-        .limit(10)
+        .limit(20)
 
-      // If table doesn't exist (PGRST205 error), continue with default values
-      if (historyError && historyError.code !== "PGRST205") {
-        throw historyError
-      }
+      if (historyError && historyError.code !== "PGRST205" && historyError.code !== "42P01") {
+        // Try legacy table
+        const { data: legacyHistory } = await supabase
+          .from("ml_feature_vectors")
+          .select("reward_score")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(10)
 
-      if (userHistory && userHistory.length > 0) {
+        if (legacyHistory && legacyHistory.length > 0) {
+          userHistoricalAccuracy =
+            legacyHistory.reduce((sum, h) => sum + (h.reward_score || 0), 0) / legacyHistory.length / 100
+        }
+      } else if (userHistory && userHistory.length > 0) {
         userHistoricalAccuracy =
           userHistory.reduce((sum, h) => sum + (h.reward_score || 0), 0) / userHistory.length / 100
       }
     } catch (tableError: any) {
-      // ML tables not yet created, use default heuristics
       if (tableError.code !== "PGRST205") {
         console.error("[API] Error checking ML history:", tableError)
       }

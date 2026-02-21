@@ -90,6 +90,25 @@ export function CircuitResults({ backend, results, qubits, onDownload }: Circuit
             )}
           </div>
 
+          {/* ML Tuning Info */}
+          {results?.error_mitigation_requested === "auto" && (
+            <div className="p-3 bg-secondary/50 rounded-lg border border-border space-y-1">
+              <p className="text-sm font-medium text-foreground">
+                Error Mitigation: <span className="text-primary capitalize">{results.error_mitigation || "N/A"}</span>
+                <span className="text-xs text-muted-foreground ml-1">(auto-resolved by RL)</span>
+              </p>
+              {results.ml_tuning && (
+                <>
+                  <p className="text-xs text-muted-foreground">{results.ml_tuning.reasoning}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Confidence: {(results.ml_tuning.confidence * 100).toFixed(0)}%
+                    {results.ml_tuning.based_on_executions > 0 && ` | Based on ${results.ml_tuning.based_on_executions} prior runs`}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Benchmarks */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 bg-secondary/50 rounded-lg border border-border">

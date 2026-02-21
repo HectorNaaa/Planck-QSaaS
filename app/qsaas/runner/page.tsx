@@ -26,7 +26,7 @@ export default function RunnerPage() {
   const [shots, setShots] = useState<number | null>(null)
   const [autoShots, setAutoShots] = useState<number | null>(null)
   const [qubits, setQubits] = useState(4)
-  const [errorMitigation, setErrorMitigation] = useState<"none" | "low" | "medium" | "high">("none")
+  const [errorMitigation, setErrorMitigation] = useState<"auto" | "none" | "low" | "medium" | "high">("auto")
   const [results, setResults] = useState<any>(null)
   const [circuitCode, setCircuitCode] = useState("")
   const [circuitData, setCircuitData] = useState<CircuitData | null>(null)
@@ -64,7 +64,7 @@ export default function RunnerPage() {
         setShots(state.shots || null)
         setAutoShots(state.autoShots || null)
         setQubits(state.qubits || 4)
-        setErrorMitigation(state.errorMitigation || "none")
+        setErrorMitigation(state.errorMitigation || "auto")
         setCircuitCode(state.circuitCode || "")
         setCircuitData(state.circuitData || null)
         setDataUploaded(state.dataUploaded || false)
@@ -164,7 +164,8 @@ const adaptiveShots = calculateAdaptiveShots({
 
         if (executionType === "auto") {
           setBackend(data.recommendedBackend as any)
-          setErrorMitigation(data.recommendedErrorMitigation as any)
+          // Don't override errorMitigation state -- server resolves "auto"
+          // at execution time using the same ML data
         }
       } else {
         // Fall back to adaptive calculation
@@ -393,8 +394,8 @@ const adaptiveShots = calculateAdaptiveShots({
             execution_id: simulateData.execution_id,
           },
           backendConfig: {
-            backend,
-            error_mitigation: errorMitigation,
+            backend: simulateData.backend || backend,
+            error_mitigation: simulateData.error_mitigation || errorMitigation,
             transpiled: true,
             noise_model: backend === "quantum_qpu" ? "realistic" : "ideal",
           },
@@ -403,29 +404,20 @@ const adaptiveShots = calculateAdaptiveShots({
 
       const digitalTwinData = await digitalTwinResponse.json()
 
-      if (digitalTwinData.success) {
-        const mockResults = {
-          success_rate: simulateData.successRate,
-          runtime_ms: simulateData.runtime,
-          qubits_used: qubits,
-          total_shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
-          backend,
-          counts: simulateData.counts,
-          digital_twin: digitalTwinData.digital_twin,
-        }
-
-        setResults(mockResults)
-      } else {
-        const mockResults = {
-          success_rate: simulateData.successRate,
-          runtime_ms: simulateData.runtime,
-          qubits_used: qubits,
-          total_shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
-          backend,
-          counts: simulateData.counts,
-        }
-        setResults(mockResults)
+      const baseResults = {
+        success_rate: simulateData.successRate,
+        runtime_ms: simulateData.runtime,
+        qubits_used: qubits,
+        total_shots: simulateData.total_shots || (executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024)),
+        backend: simulateData.backend || backend,
+        counts: simulateData.counts,
+        error_mitigation: simulateData.error_mitigation || errorMitigation,
+        error_mitigation_requested: simulateData.error_mitigation_requested || errorMitigation,
+        ml_tuning: simulateData.ml_tuning || null,
+        ...(digitalTwinData.success ? { digital_twin: digitalTwinData.digital_twin } : {}),
       }
+
+      setResults(baseResults)
     } catch (error) {
       alert(`Error: ${error instanceof Error ? error.message : "Unknown error"}`)
     } finally {
