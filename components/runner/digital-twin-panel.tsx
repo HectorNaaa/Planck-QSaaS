@@ -25,6 +25,7 @@ interface DigitalTwinPanelProps {
     error_mitigation: string
     transpiled: boolean
   }
+  showDominantStates?: boolean
 }
 
 export function DigitalTwinPanel({
@@ -33,6 +34,7 @@ export function DigitalTwinPanel({
   circuitInfo,
   executionResults,
   backendConfig,
+  showDominantStates = false,
 }: DigitalTwinPanelProps) {
   const [isExpanded, setIsExpanded] = useState(true)
   const [activeTab, setActiveTab] = useState<"overview" | "analysis" | "recommendations">("overview")
@@ -264,24 +266,26 @@ export function DigitalTwinPanel({
 
               {/* Performance Metrics */}
               <div className="grid grid-cols-3 gap-3">
-                <div className="p-3 bg-secondary/50 rounded-lg border border-border text-center">
-                  <div className="text-xs text-muted-foreground mb-1">Execution Speed</div>
-                  <div className="text-lg font-bold text-primary capitalize">
-                    {digitalTwin.performanceMetrics.executionSpeed}
-                  </div>
-                </div>
-                <div className="p-3 bg-secondary/50 rounded-lg border border-border text-center">
-                  <div className="text-xs text-muted-foreground mb-1">Convergence</div>
-                  <div className="text-lg font-bold text-primary capitalize">
-                    {digitalTwin.performanceMetrics.convergence}
-                  </div>
-                </div>
-                <div className="p-3 bg-secondary/50 rounded-lg border border-border text-center">
-                  <div className="text-xs text-muted-foreground mb-1">Reliability</div>
-                  <div className="text-lg font-bold text-primary capitalize">
-                    {digitalTwin.performanceMetrics.reliability}
-                  </div>
-                </div>
+                {[
+                  { label: "Execution Speed", value: digitalTwin.performanceMetrics.executionSpeed },
+                  { label: "Convergence", value: digitalTwin.performanceMetrics.convergence },
+                  { label: "Reliability", value: digitalTwin.performanceMetrics.reliability },
+                ].map((metric) => {
+                  const colorClass =
+                    metric.value === "excellent" || metric.value === "strong" || metric.value === "high"
+                      ? "text-green-400"
+                      : metric.value === "good" || metric.value === "moderate" || metric.value === "medium"
+                        ? "text-yellow-400"
+                        : "text-red-400"
+                  return (
+                    <div key={metric.label} className="p-3 bg-secondary/50 rounded-lg border border-border text-center">
+                      <div className="text-xs text-muted-foreground mb-1">{metric.label}</div>
+                      <div className={`text-lg font-bold capitalize ${colorClass}`}>
+                        {metric.value}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
 
               {/* Quantum Metrics */}
@@ -310,28 +314,30 @@ export function DigitalTwinPanel({
                 </div>
               </div>
 
-              {/* Top Quantum States */}
-              <div className="p-4 bg-secondary/30 rounded-lg border border-border">
-                <h3 className="font-semibold text-foreground mb-3">Dominant Quantum States</h3>
-                <div className="space-y-2">
-                  {digitalTwin.quantumMetrics.topStates.map((state, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-sm">
-                      <code className="font-mono text-foreground bg-secondary/50 px-2 py-1 rounded">{state.state}</code>
-                      <div className="flex items-center gap-3 flex-1 ml-3">
-                        <div className="flex-1 bg-secondary rounded-full h-2">
-                          <div
-                            className="bg-primary h-2 rounded-full transition-all duration-500"
-                            style={{ width: `${state.probability * 100}%` }}
-                          />
+              {/* Top Quantum States - controlled by external toggle */}
+              {showDominantStates && (
+                <div className="p-4 bg-secondary/30 rounded-lg border border-border">
+                  <h3 className="font-semibold text-foreground mb-3">Dominant Quantum States</h3>
+                  <div className="space-y-2">
+                    {digitalTwin.quantumMetrics.topStates.map((state, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-sm">
+                        <code className="font-mono text-foreground bg-secondary/50 px-2 py-1 rounded">{state.state}</code>
+                        <div className="flex items-center gap-3 flex-1 ml-3">
+                          <div className="flex-1 bg-secondary rounded-full h-2">
+                            <div
+                              className="bg-primary h-2 rounded-full transition-all duration-500"
+                              style={{ width: `${state.probability * 100}%` }}
+                            />
+                          </div>
+                          <span className="font-medium text-primary w-16 text-right">
+                            {(state.probability * 100).toFixed(2)}%
+                          </span>
                         </div>
-                        <span className="font-medium text-primary w-16 text-right">
-                          {(state.probability * 100).toFixed(2)}%
-                        </span>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 

@@ -116,24 +116,68 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ── Backend policy selection ───────────────────────────────────
+    // ── Resolve qubits & circuit features ─────────────────────────
     const resolvedQubits = qubits || extractQubitCount(qasm)
+    const resolvedDepth = depth || 1
+    const resolvedGateCount = gateCount || 1
+    const dataSize = inputData ? JSON.stringify(inputData).length : 0
+
+    // ── ML-driven auto-tuning (shots + error mitigation) ────────
+    // When executionType is "auto" we consult the RL engine first,
+    // which uses the mega-table of all users' historical outcomes.
+    let mlRecommendation: { recommendedShots: number; recommendedErrorMitigation: string; recommendedBackend: string; confidence: number; reasoning: string; basedOnExecutions: number } | null = null
+
+    if (executionType === "auto") {
+      try {
+        mlRecommendation = await CppMLEngine.getRecommendation({
+          qubits: resolvedQubits,
+          depth: resolvedDepth,
+          gateCount: resolvedGateCount,
+          algorithm,
+          dataSize,
+          dataComplexity: 0.5,
+          targetLatency: targetLatency || 0,
+          errorMitigation: errorMitigation === "auto" ? "medium" : errorMitigation,
+          userHistoricalAccuracy: 0.5,
+        })
+      } catch {
+        // ML is non-critical
+      }
+    }
+
+    // Resolve shots: ML recommendation > adaptive heuristic > user-provided
+    const effectiveShots =
+      (executionType === "auto" && mlRecommendation && mlRecommendation.basedOnExecutions > 0)
+        ? mlRecommendation.recommendedShots
+        : (executionType === "auto" && (!shots || shots === 1024))
+          ? calculateAdaptiveShots(resolvedQubits, resolvedDepth, resolvedGateCount)
+          : shots
+
+    // Resolve error mitigation: ML recommendation > complexity heuristic > user-provided
+    const effectiveErrorMitigation =
+      (errorMitigation === "auto" && mlRecommendation && mlRecommendation.basedOnExecutions > 0)
+        ? mlRecommendation.recommendedErrorMitigation
+        : errorMitigation === "auto"
+          ? selectAutoErrorMitigation(resolvedQubits, resolvedDepth, resolvedGateCount)
+          : errorMitigation
+
+    // ── Backend policy selection ───────────────────────────────────
     const policyResult = selectBackend({
       qubits: resolvedQubits,
-      depth: depth || 1,
-      gateCount: gateCount || 1,
-      shots,
+      depth: resolvedDepth,
+      gateCount: resolvedGateCount,
+      shots: effectiveShots,
       targetLatency,
-      errorMitigation,
+      errorMitigation: effectiveErrorMitigation,
       backendHint: backend,
     })
     const effectiveBackend = policyResult.backendId
 
     const results = await simulateQuantumCircuit({
       qasm,
-      shots,
+      shots: effectiveShots,
       backend: effectiveBackend,
-      errorMitigation,
+      errorMitigation: effectiveErrorMitigation,
     })
 
     const actualFidelity = calculateFidelity(effectiveBackend, resolvedQubits, depth)
@@ -150,8 +194,8 @@ export async function POST(request: NextRequest) {
         success_rate: results.successRate,
         runtime_ms: results.runtime,
         qubits_used: resolvedQubits,
-        shots,
-        error_mitigation: errorMitigation,
+        shots: effectiveShots,
+        error_mitigation: effectiveErrorMitigation,
         // New backend-selection audit columns
         backend_selected: effectiveBackend,
         backend_reason: policyResult.reason,
@@ -165,10 +209,11 @@ export async function POST(request: NextRequest) {
           algorithm_params: {
             algorithm,
             qubits: resolvedQubits,
-            shots,
+            shots: effectiveShots,
             backend: effectiveBackend,
             backend_hint: backend,
-            error_mitigation: errorMitigation,
+            error_mitigation: effectiveErrorMitigation,
+            error_mitigation_requested: errorMitigation,
             depth,
             gate_count: gateCount,
             target_latency: targetLatency,
@@ -182,9 +227,15 @@ export async function POST(request: NextRequest) {
           },
           backend_config: {
             backend: effectiveBackend,
-            shots,
-            error_mitigation: errorMitigation,
+            shots: effectiveShots,
+            error_mitigation: effectiveErrorMitigation,
           },
+          ml_recommendation: mlRecommendation ? {
+            shots: mlRecommendation.recommendedShots,
+            error_mitigation: mlRecommendation.recommendedErrorMitigation,
+            confidence: mlRecommendation.confidence,
+            based_on: mlRecommendation.basedOnExecutions,
+          } : null,
         },
         completed_at: new Date().toISOString(),
       })
@@ -195,31 +246,29 @@ export async function POST(request: NextRequest) {
       console.error("[API] Failed to insert execution log:", insertError.message)
     }
 
-    if (insertedLog?.id && inputData) {
-      const dataSize = JSON.stringify(inputData).length
-
+    if (insertedLog?.id) {
       try {
         await CppMLEngine.recordExecution(
           {
             qubits: resolvedQubits,
-            depth,
-            gateCount,
+            depth: resolvedDepth,
+            gateCount: resolvedGateCount,
             algorithm,
             dataSize,
             dataComplexity: 0.5,
             targetLatency: targetLatency || 0,
-            errorMitigation,
+            errorMitigation: effectiveErrorMitigation,
             userHistoricalAccuracy: 0.5,
           },
           insertedLog.id,
           userId,
           {
-            actualShots: shots,
+            actualShots: effectiveShots,
             actualBackend: effectiveBackend,
             actualRuntime: results.runtime,
             actualSuccessRate: results.successRate,
             actualFidelity,
-            predictedShots: predictedShots || shots,
+            predictedShots: predictedShots || effectiveShots,
             predictedBackend: predictedBackend || effectiveBackend,
             predictedRuntime: results.runtime,
             predictedFidelity: predictedFidelity || actualFidelity,
@@ -237,11 +286,21 @@ export async function POST(request: NextRequest) {
       successRate: results.successRate,
       runtime: results.runtime,
       memory: results.memory,
+      total_shots: effectiveShots,
+      error_mitigation: effectiveErrorMitigation,
+      error_mitigation_requested: errorMitigation,
       execution_id: insertedLog?.id,
       fidelity: actualFidelity,
       backend: effectiveBackend,
       backendReason: policyResult.reason,
       backendHint: backend === "auto" ? null : backend,
+      ml_tuning: mlRecommendation ? {
+        shots: mlRecommendation.recommendedShots,
+        error_mitigation: mlRecommendation.recommendedErrorMitigation,
+        confidence: mlRecommendation.confidence,
+        reasoning: mlRecommendation.reasoning,
+        based_on_executions: mlRecommendation.basedOnExecutions,
+      } : null,
     })
   } catch (error) {
     const safeError = createSafeErrorResponse(error, "Failed to simulate circuit")
@@ -306,4 +365,32 @@ async function simulateQuantumCircuit(config: {
 function extractQubitCount(qasm: string): number {
   const match = qasm.match(/qreg\s+\w+\[(\d+)\]/)
   return match ? Number.parseInt(match[1]) : 4
+}
+
+/**
+ * Select error mitigation level based on circuit complexity (heuristic fallback).
+ * Used when errorMitigation === "auto" and no ML data is available yet.
+ */
+function selectAutoErrorMitigation(qubits: number, depth: number, gateCount: number): string {
+  // Complexity score: higher = more error-prone
+  const complexity = (qubits / 20) + (depth / 100) + (gateCount / 500)
+  if (complexity >= 1.5) return "high"
+  if (complexity >= 0.6) return "medium"
+  return "low"
+}
+
+/**
+ * Compute adaptive shots based on circuit complexity.
+ * Mirrors the client-side `calculateAdaptiveShots` in runner/page.tsx
+ * so SDK and UI produce identical values for the same circuit.
+ */
+function calculateAdaptiveShots(qubits: number, depth: number, gateCount: number): number {
+  const baseShots = 512
+  const qubitFactor = Math.pow(1.3, qubits - 4)
+  const depthFactor = 1 + depth / 200
+  const gateFactor = 1 + gateCount / 500
+  const errorAccumulation = gateCount * 0.001
+  const errorFactor = 1 + errorAccumulation
+  const calculated = Math.round(baseShots * qubitFactor * depthFactor * gateFactor * errorFactor)
+  return Math.min(10000, Math.max(100, calculated))
 }

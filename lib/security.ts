@@ -46,6 +46,7 @@ const ALLOWED_ERROR_MITIGATION = new Set([
   'low',
   'medium',
   'high',
+  'auto',
 ])
 
 /**

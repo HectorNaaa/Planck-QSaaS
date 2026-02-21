@@ -90,6 +90,25 @@ export function CircuitResults({ backend, results, qubits, onDownload }: Circuit
             )}
           </div>
 
+          {/* ML Tuning Info */}
+          {results?.error_mitigation_requested === "auto" && (
+            <div className="p-3 bg-secondary/50 rounded-lg border border-border space-y-1">
+              <p className="text-sm font-medium text-foreground">
+                Error Mitigation: <span className="text-primary capitalize">{results.error_mitigation || "N/A"}</span>
+                <span className="text-xs text-muted-foreground ml-1">(auto-resolved by RL)</span>
+              </p>
+              {results.ml_tuning && (
+                <>
+                  <p className="text-xs text-muted-foreground">{results.ml_tuning.reasoning}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Confidence: {(results.ml_tuning.confidence * 100).toFixed(0)}%
+                    {results.ml_tuning.based_on_executions > 0 && ` | Based on ${results.ml_tuning.based_on_executions} prior runs`}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
           {/* Benchmarks */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 bg-secondary/50 rounded-lg border border-border">
@@ -136,25 +155,26 @@ export function CircuitResults({ backend, results, qubits, onDownload }: Circuit
               {showDigitalTwin && (
                 <div className="space-y-4 pl-2 border-l-2 border-primary/30">
                   {/* Interpretation */}
-                  {digitalTwin.insights?.interpretation && (
+                  {(digitalTwin.interpretation || digitalTwin.insights?.interpretation) && (
                     <div className="p-4 bg-secondary/30 rounded-lg border border-border">
                       <div className="flex items-center gap-2 mb-2">
                         <Lightbulb size={16} className="text-primary" />
                         <p className="text-sm font-semibold text-foreground">Interpretation</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">{digitalTwin.insights.interpretation}</p>
+                      <p className="text-sm text-muted-foreground">{digitalTwin.interpretation || digitalTwin.insights?.interpretation}</p>
                     </div>
                   )}
 
-                  {/* Key Findings */}
-                  {digitalTwin.insights?.key_findings && digitalTwin.insights.key_findings.length > 0 && (
+                  {/* Behavior Insights / Key Findings */}
+                  {((digitalTwin.behavior_insights && digitalTwin.behavior_insights.length > 0) ||
+                    (digitalTwin.insights?.key_findings && digitalTwin.insights.key_findings.length > 0)) && (
                     <div className="p-4 bg-secondary/30 rounded-lg border border-border">
                       <div className="flex items-center gap-2 mb-2">
                         <TrendingUp size={16} className="text-primary" />
-                        <p className="text-sm font-semibold text-foreground">Key Findings</p>
+                        <p className="text-sm font-semibold text-foreground">Behavior Insights</p>
                       </div>
                       <ul className="space-y-1">
-                        {digitalTwin.insights.key_findings.map((finding: string, idx: number) => (
+                        {(digitalTwin.behavior_insights || digitalTwin.insights?.key_findings || []).map((finding: string, idx: number) => (
                           <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
                             <span className="text-primary mt-1">•</span>
                             <span>{finding}</span>
@@ -164,12 +184,37 @@ export function CircuitResults({ backend, results, qubits, onDownload }: Circuit
                     </div>
                   )}
 
+                  {/* Performance Metrics */}
+                  {digitalTwin.performance_metrics && (
+                    <div className="p-4 bg-secondary/30 rounded-lg border border-border">
+                      <p className="text-sm font-semibold text-foreground mb-3">Performance Metrics</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { label: "Speed", value: digitalTwin.performance_metrics.executionSpeed },
+                          { label: "Convergence", value: digitalTwin.performance_metrics.convergence },
+                          { label: "Reliability", value: digitalTwin.performance_metrics.reliability },
+                        ].map((m) => {
+                          const color = m.value === "excellent" || m.value === "strong" || m.value === "high"
+                            ? "text-green-400" : m.value === "good" || m.value === "moderate" || m.value === "medium"
+                              ? "text-yellow-400" : "text-red-400"
+                          return (
+                            <div key={m.label} className="text-center">
+                              <div className="text-xs text-muted-foreground">{m.label}</div>
+                              <div className={`text-sm font-bold capitalize ${color}`}>{m.value}</div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Data Patterns */}
-                  {digitalTwin.insights?.data_patterns && digitalTwin.insights.data_patterns.length > 0 && (
+                  {((digitalTwin.data_patterns && digitalTwin.data_patterns.length > 0) ||
+                    (digitalTwin.insights?.data_patterns && digitalTwin.insights.data_patterns.length > 0)) && (
                     <div className="p-4 bg-secondary/30 rounded-lg border border-border">
                       <p className="text-sm font-semibold text-foreground mb-2">Data Patterns</p>
                       <ul className="space-y-1">
-                        {digitalTwin.insights.data_patterns.map((pattern: string, idx: number) => (
+                        {(digitalTwin.data_patterns || digitalTwin.insights?.data_patterns || []).map((pattern: string, idx: number) => (
                           <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
                             <span className="text-primary mt-1">•</span>
                             <span>{pattern}</span>
@@ -213,11 +258,12 @@ export function CircuitResults({ backend, results, qubits, onDownload }: Circuit
                   )}
 
                   {/* Recommendations */}
-                  {digitalTwin.insights?.recommendations && digitalTwin.insights.recommendations.length > 0 && (
+                  {((digitalTwin.system_recommendations && digitalTwin.system_recommendations.length > 0) ||
+                    (digitalTwin.insights?.recommendations && digitalTwin.insights.recommendations.length > 0)) && (
                     <div className="p-4 bg-primary/10 rounded-lg border border-primary/30">
                       <p className="text-sm font-semibold text-foreground mb-2">Recommendations</p>
                       <ul className="space-y-1">
-                        {digitalTwin.insights.recommendations.map((rec: string, idx: number) => (
+                        {(digitalTwin.system_recommendations || digitalTwin.insights?.recommendations || []).map((rec: string, idx: number) => (
                           <li key={idx} className="text-sm text-muted-foreground flex items-start gap-2">
                             <span className="text-primary mt-1">→</span>
                             <span>{rec}</span>

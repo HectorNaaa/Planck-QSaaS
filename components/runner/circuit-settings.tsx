@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card"
 interface CircuitSettingsProps {
   onExecutionTypeChange?: (type: "auto" | "manual") => void
   onQubitsChange?: (qubits: number) => void
-  onErrorMitigationChange?: (level: "none" | "low" | "medium" | "high") => void
+  onErrorMitigationChange?: (level: "auto" | "none" | "low" | "medium" | "high") => void
 }
 
 export function CircuitSettings({
@@ -17,15 +17,19 @@ export function CircuitSettings({
 }: CircuitSettingsProps) {
   const [isAutomatic, setIsAutomatic] = useState(true)
   const [shots, setShots] = useState(1024)
-  const [errorMitigation, setErrorMitigation] = useState<"none" | "low" | "medium" | "high">("none")
+  const [errorMitigation, setErrorMitigation] = useState<"auto" | "none" | "low" | "medium" | "high">("none")
   const [isExpanded, setIsExpanded] = useState(false)
 
   const handleModeChange = (auto: boolean) => {
     setIsAutomatic(auto)
     onExecutionTypeChange?.(auto ? "auto" : "manual")
+    // When switching to auto, also set error mitigation to auto
+    if (auto) {
+      onErrorMitigationChange?.("auto")
+    }
   }
 
-  const handleErrorMitigationChange = (value: "none" | "low" | "medium" | "high") => {
+  const handleErrorMitigationChange = (value: "auto" | "none" | "low" | "medium" | "high") => {
     setErrorMitigation(value)
     onErrorMitigationChange?.(value)
   }
@@ -75,7 +79,9 @@ export function CircuitSettings({
             <div className="space-y-3">
               <div className="p-3 bg-secondary/50 rounded-lg border border-primary/20">
                 <p className="text-sm text-foreground font-medium">Automatic mode enabled</p>
-                <p className="text-xs text-muted-foreground mt-1">Optimal settings: 1024 Shots, No Error Mitigation</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Shots and error mitigation are auto-tuned by the RL engine based on circuit complexity and historical execution data from all users.
+                </p>
               </div>
             </div>
           ) : (

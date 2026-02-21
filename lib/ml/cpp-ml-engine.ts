@@ -132,23 +132,23 @@ export class CppMLEngine {
    * Get ML-powered recommendation using network effect
    */
   static async getRecommendation(features: CircuitFeatures): Promise<MLRecommendation> {
-    const supabase = await createServerClient()
+    // Always use admin client -- this is a server-side read across all users
+    const supabase = getAdminClient()
 
     // Generate feature vector
     const featureVector = await this.vectorizeFeatures(features)
 
     try {
-      // Query similar executions from database using pgvector
-      const { data: similarExecutions, error } = await supabase.rpc("find_similar_executions", {
+      // Query similar executions from the mega-table using pgvector
+      const { data: similarExecutions, error } = await supabase.rpc("find_similar_execution_features", {
         query_vector: featureVector,
-        similarity_threshold: 0.7,
-        limit_count: 50,
+        similarity_threshold: 0.6,
+        limit_count: 80,
       })
 
       // If function doesn't exist (PGRST202) or other errors, fall back to defaults
       if (error) {
         if (error.code === "PGRST202" || error.code === "42883") {
-          // Function not found - ML tables not set up yet
           return this.getDefaultRecommendation(features)
         }
         throw error
@@ -158,24 +158,28 @@ export class CppMLEngine {
         return this.getDefaultRecommendation(features)
       }
 
-      // Weighted voting based on similarity and reward scores
+      // ── Weighted voting based on similarity + reward ──────────
       const shotsVotes: Record<number, number> = {}
       const backendVotes: Record<string, number> = {}
       const errorMitigationVotes: Record<string, number> = {}
       let totalWeight = 0
 
       for (const exec of similarExecutions) {
-        const weight = exec.similarity * (1 + exec.reward_score / 100)
+        // Reward-weighted similarity: higher rewards amplify vote weight
+        const rewardBonus = Math.max(0, exec.reward_score) / 100
+        const weight = exec.similarity * (1 + rewardBonus)
         totalWeight += weight
 
-        shotsVotes[exec.actual_shots] = (shotsVotes[exec.actual_shots] || 0) + weight
-        backendVotes[exec.actual_backend] = (backendVotes[exec.actual_backend] || 0) + weight
+        // Shots: bucket to nearest 100 to avoid fragmentation
+        const bucketedShots = Math.round(exec.shots_used / 100) * 100
+        shotsVotes[bucketedShots] = (shotsVotes[bucketedShots] || 0) + weight
+        backendVotes[exec.backend_used] = (backendVotes[exec.backend_used] || 0) + weight
         if (exec.error_mitigation) {
           errorMitigationVotes[exec.error_mitigation] = (errorMitigationVotes[exec.error_mitigation] || 0) + weight
         }
       }
 
-      // Find best shots and backend
+      // ── Pick best from weighted votes ─────────────────────────
       let bestShots = this.calculateDefaultShots(features)
       let bestShotsWeight = 0
       for (const [shots, weight] of Object.entries(shotsVotes)) {
@@ -205,14 +209,14 @@ export class CppMLEngine {
 
       const confidence = Math.min(0.95, totalWeight / (similarExecutions.length * 2))
       const avgSimilarity =
-        (similarExecutions.reduce((sum, e) => sum + e.similarity, 0) / similarExecutions.length) * 100
+        (similarExecutions.reduce((sum: number, e: any) => sum + e.similarity, 0) / similarExecutions.length) * 100
 
       return {
         recommendedShots: bestShots,
         recommendedBackend: bestBackend,
         recommendedErrorMitigation: bestErrorMitigation,
         confidence,
-        reasoning: `Network effect: ${similarExecutions.length} similar executions (${avgSimilarity.toFixed(0)}% match)`,
+        reasoning: `RL network effect: ${similarExecutions.length} similar circuits (${avgSimilarity.toFixed(0)}% avg match)`,
         basedOnExecutions: similarExecutions.length,
       }
     } catch (error: any) {
@@ -283,8 +287,7 @@ export class CppMLEngine {
     },
   ): Promise<void> {
     try {
-      // Use admin client to bypass RLS — this is a trusted server-side write
-      // on behalf of an already-authenticated user (userId comes from api-auth).
+      // Use admin client to bypass RLS -- trusted server-side write
       const supabase = getAdminClient()
 
       // Generate feature vector
@@ -298,7 +301,29 @@ export class CppMLEngine {
         outcomes.predictedFidelity,
       )
 
-      const { error } = await supabase.from("ml_feature_vectors").insert({
+      // Write to mega-table (ml_execution_features) -- lightweight, cross-user RL data
+      const megaInsert = supabase.from("ml_execution_features").insert({
+        execution_id: executionId,
+        user_id: userId,
+        algorithm: features.algorithm,
+        num_qubits: features.qubits,
+        circuit_depth: features.depth,
+        gate_count: features.gateCount,
+        data_size: features.dataSize,
+        data_complexity: features.dataComplexity,
+        shots_used: outcomes.actualShots,
+        backend_used: outcomes.actualBackend,
+        error_mitigation: features.errorMitigation,
+        target_latency_ms: features.targetLatency,
+        success_rate: outcomes.actualSuccessRate,
+        runtime_ms: outcomes.actualRuntime,
+        fidelity_score: outcomes.actualFidelity,
+        reward_score: reward,
+        feature_vector: featureVector,
+      })
+
+      // Write to legacy table (ml_feature_vectors) for backward compat
+      const legacyInsert = supabase.from("ml_feature_vectors").insert({
         execution_id: executionId,
         user_id: userId,
         feature_vector: featureVector,
@@ -315,10 +340,19 @@ export class CppMLEngine {
         reward_score: reward,
       })
 
-      if (error) {
-        // Log actual errors for debugging
-        if (error.code !== "PGRST205" && error.code !== "42P01") {
-          console.error("ML recording error:", error.message)
+      // Fire both in parallel; don't fail the caller on either
+      const [megaResult, legacyResult] = await Promise.allSettled([megaInsert, legacyInsert])
+
+      if (megaResult.status === "fulfilled" && megaResult.value.error) {
+        const e = megaResult.value.error
+        if (e.code !== "PGRST205" && e.code !== "42P01") {
+          console.error("[ML] mega-table insert error:", e.message)
+        }
+      }
+      if (legacyResult.status === "fulfilled" && legacyResult.value.error) {
+        const e = legacyResult.value.error
+        if (e.code !== "PGRST205" && e.code !== "42P01") {
+          console.error("[ML] legacy-table insert error:", e.message)
         }
       }
     } catch (error) {

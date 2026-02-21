@@ -43,8 +43,8 @@ class PlanckUser:
     # Supported backends — must match API (security.ts) and UI (execution-settings.tsx)
     SUPPORTED_BACKENDS = ["auto", "quantum_inspired_gpu", "hpc_gpu", "quantum_qpu"]
     
-    # Supported error mitigation levels — must match API (security.ts) and UI (circuit-settings.tsx)
-    SUPPORTED_ERROR_MITIGATION = ["none", "low", "medium", "high"]
+  # Supported error mitigation levels — must match API (security.ts) and UI (circuit-settings.tsx)
+  SUPPORTED_ERROR_MITIGATION = ["none", "low", "medium", "high", "auto"]
     
     def __init__(
         self,
@@ -204,7 +204,7 @@ class PlanckUser:
         algorithm: str = "vqe",
         shots: Optional[int] = None,
         backend: str = "auto",
-        error_mitigation: str = "medium",
+        error_mitigation: str = "auto",
         circuit_name: Optional[str] = None,
         target_latency: Optional[int] = None,
         qubits: Optional[int] = None,
@@ -216,25 +216,28 @@ class PlanckUser:
         Args:
             data: Input data (list, dict, or file path to CSV/JSON)
             algorithm: Algorithm type ('vqe', 'grover', 'qaoa', 'qft', 'bell', 'shor')
-            shots: Number of measurement shots (1-100000, auto-calculated if None)
+            shots: Number of measurement shots (1-100000, auto-calculated via RL if None)
             backend: Execution backend ('auto', 'quantum_inspired_gpu', 'hpc_gpu', 'quantum_qpu')
-            error_mitigation: Error mitigation level ('none', 'low', 'medium', 'high')
+            error_mitigation: Error mitigation level ('auto', 'none', 'low', 'medium', 'high').
+                'auto' uses reinforcement learning from all users' historical data.
             circuit_name: Optional name for the execution
             target_latency: Target latency in ms (affects backend selection)
             qubits: Number of qubits (1-30, auto-calculated if None)
             wait: Wait for completion (default: True)
         
         Returns:
-            ExecutionResult object with counts, fidelity, and metadata
+            ExecutionResult object with counts, fidelity, digital_twin, and metadata.
+            When error_mitigation='auto', the resolved level is in result.error_mitigation.
+            ML tuning details are in result.ml_tuning (dict or None).
         
         Example:
             >>> result = user.run(
             ...     data=[1.0, 2.0, 3.0, 4.0],
-            ...     algorithm="vqe",
-            ...     shots=2048
+            ...     algorithm="vqe"
             ... )
-            >>> print(result.counts)
-            {'0000': 512, '0001': 256, ...}
+            >>> print(result.error_mitigation)  # RL-resolved level
+            'medium'
+            >>> print(result.ml_tuning)         # ML reasoning
         """
         # Validate inputs
         validated_data = self._validate_input_data(data)
@@ -298,6 +301,39 @@ class PlanckUser:
         # The API resolves the effective backend via the policy engine.
         effective_backend = response.get("backend", backend)
         
+        # Use the resolved shots from the API (adaptive if auto)
+        resolved_shots = response.get("total_shots", shots or circuit.recommended_shots)
+        
+        # Auto-call Digital Twin to get insights, metrics, and recommendations
+        digital_twin_data = None
+        try:
+            digital_twin_data = self.get_digital_twin(
+                algorithm=validated_algorithm,
+                circuit_info={
+                    "qubits": circuit.qubits,
+                    "depth": circuit.depth,
+                    "gates": circuit.gates,
+                    "qasm": circuit.qasm,
+                },
+                execution_results={
+                    "counts": response.get("counts", {}),
+                    "shots": resolved_shots,
+                    "success_rate": response.get("successRate", 0),
+                    "runtime_ms": response.get("runtime", 0),
+                    "execution_id": response.get("execution_id"),
+                },
+                backend_config={
+                    "backend": effective_backend,
+                    "error_mitigation": error_mitigation,
+                    "transpiled": True,
+                    "noise_model": "realistic" if effective_backend == "quantum_qpu" else "ideal",
+                },
+                input_data=validated_data,
+            )
+        except Exception:
+            # Digital Twin is non-critical; don't fail the execution
+            pass
+        
         return ExecutionResult(
             execution_id=response.get("execution_id"),
             counts=response.get("counts", {}),
@@ -306,10 +342,14 @@ class PlanckUser:
             memory=response.get("memory", []),
             circuit=circuit,
             backend=effective_backend,
-            shots=shots or circuit.recommended_shots,
+            shots=resolved_shots,
             algorithm=validated_algorithm,
             backend_reason=response.get("backendReason"),
             backend_hint=response.get("backendHint"),
+            digital_twin=digital_twin_data,
+            error_mitigation=response.get("error_mitigation", error_mitigation),
+            error_mitigation_requested=error_mitigation,
+            ml_tuning=response.get("ml_tuning"),
         )
     
     def generate_circuit(
@@ -602,13 +642,14 @@ class PlanckUser:
             qasm: OpenQASM 2.0 code to execute
             shots: Number of measurement shots (1-100000)
             backend: Execution backend ('auto', 'quantum_inspired_gpu', 'hpc_gpu', 'quantum_qpu')
-            error_mitigation: Error mitigation level ('none', 'low', 'medium', 'high')
+            error_mitigation: Error mitigation level ('auto', 'none', 'low', 'medium', 'high').
+                'auto' uses RL-driven selection based on historical executions.
             circuit_name: Optional name for the execution
             algorithm: Algorithm label for logging ('vqe', 'grover', 'qaoa', 'qft', 'bell', 'shor')
             qubits: Number of qubits (auto-extracted from QASM if None)
         
         Returns:
-            ExecutionResult with counts, fidelity, and metadata.
+            ExecutionResult with counts, fidelity, error_mitigation, ml_tuning, and metadata.
         
         Example:
             >>> result = user.simulate(
@@ -648,6 +689,8 @@ class PlanckUser:
         
         effective_backend = response.get("backend", backend)
         
+        resolved_shots = response.get("total_shots", shots)
+        
         return ExecutionResult(
             execution_id=response.get("execution_id"),
             counts=response.get("counts", {}),
@@ -656,10 +699,13 @@ class PlanckUser:
             memory=response.get("memory", []),
             circuit=None,
             backend=effective_backend,
-            shots=shots,
+            shots=resolved_shots,
             algorithm=validated_algorithm,
             backend_reason=response.get("backendReason"),
             backend_hint=response.get("backendHint"),
+            error_mitigation=response.get("error_mitigation", error_mitigation),
+            error_mitigation_requested=error_mitigation,
+            ml_tuning=response.get("ml_tuning"),
         )
     
     def list_executions(

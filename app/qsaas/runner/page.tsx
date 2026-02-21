@@ -15,7 +15,6 @@ import { PageHeader } from "@/components/page-header"
 import type { CircuitData } from "@/lib/qasm-generator"
 import { selectOptimalBackend, calculateFidelity, estimateRuntime } from "@/lib/backend-selector"
 import { DigitalTwinPanel } from "@/components/runner/digital-twin-panel"
-import { Collapsible } from "@/components/ui/collapsible"
 
 export default function RunnerPage() {
   const [isRunning, setIsRunning] = useState(false)
@@ -27,7 +26,7 @@ export default function RunnerPage() {
   const [shots, setShots] = useState<number | null>(null)
   const [autoShots, setAutoShots] = useState<number | null>(null)
   const [qubits, setQubits] = useState(4)
-  const [errorMitigation, setErrorMitigation] = useState<"none" | "low" | "medium" | "high">("none")
+  const [errorMitigation, setErrorMitigation] = useState<"auto" | "none" | "low" | "medium" | "high">("auto")
   const [results, setResults] = useState<any>(null)
   const [circuitCode, setCircuitCode] = useState("")
   const [circuitData, setCircuitData] = useState<CircuitData | null>(null)
@@ -42,6 +41,9 @@ export default function RunnerPage() {
     errorMitigation: string
     confidence: number
   } | null>(null)
+  const [showVisualizer, setShowVisualizer] = useState(false)
+  const [showCodeEditor, setShowCodeEditor] = useState(false)
+  const [showDominantStates, setShowDominantStates] = useState(false)
 
   useEffect(() => {
     const algorithmFromTemplates = sessionStorage.getItem("selectedAlgorithm")
@@ -62,7 +64,7 @@ export default function RunnerPage() {
         setShots(state.shots || null)
         setAutoShots(state.autoShots || null)
         setQubits(state.qubits || 4)
-        setErrorMitigation(state.errorMitigation || "none")
+        setErrorMitigation(state.errorMitigation || "auto")
         setCircuitCode(state.circuitCode || "")
         setCircuitData(state.circuitData || null)
         setDataUploaded(state.dataUploaded || false)
@@ -162,7 +164,8 @@ const adaptiveShots = calculateAdaptiveShots({
 
         if (executionType === "auto") {
           setBackend(data.recommendedBackend as any)
-          setErrorMitigation(data.recommendedErrorMitigation as any)
+          // Don't override errorMitigation state -- server resolves "auto"
+          // at execution time using the same ML data
         }
       } else {
         // Fall back to adaptive calculation
@@ -391,8 +394,8 @@ const adaptiveShots = calculateAdaptiveShots({
             execution_id: simulateData.execution_id,
           },
           backendConfig: {
-            backend,
-            error_mitigation: errorMitigation,
+            backend: simulateData.backend || backend,
+            error_mitigation: simulateData.error_mitigation || errorMitigation,
             transpiled: true,
             noise_model: backend === "quantum_qpu" ? "realistic" : "ideal",
           },
@@ -401,29 +404,20 @@ const adaptiveShots = calculateAdaptiveShots({
 
       const digitalTwinData = await digitalTwinResponse.json()
 
-      if (digitalTwinData.success) {
-        const mockResults = {
-          success_rate: simulateData.successRate,
-          runtime_ms: simulateData.runtime,
-          qubits_used: qubits,
-          total_shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
-          backend,
-          counts: simulateData.counts,
-          digital_twin: digitalTwinData.digital_twin,
-        }
-
-        setResults(mockResults)
-      } else {
-        const mockResults = {
-          success_rate: simulateData.successRate,
-          runtime_ms: simulateData.runtime,
-          qubits_used: qubits,
-          total_shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
-          backend,
-          counts: simulateData.counts,
-        }
-        setResults(mockResults)
+      const baseResults = {
+        success_rate: simulateData.successRate,
+        runtime_ms: simulateData.runtime,
+        qubits_used: qubits,
+        total_shots: simulateData.total_shots || (executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024)),
+        backend: simulateData.backend || backend,
+        counts: simulateData.counts,
+        error_mitigation: simulateData.error_mitigation || errorMitigation,
+        error_mitigation_requested: simulateData.error_mitigation_requested || errorMitigation,
+        ml_tuning: simulateData.ml_tuning || null,
+        ...(digitalTwinData.success ? { digital_twin: digitalTwinData.digital_twin } : {}),
       }
+
+      setResults(baseResults)
     } catch (error) {
       alert(`Error: ${error instanceof Error ? error.message : "Unknown error"}`)
     } finally {
@@ -825,18 +819,62 @@ const adaptiveShots = calculateAdaptiveShots({
                     error_mitigation: errorMitigation,
                     transpiled: true,
                   }}
+                  showDominantStates={showDominantStates}
                 />
               )}
             </div>
           ) : null}
 
-          {/* Circuit Visualizer - Optional/Secondary */}
-          {dataUploaded && circuitImageUrl && (
-            <Collapsible
-              title="Circuit Visualizer (Optional)"
-              defaultOpen={false}
-              className="shadow-lg"
-              headerAction={
+          {/* Section Toggles */}
+          {dataUploaded && (circuitImageUrl || circuitCode) && (
+            <Card className="p-4 shadow-lg bg-card">
+              <h3 className="text-sm font-semibold text-muted-foreground mb-3">Show / Hide Sections</h3>
+              <div className="flex flex-wrap gap-3">
+                {circuitImageUrl && (
+                  <button
+                    onClick={() => setShowVisualizer((v) => !v)}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                      showVisualizer
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
+                    }`}
+                  >
+                    Circuit Visualizer
+                  </button>
+                )}
+                {circuitCode && (
+                  <button
+                    onClick={() => setShowCodeEditor((v) => !v)}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                      showCodeEditor
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
+                    }`}
+                  >
+                    Code Editor
+                  </button>
+                )}
+                {results && (
+                  <button
+                    onClick={() => setShowDominantStates((v) => !v)}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                      showDominantStates
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
+                    }`}
+                  >
+                    Dominant Quantum States
+                  </button>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* Circuit Visualizer */}
+          {dataUploaded && circuitImageUrl && showVisualizer && (
+            <Card className="p-6 shadow-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">Circuit Visualizer</h3>
                 <Button
                   onClick={handleDownloadCircuitImage}
                   size="sm"
@@ -846,8 +884,7 @@ const adaptiveShots = calculateAdaptiveShots({
                   <Download size={16} />
                   Download
                 </Button>
-              }
-            >
+              </div>
               <div className="rounded-lg min-h-96 border border-border flex items-center justify-center bg-secondary overflow-hidden">
                 <img
                   src={circuitImageUrl || "/placeholder.svg"}
@@ -855,16 +892,14 @@ const adaptiveShots = calculateAdaptiveShots({
                   className="w-full h-auto object-contain"
                 />
               </div>
-            </Collapsible>
+            </Card>
           )}
 
-          {/* Circuit Code Editor - Optional/Secondary */}
-          {dataUploaded && circuitCode && (
-            <Collapsible
-              title="Circuit Code Editor (Optional)"
-              defaultOpen={false}
-              className="shadow-lg"
-              headerAction={
+          {/* Circuit Code Editor */}
+          {dataUploaded && circuitCode && showCodeEditor && (
+            <Card className="p-6 shadow-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-foreground">Circuit Code Editor</h3>
                 <div className="flex gap-2">
                   {isCodeEditable ? (
                     <Button onClick={handleSaveCode} size="sm" className="bg-primary">
@@ -885,8 +920,7 @@ const adaptiveShots = calculateAdaptiveShots({
                     Download
                   </Button>
                 </div>
-              }
-            >
+              </div>
               {isCodeEditable ? (
                 <textarea
                   value={circuitCode}
@@ -900,7 +934,7 @@ const adaptiveShots = calculateAdaptiveShots({
                     : `// Upload data and select algorithm to generate circuit code`}
                 </pre>
               )}
-            </Collapsible>
+            </Card>
           )}
         </div>
 
