@@ -15,6 +15,7 @@ import { PageHeader } from "@/components/page-header"
 import type { CircuitData } from "@/lib/qasm-generator"
 import { selectOptimalBackend, calculateFidelity, estimateRuntime } from "@/lib/backend-selector"
 import { DigitalTwinPanel } from "@/components/runner/digital-twin-panel"
+import { DigitalTwinSelector } from "@/components/runner/digital-twin-selector"
 
 export default function RunnerPage() {
   const [isRunning, setIsRunning] = useState(false)
@@ -44,6 +45,7 @@ export default function RunnerPage() {
   const [showVisualizer, setShowVisualizer] = useState(false)
   const [showCodeEditor, setShowCodeEditor] = useState(false)
   const [showDominantStates, setShowDominantStates] = useState(false)
+  const [selectedDigitalTwinId, setSelectedDigitalTwinId] = useState<string | null>(null)
 
   useEffect(() => {
     const algorithmFromTemplates = sessionStorage.getItem("selectedAlgorithm")
@@ -575,8 +577,7 @@ const adaptiveShots = calculateAdaptiveShots({
       }
 
       const { error } = await supabase.from("execution_logs").insert({
-        user_id: user.id,
-        circuit_name: executionName || `${circuitName} Execution`,
+        name: executionName || null,
         algorithm: circuitName,
         execution_type: executionType,
         backend,
@@ -585,6 +586,7 @@ const adaptiveShots = calculateAdaptiveShots({
         shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
         error_mitigation: errorMitigation,
         circuit_data: circuitSnapshot,
+        digital_twin_id: selectedDigitalTwinId,
       })
 
       if (error) {
@@ -634,6 +636,12 @@ const adaptiveShots = calculateAdaptiveShots({
   return (
     <div className="p-8 space-y-8 px-0">
       <PageHeader title="Runner" description="Configure and execute your quantum circuits" />
+
+      {/* Digital Twin Selector */}
+      <DigitalTwinSelector 
+        selectedTwinId={selectedDigitalTwinId}
+        onSelect={setSelectedDigitalTwinId}
+      />
 
       <Card className="p-6 shadow-lg bg-secondary px-6">
         <div className="space-y-4">
