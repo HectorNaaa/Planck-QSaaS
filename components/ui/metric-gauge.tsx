@@ -140,3 +140,122 @@ export function LevelIndicator({ level, label, size = "md" }: LevelIndicatorProp
     </div>
   )
 }
+
+interface CircularProgressProps {
+  value: number // 0-100
+  max: number
+  label: string
+  size?: "sm" | "md" | "lg"
+  color?: "green" | "yellow" | "red" | "blue" | "purple"
+}
+
+export function CircularProgress({ 
+  value, 
+  max,
+  label, 
+  size = "md", 
+  color = "blue"
+}: CircularProgressProps) {
+  const percentage = Math.max(0, Math.min(100, (value / max) * 100))
+  const radius = 40
+  const circumference = 2 * Math.PI * radius
+  const offset = circumference - (percentage / 100) * circumference
+
+  const sizeClasses = {
+    sm: { container: "w-20 h-20", text: "text-xs", value: "text-sm" },
+    md: { container: "w-28 h-28", text: "text-sm", value: "text-lg" },
+    lg: { container: "w-36 h-36", text: "text-base", value: "text-2xl" },
+  }
+
+  const colorStrokes = {
+    green: "#4ade80",
+    yellow: "#facc15",
+    red: "#f87171",
+    blue: "#60a5fa",
+    purple: "#c084fc",
+  }
+
+  const colorClasses = {
+    green: "text-green-400",
+    yellow: "text-yellow-400",
+    red: "text-red-400",
+    blue: "text-blue-400",
+    purple: "text-purple-400",
+  }
+
+  const sz = sizeClasses[size]
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div className={`${sz.container} relative`}>
+        <svg viewBox="0 0 100 100" className="transform -rotate-90">
+          {/* Background circle */}
+          <circle
+            cx="50"
+            cy="50"
+            r={radius}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="8"
+            className="text-secondary"
+          />
+          {/* Progress circle */}
+          <circle
+            cx="50"
+            cy="50"
+            r={radius}
+            fill="none"
+            stroke={colorStrokes[color]}
+            strokeWidth="8"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            className="transition-all duration-700"
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className={`${sz.value} font-bold ${colorClasses[color]}`}>
+            {value}
+          </span>
+          <span className={`${sz.text} text-muted-foreground`}>/ {max}</span>
+        </div>
+      </div>
+      <p className={`${sz.text} text-muted-foreground text-center font-medium`}>{label}</p>
+    </div>
+  )
+}
+
+interface LinearMetricProps {
+  value: number // 0-100
+  label: string
+  level: string
+  size?: "sm" | "md"
+}
+
+export function LinearMetric({ value, label, level, size = "md" }: LinearMetricProps) {
+  const normalizedValue = Math.max(0, Math.min(100, value))
+  
+  const getColor = () => {
+    if (normalizedValue < 33) return "bg-red-400"
+    if (normalizedValue < 67) return "bg-yellow-400"
+    return "bg-green-400"
+  }
+
+  const heightClass = size === "sm" ? "h-2" : "h-3"
+  const textClass = size === "sm" ? "text-xs" : "text-sm"
+
+  return (
+    <div className="flex flex-col gap-2 w-full">
+      <div className="flex items-center justify-between">
+        <p className={`${textClass} text-muted-foreground font-medium`}>{label}</p>
+        <p className={`${textClass} font-bold capitalize`}>{level}</p>
+      </div>
+      <div className={`w-full ${heightClass} bg-secondary rounded-full overflow-hidden`}>
+        <div
+          className={`${heightClass} ${getColor()} transition-all duration-700 rounded-full`}
+          style={{ width: `${normalizedValue}%` }}
+        />
+      </div>
+    </div>
+  )
+}
