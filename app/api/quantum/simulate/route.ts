@@ -56,6 +56,9 @@ export async function POST(request: NextRequest) {
     const depth = validateDepth(body.depth)
     const gateCount = validateGateCount(body.gateCount)
     const targetLatency = body.targetLatency ? Math.max(0, Math.min(60000, Number(body.targetLatency))) : null
+    const digitalTwinId: string | null = typeof body.digitalTwinId === "string" && body.digitalTwinId.length > 0
+      ? body.digitalTwinId
+      : null
     const predictedShots = body.predictedShots ? validateShots(body.predictedShots) : null
     const predictedBackend = body.predictedBackend ? validateBackend(body.predictedBackend) : null
     const predictedFidelity = body.predictedFidelity ? Math.max(0, Math.min(1, Number(body.predictedFidelity))) : null
@@ -218,6 +221,7 @@ export async function POST(request: NextRequest) {
             gate_count: gateCount,
             target_latency: targetLatency,
           },
+          digital_twin_id: digitalTwinId,
           results: {
             counts: results.counts,
             success_rate: results.successRate,
