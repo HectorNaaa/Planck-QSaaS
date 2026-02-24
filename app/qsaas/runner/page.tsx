@@ -657,9 +657,7 @@ const adaptiveShots = calculateAdaptiveShots({
               placeholder={`e.g., "My ${circuitName} Experiment"`}
               className="w-full px-4 py-2 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              Give this execution a custom name to easily identify it in your dashboard
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">Optional label for this execution</p>
           </div>
 
           <div className="mt-4">
@@ -679,9 +677,7 @@ const adaptiveShots = calculateAdaptiveShots({
               />
               <span className="text-sm font-medium text-muted-foreground">ms</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              For Quantum QPU: Minimum 500ms required. If less than 500ms, execution will use HPC or Classical backend
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">QPU requires ≥500ms. Below that falls back to HPC.</p>
           </div>
         </div>
       </Card>
@@ -781,9 +777,40 @@ const adaptiveShots = calculateAdaptiveShots({
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold text-foreground">Circuit Execution</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {results ? `Completed in ${results.runtime_ms}ms` : 'Ready to run'}
-                    </p>
+                    {results ? (
+                      <p className="text-sm text-muted-foreground">Completed in {results.runtime_ms}ms</p>
+                    ) : executionType === "auto" && circuitData ? (
+                      <div className="mt-1 text-xs text-muted-foreground space-y-0.5">
+                        {mlRecommendation ? (
+                          <>
+                            <p>
+                              <span className="text-foreground font-medium">Shots: </span>
+                              {mlRecommendation.shots}
+                              <span className="ml-1 text-green-400">(RL — {Math.round(mlRecommendation.confidence * 100)}% confidence)</span>
+                            </p>
+                            <p>
+                              <span className="text-foreground font-medium">Mitigation: </span>
+                              <span className="capitalize">{mlRecommendation.errorMitigation}</span>
+                              <span className="ml-1 text-green-400">(auto)</span>
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p>
+                              <span className="text-foreground font-medium">Shots: </span>
+                              {autoShots ?? calculateAdaptiveShots({ qubits, depth: circuitData.depth, gates: circuitData.gates.length })}
+                              <span className="ml-1 text-muted-foreground">(adaptive)</span>
+                            </p>
+                            <p>
+                              <span className="text-foreground font-medium">Mitigation: </span>
+                              <span>auto</span>
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">Ready to run</p>
+                    )}
                   </div>
                 </div>
                 

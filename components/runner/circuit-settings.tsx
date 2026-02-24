@@ -76,13 +76,11 @@ export function CircuitSettings({
           </div>
 
           {isAutomatic ? (
-            <div className="space-y-3">
-              <div className="p-3 bg-secondary/50 rounded-lg border border-primary/20">
-                <p className="text-sm text-foreground font-medium">Automatic mode enabled</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Shots and error mitigation are auto-tuned by the RL engine based on circuit complexity and historical execution data from all users.
-                </p>
-              </div>
+            <div className="p-3 bg-secondary/50 rounded-lg border border-primary/20">
+              <p className="text-xs font-medium text-foreground">Auto mode</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Shots &amp; mitigation tuned by RL from circuit data.
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -93,11 +91,11 @@ export function CircuitSettings({
                   onChange={(e) => setShots(Number(e.target.value))}
                   className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground"
                 >
-                  <option value={512}>512 shots</option>
-                  <option value={1024}>1024 shots</option>
-                  <option value={2048}>2048 shots</option>
-                  <option value={4096}>4096 shots</option>
-                  <option value={8192}>8192 shots</option>
+                  <option value={512}>512</option>
+                  <option value={1024}>1024</option>
+                  <option value={2048}>2048</option>
+                  <option value={4096}>4096</option>
+                  <option value={8192}>8192</option>
                 </select>
               </div>
 
@@ -108,17 +106,11 @@ export function CircuitSettings({
                   onChange={(e) => handleErrorMitigationChange(e.target.value as any)}
                   className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground"
                 >
-                  <option value="none">None (Default)</option>
-                  <option value="low">Low - Basic mitigation</option>
-                  <option value="medium">Medium - Standard mitigation</option>
-                  <option value="high">High - Maximum mitigation</option>
+                  <option value="none">None</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
                 </select>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {errorMitigation === "none" && "No error mitigation applied"}
-                  {errorMitigation === "low" && "Low error mitigation applied"}
-                  {errorMitigation === "medium" && "Medium error mitigation applied"}
-                  {errorMitigation === "high" && "High error mitigation applied"}
-                </p>
               </div>
             </div>
           )}

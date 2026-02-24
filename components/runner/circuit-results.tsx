@@ -4,7 +4,7 @@ import { useState } from "react"
 import { ChevronDown, Download, Brain, TrendingUp, Lightbulb, Info } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { MetricGauge, CircularProgress, LinearMetric } from "@/components/ui/metric-gauge"
+import { MetricGauge, LinearMetric } from "@/components/ui/metric-gauge"
 
 interface CircuitResultsProps {
   backend: string
@@ -18,269 +18,212 @@ export function CircuitResults({ backend, results, qubits, onDownload }: Circuit
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false)
   const [showDigitalTwinDetails, setShowDigitalTwinDetails] = useState(false)
 
-  const backendNames = {
+  const backendNames: Record<string, string> = {
     quantum_inspired_gpu: "Quantum Inspired GPU",
     hpc_gpu: "HPC GPU",
     quantum_qpu: "Quantum QPU",
   }
 
-  const benchmarks = results || {
-    successRate: 96.4,
-    runtime: 1.45,
-    qubitsUsed: qubits,
-    shots: 1024,
-    fidelity: 98.2,
-  }
+  const b = results || {}
+  const successRate  = Math.round(b.success_rate  ?? b.successRate  ?? 0)
+  const totalShots   = b.total_shots ?? b.shots ?? 1024
+  const qubitsUsed   = b.qubits_used ?? b.qubitsUsed ?? qubits
+  const fidelity     = Math.round(b.fidelity ?? 95)
+  const runtimeMs    = Math.round(b.runtime_ms ?? (b.runtime ?? 0) * 1000)
+  const emLevel      = results?.error_mitigation ?? "none"
 
-  const digitalTwin = results?.digital_twin
-  const hasDT = !!digitalTwin
+  const digitalTwin  = results?.digital_twin
+  const hasDT        = !!digitalTwin
 
-  // Calculate reliability score (0-100)
-  const getReliabilityScore = () => {
-    const successRate = benchmarks.success_rate || benchmarks.successRate || 0
-    const fidelity = benchmarks.fidelity || 95
-    return Math.round((successRate + fidelity) / 2)
-  }
+  // Reliability: blend success rate + fidelity (0–100)
+  const reliabilityScore = Math.round((successRate + fidelity) / 2)
 
-  // Normalize error mitigation level to 0-100
-  const getErrorMitigationLevel = () => {
-    const em = results?.error_mitigation || "none"
-    if (em === "high") return 100
-    if (em === "medium") return 66
-    if (em === "low") return 33
-    return 0
-  }
+  // Performance score: lower runtime = higher score
+  const perfScore = runtimeMs <= 100 ? 95
+    : runtimeMs <= 500  ? 82
+    : runtimeMs <= 2000 ? 60
+    : Math.max(20, Math.round(100 - runtimeMs / 50))
 
-  // Normalize qubits to percentage (max 30 qubits)
-  const getQubitUsagePercent = () => {
-    const used = benchmarks.qubits_used || benchmarks.qubitsUsed || qubits
-    return Math.min(100, (used / 30) * 100)
-  }
+  // Error mitigation 0–100
+  const emScore = emLevel === "high" ? 90 : emLevel === "medium" ? 60 : emLevel === "low" ? 30 : 0
 
-  // Normalize runtime to performance score (lower is better, inverted)
-  const getRuntimeScore = () => {
-    const runtime = benchmarks.runtime_ms || benchmarks.runtime * 1000 || 0
-    // 0-100ms = excellent (90-100), 100-500ms = good (70-89), 500-2000ms = fair (40-69), >2000ms = poor (0-39)
-    if (runtime <= 100) return 95
-    if (runtime <= 500) return 80
-    if (runtime <= 2000) return 55
-    return Math.max(20, 100 - runtime / 50)
-  }
-
-  const getMeasurementData = () => {
-    if (results?.counts) {
-      return Object.entries(results.counts)
-        .map(([bitstring, count]: [string, any]) => ({
-          bitstring,
-          probability: count / (results.total_shots || 1024),
-        }))
+  // Measurement probabilities
+  const measurementData = results?.counts
+    ? Object.entries(results.counts as Record<string, number>)
+        .map(([bitstring, count]) => ({ bitstring, probability: count / (totalShots || 1) }))
         .sort((a, b) => b.probability - a.probability)
         .slice(0, 10)
-    }
-    return [
-      { bitstring: "0110001", probability: 0.342 },
-      { bitstring: "1001110", probability: 0.218 },
-      { bitstring: "0011101", probability: 0.156 },
-      { bitstring: "1100010", probability: 0.124 },
-      { bitstring: "0000000", probability: 0.089 },
-      { bitstring: "1111111", probability: 0.071 },
-    ]
-  }
-
-  const measurementData = getMeasurementData()
+    : [
+        { bitstring: "0110001", probability: 0.342 },
+        { bitstring: "1001110", probability: 0.218 },
+        { bitstring: "0011101", probability: 0.156 },
+        { bitstring: "1100010", probability: 0.124 },
+        { bitstring: "0000000", probability: 0.089 },
+        { bitstring: "1111111", probability: 0.071 },
+      ]
 
   return (
     <Card className="p-6 shadow-lg">
+      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
           <h2 className="text-2xl font-bold text-foreground">Execution Dashboard</h2>
-          <ChevronDown
-            size={24}
-            className={`text-primary transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`}
-          />
+          <ChevronDown size={24} className={`text-primary transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`} />
         </div>
         {onDownload && results && (
           <Button onClick={onDownload} size="sm" variant="outline" className="flex items-center gap-2 bg-transparent">
-            <Download size={16} />
-            Download
+            <Download size={16} /> Download
           </Button>
         )}
       </div>
 
       {isExpanded && (
         <div className="space-y-6">
-          {/* Main Metrics Dashboard with Gauges */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+          {/* ── Gauges row ─────────────────────────────────────── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 place-items-center">
+            {/* 1. Reliability speedometer */}
             <MetricGauge
-              value={getReliabilityScore()}
+              value={reliabilityScore}
               label="Reliability"
               unit="%"
-              min={0}
-              max={100}
+              size="md"
             />
-            <CircularProgress
-              value={getQubitUsagePercent()}
-              label="Qubit Usage"
-              displayValue={`${benchmarks.qubits_used || benchmarks.qubitsUsed || qubits}`}
-              maxLabel="/ 30"
+
+            {/* 2. Qubits used — just a number card, no gauge needed */}
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex flex-col items-center justify-center w-28 h-28 rounded-full border-4 border-[#22c55e]/30 bg-secondary/50">
+                <span className="text-3xl font-bold" style={{ color: "#4ade80" }}>{qubitsUsed}</span>
+                <span className="text-[10px] text-muted-foreground">/ 30</span>
+              </div>
+              <p className="text-xs text-muted-foreground font-medium">Qubits Used</p>
+            </div>
+
+            {/* 3. Performance speedometer */}
+            <MetricGauge
+              value={perfScore}
+              label="Performance"
+              subtitle={`${runtimeMs}ms`}
+              size="md"
             />
+
+            {/* 4. Fidelity speedometer */}
+            <MetricGauge
+              value={fidelity}
+              label="Fidelity"
+              unit="%"
+              size="md"
+            />
+          </div>
+
+          {/* ── Error mitigation linear bar ──────────────────── */}
+          <div className="px-2">
             <LinearMetric
-              value={getErrorMitigationLevel()}
+              value={emScore}
               label="Error Mitigation"
-              displayValue={results?.error_mitigation || "none"}
+              displayValue={emLevel}
               levels={["None", "Low", "Med", "High"]}
             />
-            <MetricGauge
-              value={getRuntimeScore()}
-              label="Performance"
-              unit=""
-              min={0}
-              max={100}
-              subtitle={`${Math.round(benchmarks.runtime_ms || benchmarks.runtime * 1000 || 0)}ms`}
-            />
           </div>
 
-          {/* Quick Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="p-3 bg-secondary/50 rounded-lg border border-border text-center">
-              <p className="text-xs text-muted-foreground mb-1">Success Rate</p>
-              <p className="text-2xl font-bold text-primary">
-                {(benchmarks.success_rate || benchmarks.successRate || 0).toFixed(1)}%
-              </p>
-            </div>
-            <div className="p-3 bg-secondary/50 rounded-lg border border-border text-center">
-              <p className="text-xs text-muted-foreground mb-1">Total Shots</p>
-              <p className="text-2xl font-bold text-primary">{benchmarks.total_shots || benchmarks.shots || 1024}</p>
-            </div>
-            <div className="p-3 bg-secondary/50 rounded-lg border border-border text-center">
-              <p className="text-xs text-muted-foreground mb-1">Backend</p>
-              <p className="text-sm font-bold text-primary">
-                {(backendNames[backend as keyof typeof backendNames] || backend).replace(" ", "\n")}
-              </p>
-            </div>
-            <div className="p-3 bg-secondary/50 rounded-lg border border-border text-center">
-              <p className="text-xs text-muted-foreground mb-1">Fidelity</p>
-              <p className="text-2xl font-bold text-primary">
-                {(benchmarks.fidelity || 95).toFixed(1)}%
-              </p>
-            </div>
+          {/* ── Quick stat cards ─────────────────────────────── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: "Success Rate", value: `${successRate}%` },
+              { label: "Total Shots",  value: `${totalShots}`   },
+              { label: "Backend",      value: backendNames[backend] ?? backend },
+              { label: "Runtime",      value: `${runtimeMs}ms`  },
+            ].map(({ label, value }) => (
+              <div key={label} className="p-3 bg-secondary/50 rounded-lg border border-border text-center">
+                <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                <p className="text-lg font-bold text-foreground leading-tight">{value}</p>
+              </div>
+            ))}
           </div>
 
-          {/* Technical Details (Collapsible) */}
+          {/* ── Technical Details (collapsible) ─────────────── */}
           <div>
             <Button
               onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
               variant="outline"
-              className="w-full flex items-center justify-between mb-3 bg-secondary/30 hover:bg-secondary/50 border-border"
+              size="sm"
+              className="w-full flex items-center justify-between bg-secondary/30 hover:bg-secondary/50 border-border"
             >
               <div className="flex items-center gap-2">
-                <Info size={18} className="text-muted-foreground" />
-                <span className="font-medium text-foreground">Technical Details</span>
+                <Info size={15} className="text-muted-foreground" />
+                <span className="text-sm font-medium">Technical Details</span>
               </div>
-              <ChevronDown
-                size={20}
-                className={`text-muted-foreground transition-transform duration-300 ${showTechnicalDetails ? "rotate-180" : ""}`}
-              />
+              <ChevronDown size={16} className={`text-muted-foreground transition-transform duration-300 ${showTechnicalDetails ? "rotate-180" : ""}`} />
             </Button>
 
             {showTechnicalDetails && (
-              <div className="space-y-3 pl-2 border-l-2 border-border">
-                {/* Backend Info */}
+              <div className="mt-3 space-y-3 pl-2 border-l-2 border-border">
                 <div className="p-3 bg-secondary/30 rounded-lg border border-border">
-                  <p className="text-sm font-semibold text-foreground mb-1">Backend Selection</p>
-                  <p className="text-xs text-muted-foreground">
-                    {backendNames[backend as keyof typeof backendNames] || backend}
-                  </p>
-                  {results?.backendReason && (
-                    <p className="text-xs text-muted-foreground mt-1">{results.backendReason}</p>
-                  )}
-                  {results?.backendHint && results.backendHint !== backend && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Originally requested: {backendNames[results.backendHint as keyof typeof backendNames] || results.backendHint}
-                    </p>
-                  )}
+                  <p className="text-xs font-semibold text-foreground mb-1">Backend</p>
+                  <p className="text-xs text-muted-foreground">{backendNames[backend] ?? backend}</p>
+                  {results?.backendReason && <p className="text-xs text-muted-foreground mt-1">{results.backendReason}</p>}
                 </div>
 
-                {/* ML Tuning Info */}
                 {results?.error_mitigation_requested === "auto" && (
                   <div className="p-3 bg-secondary/30 rounded-lg border border-border">
-                    <p className="text-sm font-semibold text-foreground mb-1">ML Auto-Tuning</p>
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Error Mitigation: <span className="text-primary capitalize font-medium">{results.error_mitigation || "N/A"}</span>
-                      <span className="text-muted-foreground ml-1">(auto-resolved by RL)</span>
+                    <p className="text-xs font-semibold text-foreground mb-1">ML Auto-Tuning</p>
+                    <p className="text-xs text-muted-foreground">
+                      Mitigation: <span className="font-medium capitalize" style={{ color: "#4ade80" }}>{emLevel}</span>
+                      <span className="text-muted-foreground ml-1">(RL-resolved)</span>
                     </p>
                     {results.ml_tuning && (
-                      <>
-                        <p className="text-xs text-muted-foreground mt-1">{results.ml_tuning.reasoning}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Confidence: {(results.ml_tuning.confidence * 100).toFixed(0)}%
-                          {results.ml_tuning.based_on_executions > 0 && ` • Based on ${results.ml_tuning.based_on_executions} prior executions`}
-                        </p>
-                      </>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {results.ml_tuning.reasoning} — {Math.round((results.ml_tuning.confidence ?? 0) * 100)}% confidence
+                        {results.ml_tuning.based_on_executions > 0 && ` · ${results.ml_tuning.based_on_executions} prior runs`}
+                      </p>
                     )}
                   </div>
                 )}
 
-                {/* Runtime Details */}
                 <div className="p-3 bg-secondary/30 rounded-lg border border-border">
-                  <p className="text-sm font-semibold text-foreground mb-1">Execution Details</p>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-muted-foreground">Runtime: </span>
-                      <span className="text-foreground font-mono">
-                        {Math.round(benchmarks.runtime_ms || benchmarks.runtime * 1000 || 0)}ms
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Qubits: </span>
-                      <span className="text-foreground font-mono">
-                        {benchmarks.qubits_used || benchmarks.qubitsUsed || qubits}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Shots: </span>
-                      <span className="text-foreground font-mono">
-                        {benchmarks.total_shots || benchmarks.shots || 1024}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Success: </span>
-                      <span className="text-foreground font-mono">
-                        {(benchmarks.success_rate || benchmarks.successRate || 0).toFixed(1)}%
-                      </span>
-                    </div>
+                  <p className="text-xs font-semibold text-foreground mb-2">Execution Details</p>
+                  <div className="grid grid-cols-2 gap-1.5 text-xs">
+                    {[
+                      ["Runtime",  `${runtimeMs}ms`      ],
+                      ["Qubits",   `${qubitsUsed}`        ],
+                      ["Shots",    `${totalShots}`        ],
+                      ["Success",  `${successRate}%`      ],
+                      ["Fidelity", `${fidelity}%`         ],
+                    ].map(([k, v]) => (
+                      <div key={k}>
+                        <span className="text-muted-foreground">{k}: </span>
+                        <span className="font-mono text-foreground">{v}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
             )}
           </div>
 
-          {/* Digital Twin Insights (Collapsible) */}
+          {/* ── Digital Twin Insights (collapsible) ─────────── */}
           {hasDT && (
             <div>
               <Button
                 onClick={() => setShowDigitalTwinDetails(!showDigitalTwinDetails)}
                 variant="outline"
-                className="w-full flex items-center justify-between mb-3 bg-primary/5 hover:bg-primary/10 border-primary/30"
+                size="sm"
+                className="w-full flex items-center justify-between bg-secondary/30 hover:bg-secondary/50 border-border"
               >
                 <div className="flex items-center gap-2">
-                  <Brain size={18} className="text-primary" />
-                  <span className="font-medium text-foreground">Digital Twin Insights</span>
+                  <Brain size={15} className="text-primary" />
+                  <span className="text-sm font-medium">Digital Twin Insights</span>
                 </div>
-                <ChevronDown
-                  size={20}
-                  className={`text-primary transition-transform duration-300 ${showDigitalTwinDetails ? "rotate-180" : ""}`}
-                />
+                <ChevronDown size={16} className={`text-muted-foreground transition-transform duration-300 ${showDigitalTwinDetails ? "rotate-180" : ""}`} />
               </Button>
 
               {showDigitalTwinDetails && (
-                <div className="space-y-3 pl-2 border-l-2 border-primary/30">
-                  {/* Interpretation */}
+                <div className="mt-3 space-y-3 pl-2 border-l-2 border-border">
                   {(digitalTwin.interpretation || digitalTwin.insights?.interpretation) && (
                     <div className="p-3 bg-secondary/30 rounded-lg border border-border">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Lightbulb size={16} className="text-primary" />
-                        <p className="text-sm font-semibold text-foreground">Interpretation</p>
+                      <div className="flex items-center gap-2 mb-1">
+                        <Lightbulb size={14} className="text-primary" />
+                        <p className="text-xs font-semibold text-foreground">Interpretation</p>
                       </div>
                       <p className="text-xs text-muted-foreground leading-relaxed">
                         {digitalTwin.interpretation || digitalTwin.insights?.interpretation}
@@ -288,108 +231,59 @@ export function CircuitResults({ backend, results, qubits, onDownload }: Circuit
                     </div>
                   )}
 
-                  {/* Behavior Insights */}
-                  {((digitalTwin.behavior_insights && digitalTwin.behavior_insights.length > 0) ||
-                    (digitalTwin.insights?.key_findings && digitalTwin.insights.key_findings.length > 0)) && (
+                  {((digitalTwin.behavior_insights?.length > 0) || (digitalTwin.insights?.key_findings?.length > 0)) && (
                     <div className="p-3 bg-secondary/30 rounded-lg border border-border">
-                      <div className="flex items-center gap-2 mb-2">
-                        <TrendingUp size={16} className="text-primary" />
-                        <p className="text-sm font-semibold text-foreground">Key Findings</p>
+                      <div className="flex items-center gap-2 mb-1">
+                        <TrendingUp size={14} className="text-primary" />
+                        <p className="text-xs font-semibold text-foreground">Key Findings</p>
                       </div>
                       <ul className="space-y-1">
-                        {(digitalTwin.behavior_insights || digitalTwin.insights?.key_findings || []).map((finding: string, idx: number) => (
-                          <li key={idx} className="text-xs text-muted-foreground flex items-start gap-2 leading-relaxed">
-                            <span className="text-primary mt-0.5">•</span>
-                            <span>{finding}</span>
+                        {(digitalTwin.behavior_insights || digitalTwin.insights?.key_findings || []).map((f: string, i: number) => (
+                          <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                            <span className="text-primary mt-0.5">•</span><span>{f}</span>
                           </li>
                         ))}
                       </ul>
                     </div>
                   )}
 
-                  {/* Performance Metrics */}
                   {digitalTwin.performance_metrics && (
                     <div className="p-3 bg-secondary/30 rounded-lg border border-border">
-                      <p className="text-sm font-semibold text-foreground mb-2">Performance Metrics</p>
+                      <p className="text-xs font-semibold text-foreground mb-2">Performance Metrics</p>
                       <div className="grid grid-cols-3 gap-2">
                         {[
-                          { label: "Speed", value: digitalTwin.performance_metrics.executionSpeed },
-                          { label: "Convergence", value: digitalTwin.performance_metrics.convergence },
-                          { label: "Reliability", value: digitalTwin.performance_metrics.reliability },
-                        ].map((m) => {
-                          const color = m.value === "excellent" || m.value === "strong" || m.value === "high"
-                            ? "text-green-400" : m.value === "good" || m.value === "moderate" || m.value === "medium"
-                              ? "text-yellow-400" : "text-red-400"
-                          return (
-                            <div key={m.label} className="text-center p-2 bg-secondary/50 rounded">
-                              <div className="text-xs text-muted-foreground">{m.label}</div>
-                              <div className={`text-xs font-bold capitalize ${color}`}>{m.value}</div>
-                            </div>
-                          )
-                        })}
+                          { label: "Speed",       value: digitalTwin.performance_metrics.executionSpeed },
+                          { label: "Convergence", value: digitalTwin.performance_metrics.convergence    },
+                          { label: "Reliability", value: digitalTwin.performance_metrics.reliability    },
+                        ].map((m) => (
+                          <div key={m.label} className="text-center p-2 bg-secondary/50 rounded">
+                            <div className="text-[10px] text-muted-foreground">{m.label}</div>
+                            <div className="text-xs font-bold capitalize" style={{ color: "#4ade80" }}>{m.value}</div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}
 
-                  {/* Statistical Analysis */}
                   {digitalTwin.statistical_analysis && (
                     <div className="p-3 bg-secondary/30 rounded-lg border border-border">
-                      <p className="text-sm font-semibold text-foreground mb-2">Statistical Analysis</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="text-xs">
-                          <span className="text-muted-foreground">Entropy: </span>
-                          <span className="font-mono text-foreground">
-                            {digitalTwin.statistical_analysis.entropy?.toFixed(2)} bits
-                          </span>
-                        </div>
-                        <div className="text-xs">
-                          <span className="text-muted-foreground">Convergence: </span>
-                          <span className="font-mono text-foreground capitalize">
-                            {digitalTwin.statistical_analysis.convergence}
-                          </span>
-                        </div>
-                        <div className="text-xs">
-                          <span className="text-muted-foreground">Unique States: </span>
-                          <span className="font-mono text-foreground">
-                            {digitalTwin.statistical_analysis.unique_outcomes}
-                          </span>
-                        </div>
-                        <div className="text-xs">
-                          <span className="text-muted-foreground">Std Dev: </span>
-                          <span className="font-mono text-foreground">
-                            {digitalTwin.statistical_analysis.std_probability?.toFixed(4)}
-                          </span>
-                        </div>
+                      <p className="text-xs font-semibold text-foreground mb-2">Statistical Analysis</p>
+                      <div className="grid grid-cols-2 gap-1.5 text-xs">
+                        <div><span className="text-muted-foreground">Entropy: </span><span className="font-mono">{digitalTwin.statistical_analysis.entropy?.toFixed(2)} bits</span></div>
+                        <div><span className="text-muted-foreground">Convergence: </span><span className="font-mono capitalize">{digitalTwin.statistical_analysis.convergence}</span></div>
+                        <div><span className="text-muted-foreground">Unique States: </span><span className="font-mono">{digitalTwin.statistical_analysis.unique_outcomes}</span></div>
+                        <div><span className="text-muted-foreground">Std Dev: </span><span className="font-mono">{digitalTwin.statistical_analysis.std_probability?.toFixed(4)}</span></div>
                       </div>
                     </div>
                   )}
 
-                  {/* Data Patterns */}
-                  {((digitalTwin.data_patterns && digitalTwin.data_patterns.length > 0) ||
-                    (digitalTwin.insights?.data_patterns && digitalTwin.insights.data_patterns.length > 0)) && (
+                  {((digitalTwin.system_recommendations?.length > 0) || (digitalTwin.insights?.recommendations?.length > 0)) && (
                     <div className="p-3 bg-secondary/30 rounded-lg border border-border">
-                      <p className="text-sm font-semibold text-foreground mb-2">Data Patterns</p>
+                      <p className="text-xs font-semibold text-foreground mb-1">Recommendations</p>
                       <ul className="space-y-1">
-                        {(digitalTwin.data_patterns || digitalTwin.insights?.data_patterns || []).map((pattern: string, idx: number) => (
-                          <li key={idx} className="text-xs text-muted-foreground flex items-start gap-2 leading-relaxed">
-                            <span className="text-primary mt-0.5">•</span>
-                            <span>{pattern}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Recommendations */}
-                  {((digitalTwin.system_recommendations && digitalTwin.system_recommendations.length > 0) ||
-                    (digitalTwin.insights?.recommendations && digitalTwin.insights.recommendations.length > 0)) && (
-                    <div className="p-3 bg-primary/10 rounded-lg border border-primary/30">
-                      <p className="text-sm font-semibold text-foreground mb-2">System Recommendations</p>
-                      <ul className="space-y-1">
-                        {(digitalTwin.system_recommendations || digitalTwin.insights?.recommendations || []).map((rec: string, idx: number) => (
-                          <li key={idx} className="text-xs text-muted-foreground flex items-start gap-2 leading-relaxed">
-                            <span className="text-primary mt-0.5">→</span>
-                            <span>{rec}</span>
+                        {(digitalTwin.system_recommendations || digitalTwin.insights?.recommendations || []).map((r: string, i: number) => (
+                          <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                            <span className="text-primary mt-0.5">→</span><span>{r}</span>
                           </li>
                         ))}
                       </ul>
@@ -400,28 +294,29 @@ export function CircuitResults({ backend, results, qubits, onDownload }: Circuit
             </div>
           )}
 
-          {/* Measurement Probabilities */}
+          {/* ── Measurement Probabilities ─────────────────────── */}
           <div>
             <p className="text-sm font-medium text-foreground mb-3">Measurement Probabilities</p>
-            <div className="space-y-2 min-h-64 max-h-96 overflow-auto">
+            <div className="space-y-1.5 max-h-80 overflow-auto">
               {measurementData.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center justify-between p-2 bg-secondary/30 rounded border border-border hover:bg-secondary/40 transition-colors"
-                >
-                  <code className="text-sm font-mono text-foreground">{item.bitstring}</code>
-                  <div className="flex items-center gap-3">
-                    <div className="w-32 bg-secondary rounded-full h-2">
-                      <div className="bg-primary h-2 rounded-full transition-all" style={{ width: `${item.probability * 100}%` }} />
+                <div key={idx} className="flex items-center justify-between p-2 bg-secondary/30 rounded border border-border hover:bg-secondary/50 transition-colors">
+                  <code className="text-xs font-mono text-foreground">{item.bitstring}</code>
+                  <div className="flex items-center gap-2">
+                    <div className="w-24 sm:w-32 bg-secondary rounded-full h-1.5">
+                      <div
+                        className="h-1.5 rounded-full transition-all"
+                        style={{ width: `${item.probability * 100}%`, backgroundColor: "#22c55e" }}
+                      />
                     </div>
-                    <span className="text-sm font-medium text-primary w-12 text-right">
-                      {(item.probability * 100).toFixed(1)}%
+                    <span className="text-xs font-medium w-10 text-right" style={{ color: "#4ade80" }}>
+                      {Math.round(item.probability * 100)}%
                     </span>
                   </div>
                 </div>
               ))}
             </div>
           </div>
+
         </div>
       )}
     </Card>

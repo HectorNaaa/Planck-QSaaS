@@ -1,97 +1,77 @@
 "use client"
 
+// Three green tones used throughout: bright #4ade80, mid #22c55e, deep #16a34a
+const G_BRIGHT = "#4ade80"
+const G_MID   = "#22c55e"
+const G_DEEP  = "#16a34a"
+
+// ─── Speedometer Gauge ────────────────────────────────────────────────────────
 interface MetricGaugeProps {
-  value: number // 0-100
+  value: number       // 0–100 normalised score
   label: string
+  unit?: string
+  subtitle?: string
   size?: "sm" | "md" | "lg"
-  color?: "green" | "yellow" | "red" | "blue" | "purple"
-  showValue?: boolean
 }
 
-export function MetricGauge({ 
-  value, 
-  label, 
-  size = "md", 
-  color = "blue",
-  showValue = true 
-}: MetricGaugeProps) {
-  const normalizedValue = Math.max(0, Math.min(100, value))
-  const rotation = (normalizedValue / 100) * 180 - 90
+export function MetricGauge({ value, label, unit = "", subtitle, size = "md" }: MetricGaugeProps) {
+  const v = Math.max(0, Math.min(100, value))
+  // Needle rotates from -90° (left end) to +90° (right end)
+  const needleDeg = (v / 100) * 180 - 90
 
-  const sizeClasses = {
-    sm: { container: "w-20 h-20", text: "text-xs", label: "text-[10px]", value: "text-sm" },
-    md: { container: "w-28 h-28", text: "text-sm", label: "text-xs", value: "text-lg" },
-    lg: { container: "w-36 h-36", text: "text-base", label: "text-sm", value: "text-2xl" },
+  // Arc progress: circumference of the semi-circle path ≈ 125.6
+  const ARC_LEN = 125.6
+  const filled = (v / 100) * ARC_LEN
+
+  // Pick stroke colour by thirds
+  const stroke = v >= 67 ? G_BRIGHT : v >= 34 ? G_MID : G_DEEP
+
+  const sizes = {
+    sm: { w: 88,  valSize: "text-sm",  labelSize: "text-[10px]" },
+    md: { w: 112, valSize: "text-base", labelSize: "text-xs"    },
+    lg: { w: 140, valSize: "text-xl",  labelSize: "text-sm"     },
   }
-
-  const colorClasses = {
-    green: "text-green-400",
-    yellow: "text-yellow-400",
-    red: "text-red-400",
-    blue: "text-blue-400",
-    purple: "text-purple-400",
-  }
-
-  const colorStrokes = {
-    green: "#4ade80",
-    yellow: "#facc15",
-    red: "#f87171",
-    blue: "#60a5fa",
-    purple: "#c084fc",
-  }
-
-  const sz = sizeClasses[size]
+  const s = sizes[size]
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className={`${sz.container} relative`}>
-        <svg viewBox="0 0 100 100" className="transform -rotate-90">
-          {/* Background arc */}
-          <path
-            d="M 10 50 A 40 40 0 0 1 90 50"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="8"
-            className="text-secondary"
-          />
-          {/* Value arc */}
-          <path
-            d="M 10 50 A 40 40 0 0 1 90 50"
-            fill="none"
-            stroke={colorStrokes[color]}
-            strokeWidth="8"
-            strokeDasharray={`${(normalizedValue / 100) * 126} 126`}
-            strokeLinecap="round"
-            className="transition-all duration-700"
-          />
-          {/* Needle */}
-          <line
-            x1="50"
-            y1="50"
-            x2="50"
-            y2="15"
-            stroke={colorStrokes[color]}
-            strokeWidth="2"
-            strokeLinecap="round"
-            style={{ transformOrigin: "50% 50%", transform: `rotate(${rotation}deg)` }}
-            className="transition-transform duration-700"
-          />
-          {/* Center dot */}
-          <circle cx="50" cy="50" r="3" fill={colorStrokes[color]} />
-        </svg>
-        {showValue && (
-          <div className="absolute inset-0 flex items-center justify-center pt-4">
-            <span className={`${sz.value} font-bold ${colorClasses[color]}`}>
-              {normalizedValue.toFixed(0)}
-            </span>
-          </div>
-        )}
-      </div>
-      <p className={`${sz.label} text-muted-foreground text-center font-medium`}>{label}</p>
+    <div className="flex flex-col items-center gap-1" style={{ width: s.w }}>
+      {/* SVG gauge — viewBox 100×60 so the semi-circle sits in the top half */}
+      <svg viewBox="0 0 100 60" width={s.w} height={s.w * 0.6} aria-label={`${label}: ${Math.round(v)}${unit}`}>
+        {/* Background arc */}
+        <path
+          d="M 10 50 A 40 40 0 0 1 90 50"
+          fill="none" stroke="#1e293b" strokeWidth="8" strokeLinecap="round"
+        />
+        {/* Value arc */}
+        <path
+          d="M 10 50 A 40 40 0 0 1 90 50"
+          fill="none" stroke={stroke} strokeWidth="8" strokeLinecap="round"
+          strokeDasharray={`${filled} ${ARC_LEN}`}
+          className="transition-all duration-700"
+        />
+        {/* Needle — translated so its base is at the arc centre (50,50) */}
+        <g
+          transform={`rotate(${needleDeg}, 50, 50)`}
+          className="transition-transform duration-700"
+        >
+          {/* needle tip stops at 50,14 — well inside the arc, clear of the value text */}
+          <line x1="50" y1="50" x2="50" y2="16"
+            stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+        </g>
+        {/* Centre pivot */}
+        <circle cx="50" cy="50" r="3" fill={stroke} />
+        {/* Value — placed in the lower half so the needle never covers it */}
+        <text x="50" y="56" textAnchor="middle" fontSize="11" fontWeight="700" fill={stroke}>
+          {Math.round(v)}{unit}
+        </text>
+      </svg>
+      {subtitle && <p className="text-[10px] text-muted-foreground font-mono">{subtitle}</p>}
+      <p className={`${s.labelSize} text-muted-foreground text-center font-medium leading-tight`}>{label}</p>
     </div>
   )
 }
 
+// ─── Segmented bar ("signal bars") level indicator ───────────────────────────
 interface LevelIndicatorProps {
   level: "excellent" | "strong" | "good" | "moderate" | "acceptable" | "weak" | "low" | "high" | "medium" | "none"
   label: string
@@ -99,41 +79,46 @@ interface LevelIndicatorProps {
 }
 
 export function LevelIndicator({ level, label, size = "md" }: LevelIndicatorProps) {
-  const levelMap = {
-    excellent: { bars: 5, color: "bg-green-400" },
-    strong: { bars: 5, color: "bg-green-400" },
-    high: { bars: 5, color: "bg-green-400" },
-    good: { bars: 4, color: "bg-blue-400" },
-    moderate: { bars: 3, color: "bg-yellow-400" },
-    medium: { bars: 3, color: "bg-yellow-400" },
-    acceptable: { bars: 3, color: "bg-yellow-400" },
-    weak: { bars: 2, color: "bg-orange-400" },
-    low: { bars: 2, color: "bg-orange-400" },
-    none: { bars: 0, color: "bg-gray-400" },
+  const levelMap: Record<string, { bars: number; color: string }> = {
+    excellent: { bars: 5, color: G_BRIGHT },
+    strong:    { bars: 5, color: G_BRIGHT },
+    high:      { bars: 5, color: G_BRIGHT },
+    good:      { bars: 4, color: G_MID   },
+    moderate:  { bars: 3, color: G_MID   },
+    medium:    { bars: 3, color: G_MID   },
+    acceptable:{ bars: 3, color: G_MID   },
+    weak:      { bars: 2, color: G_DEEP  },
+    low:       { bars: 2, color: G_DEEP  },
+    none:      { bars: 0, color: "#4b5563"},
   }
-
-  const config = levelMap[level] || { bars: 0, color: "bg-gray-400" }
-  const barHeight = size === "sm" ? "h-6" : "h-8"
-  const barWidth = size === "sm" ? "w-2" : "w-3"
+  const cfg = levelMap[level] ?? { bars: 0, color: "#4b5563" }
+  const containerH = size === "sm" ? 24 : 32
+  const barW       = size === "sm" ? 8  : 12
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <div className={`flex items-end gap-1 ${size === "sm" ? "h-6" : "h-8"}`}>
-        {[1, 2, 3, 4, 5].map((bar) => (
-          <div
-            key={bar}
-            className={`${barWidth} ${barHeight} rounded-t transition-all duration-500`}
-            style={{
-              height: `${(bar / 5) * 100}%`,
-              backgroundColor: bar <= config.bars ? config.color.replace("bg-", "") : undefined,
-            }}
-          >
-            <div
-              className={`w-full h-full rounded-t ${bar <= config.bars ? config.color : "bg-secondary/50"}`}
+      <svg
+        viewBox={`0 0 ${5 * barW + 4 * 3} ${containerH}`}
+        width={5 * barW + 4 * 3}
+        height={containerH}
+        aria-label={`${label}: ${level}`}
+      >
+        {[1, 2, 3, 4, 5].map((bar, i) => {
+          const barH = (bar / 5) * containerH
+          const active = bar <= cfg.bars
+          return (
+            <rect
+              key={bar}
+              x={i * (barW + 3)}
+              y={containerH - barH}
+              width={barW}
+              height={barH}
+              rx="2"
+              fill={active ? cfg.color : "#1e293b"}
             />
-          </div>
-        ))}
-      </div>
+          )
+        })}
+      </svg>
       <p className={`${size === "sm" ? "text-[10px]" : "text-xs"} text-muted-foreground text-center font-medium capitalize`}>
         {label}
       </p>
@@ -141,121 +126,91 @@ export function LevelIndicator({ level, label, size = "md" }: LevelIndicatorProp
   )
 }
 
+// ─── Circular progress ring ───────────────────────────────────────────────────
 interface CircularProgressProps {
-  value: number // 0-100
+  value: number         // raw value to display
   max: number
   label: string
+  displayValue?: string // override displayed text (defaults to value)
+  maxLabel?: string     // e.g. "/ 30"
   size?: "sm" | "md" | "lg"
-  color?: "green" | "yellow" | "red" | "blue" | "purple"
 }
 
-export function CircularProgress({ 
-  value, 
-  max,
-  label, 
-  size = "md", 
-  color = "blue"
-}: CircularProgressProps) {
-  const percentage = Math.max(0, Math.min(100, (value / max) * 100))
-  const radius = 40
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference - (percentage / 100) * circumference
+export function CircularProgress({ value, max, label, displayValue, maxLabel, size = "md" }: CircularProgressProps) {
+  const pct = Math.max(0, Math.min(100, (value / max) * 100))
+  const R = 36
+  const C = 2 * Math.PI * R
+  const offset = C - (pct / 100) * C
 
-  const sizeClasses = {
-    sm: { container: "w-20 h-20", text: "text-xs", value: "text-sm" },
-    md: { container: "w-28 h-28", text: "text-sm", value: "text-lg" },
-    lg: { container: "w-36 h-36", text: "text-base", value: "text-2xl" },
+  const stroke = pct >= 67 ? G_BRIGHT : pct >= 34 ? G_MID : G_DEEP
+
+  const sizes = {
+    sm: { w: 72,  valSize: "text-xs",  subSize: "text-[9px]",  labelSize: "text-[10px]" },
+    md: { w: 96,  valSize: "text-base",subSize: "text-[10px]", labelSize: "text-xs"     },
+    lg: { w: 120, valSize: "text-lg",  subSize: "text-xs",     labelSize: "text-sm"     },
   }
-
-  const colorStrokes = {
-    green: "#4ade80",
-    yellow: "#facc15",
-    red: "#f87171",
-    blue: "#60a5fa",
-    purple: "#c084fc",
-  }
-
-  const colorClasses = {
-    green: "text-green-400",
-    yellow: "text-yellow-400",
-    red: "text-red-400",
-    blue: "text-blue-400",
-    purple: "text-purple-400",
-  }
-
-  const sz = sizeClasses[size]
+  const s = sizes[size]
 
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className={`${sz.container} relative`}>
-        <svg viewBox="0 0 100 100" className="transform -rotate-90">
-          {/* Background circle */}
+    <div className="flex flex-col items-center gap-1" style={{ width: s.w }}>
+      <div className="relative" style={{ width: s.w, height: s.w }}>
+        <svg viewBox="0 0 100 100" width={s.w} height={s.w}>
+          <circle cx="50" cy="50" r={R} fill="none" stroke="#1e293b" strokeWidth="8" />
           <circle
-            cx="50"
-            cy="50"
-            r={radius}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="8"
-            className="text-secondary"
-          />
-          {/* Progress circle */}
-          <circle
-            cx="50"
-            cy="50"
-            r={radius}
-            fill="none"
-            stroke={colorStrokes[color]}
-            strokeWidth="8"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
+            cx="50" cy="50" r={R} fill="none"
+            stroke={stroke} strokeWidth="8"
+            strokeDasharray={C} strokeDashoffset={offset}
             strokeLinecap="round"
+            transform="rotate(-90 50 50)"
             className="transition-all duration-700"
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={`${sz.value} font-bold ${colorClasses[color]}`}>
-            {value}
+          <span className={`${s.valSize} font-bold`} style={{ color: stroke }}>
+            {displayValue ?? Math.round(value)}
           </span>
-          <span className={`${sz.text} text-muted-foreground`}>/ {max}</span>
+          {maxLabel && <span className={`${s.subSize} text-muted-foreground`}>{maxLabel}</span>}
         </div>
       </div>
-      <p className={`${sz.text} text-muted-foreground text-center font-medium`}>{label}</p>
+      <p className={`${s.labelSize} text-muted-foreground text-center font-medium`}>{label}</p>
     </div>
   )
 }
 
+// ─── Linear bar metric ────────────────────────────────────────────────────────
 interface LinearMetricProps {
-  value: number // 0-100
+  value: number         // 0–100
   label: string
-  level: string
+  displayValue: string  // text shown next to label (e.g. "medium")
+  levels?: string[]     // optional tick labels
   size?: "sm" | "md"
 }
 
-export function LinearMetric({ value, label, level, size = "md" }: LinearMetricProps) {
-  const normalizedValue = Math.max(0, Math.min(100, value))
-  
-  const getColor = () => {
-    if (normalizedValue < 33) return "bg-red-400"
-    if (normalizedValue < 67) return "bg-yellow-400"
-    return "bg-green-400"
-  }
-
-  const heightClass = size === "sm" ? "h-2" : "h-3"
-  const textClass = size === "sm" ? "text-xs" : "text-sm"
+export function LinearMetric({ value, label, displayValue, levels, size = "md" }: LinearMetricProps) {
+  const v = Math.max(0, Math.min(100, value))
+  const fill = v >= 67 ? G_BRIGHT : v >= 34 ? G_MID : G_DEEP
+  const h = size === "sm" ? "h-1.5" : "h-2"
+  const txt = size === "sm" ? "text-[10px]" : "text-xs"
 
   return (
     <div className="flex flex-col gap-2 w-full">
       <div className="flex items-center justify-between">
-        <p className={`${textClass} text-muted-foreground font-medium`}>{label}</p>
-        <p className={`${textClass} font-bold capitalize`}>{level}</p>
+        <p className={`${txt} text-muted-foreground font-medium`}>{label}</p>
+        <p className={`${txt} font-bold capitalize`} style={{ color: fill }}>{displayValue}</p>
       </div>
-      <div className={`w-full ${heightClass} bg-secondary rounded-full overflow-hidden`}>
+      <div className={`w-full ${h} bg-secondary rounded-full overflow-hidden`}>
         <div
-          className={`${heightClass} ${getColor()} transition-all duration-700 rounded-full`}
-          style={{ width: `${normalizedValue}%` }}
+          className={`${h} rounded-full transition-all duration-700`}
+          style={{ width: `${v}%`, backgroundColor: fill }}
         />
       </div>
+      {levels && (
+        <div className="flex justify-between">
+          {levels.map((l) => (
+            <span key={l} className="text-[9px] text-muted-foreground">{l}</span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

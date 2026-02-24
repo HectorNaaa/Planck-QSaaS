@@ -208,6 +208,7 @@ class PlanckUser:
         circuit_name: Optional[str] = None,
         target_latency: Optional[int] = None,
         qubits: Optional[int] = None,
+        digital_twin_id: Optional[str] = None,
         wait: bool = True
     ) -> ExecutionResult:
         """
@@ -223,6 +224,8 @@ class PlanckUser:
             circuit_name: Optional name for the execution
             target_latency: Target latency in ms (affects backend selection)
             qubits: Number of qubits (1-30, auto-calculated if None)
+            digital_twin_id: Optional ID of an existing digital twin to link this execution to.
+                Found in the QSaaS runner UI. Pass None (default) to leave unlinked.
             wait: Wait for completion (default: True)
         
         Returns:
@@ -291,6 +294,7 @@ class PlanckUser:
             "depth": circuit.depth,
             "gateCount": circuit.gate_count,
             "targetLatency": target_latency,
+            "digitalTwinId": digital_twin_id,
         }
         
         response = self._request("POST", "simulate", payload)

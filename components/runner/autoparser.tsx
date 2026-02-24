@@ -159,8 +159,8 @@ export function AutoParser({ onParsed, inputData, algorithm }: AutoParserProps) 
 
       {isExpanded && (
         <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Automatically analyze your data and extract base circuit configuration details.
+          <p className="text-xs text-muted-foreground">
+            Extracts circuit parameters from your data automatically.
           </p>
 
           {error && (
@@ -171,10 +171,7 @@ export function AutoParser({ onParsed, inputData, algorithm }: AutoParserProps) 
           )}
 
           <div className="p-3 bg-primary/10 border border-primary/30 rounded-lg">
-            <p className="text-sm text-foreground font-medium">✓ Automatic parsing enabled</p>
-            <p className="text-xs text-muted-foreground">
-              Circuit parameters update automatically when data or case changes
-            </p>
+            <p className="text-xs text-foreground font-medium">Auto-parse active — updates on data/case change</p>
           </div>
 
           {parsedData && (
