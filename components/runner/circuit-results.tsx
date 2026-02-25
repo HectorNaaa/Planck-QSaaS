@@ -92,8 +92,8 @@ export function CircuitResults({ backend, results, qubits, onDownload }: Circuit
 
             {/* 2. Qubits used — just a number card, no gauge needed */}
             <div className="flex flex-col items-center gap-2">
-              <div className="flex flex-col items-center justify-center w-28 h-28 rounded-full border-4 border-[#22c55e]/30 bg-secondary/50">
-                <span className="text-3xl font-bold" style={{ color: "#4ade80" }}>{qubitsUsed}</span>
+              <div className="flex flex-col items-center justify-center w-28 h-28 rounded-full border-4 bg-secondary/50" style={{ borderColor: "#7ab5ac50" }}>
+                <span className="text-3xl font-bold" style={{ color: "#7ab5ac" }}>{qubitsUsed}</span>
                 <span className="text-[10px] text-muted-foreground">/ 30</span>
               </div>
               <p className="text-xs text-muted-foreground font-medium">Qubits Used</p>
@@ -168,7 +168,7 @@ export function CircuitResults({ backend, results, qubits, onDownload }: Circuit
                   <div className="p-3 bg-secondary/30 rounded-lg border border-border">
                     <p className="text-xs font-semibold text-foreground mb-1">ML Auto-Tuning</p>
                     <p className="text-xs text-muted-foreground">
-                      Mitigation: <span className="font-medium capitalize" style={{ color: "#4ade80" }}>{emLevel}</span>
+                      Mitigation: <span className="font-medium capitalize" style={{ color: "#7ab5ac" }}>{emLevel}</span>
                       <span className="text-muted-foreground ml-1">(RL-resolved)</span>
                     </p>
                     {results.ml_tuning && (
