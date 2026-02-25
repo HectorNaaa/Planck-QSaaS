@@ -1,9 +1,9 @@
 "use client"
 
-// Three green tones used throughout: bright #4ade80, mid #22c55e, deep #16a34a
-const G_BRIGHT = "#4ade80"
-const G_MID   = "#22c55e"
-const G_DEEP  = "#16a34a"
+// Planck brand greens — from globals.css chart-1/2/3
+const G_BRIGHT = "#7ab5ac"   // chart-3 — lightest, "high"
+const G_MID    = "#6ba39a"   // chart-2 — mid
+const G_DEEP   = "#578e7e"   // chart-1 / primary — deepest, "low"
 
 // ─── Speedometer Gauge ────────────────────────────────────────────────────────
 interface MetricGaugeProps {
@@ -27,41 +27,41 @@ export function MetricGauge({ value, label, unit = "", subtitle, size = "md" }: 
   const stroke = v >= 67 ? G_BRIGHT : v >= 34 ? G_MID : G_DEEP
 
   const sizes = {
-    sm: { w: 88,  valSize: "text-sm",  labelSize: "text-[10px]" },
-    md: { w: 112, valSize: "text-base", labelSize: "text-xs"    },
-    lg: { w: 140, valSize: "text-xl",  labelSize: "text-sm"     },
+    sm: { w: 88,  labelSize: "text-[10px]" },
+    md: { w: 112, labelSize: "text-xs"     },
+    lg: { w: 140, labelSize: "text-sm"     },
   }
   const s = sizes[size]
+  // Height = width * 0.75 to give extra room below arc for the value text
+  const svgH = Math.round(s.w * 0.75)
 
   return (
     <div className="flex flex-col items-center gap-1" style={{ width: s.w }}>
-      {/* SVG gauge — viewBox 100×60 so the semi-circle sits in the top half */}
-      <svg viewBox="0 0 100 60" width={s.w} height={s.w * 0.6} aria-label={`${label}: ${Math.round(v)}${unit}`}>
+      {/*
+        viewBox 0 0 100 75
+        Arc centre at (50,52): arc runs from (10,52) to (90,52) radius 40.
+        Needle tip stops at y=18 — well inside the arc.
+        Value text sits at y=70 — fully below the arc and the needle zone.
+      */}
+      <svg viewBox="0 0 100 75" width={s.w} height={svgH} aria-label={`${label}: ${Math.round(v)}${unit}`}>
         {/* Background arc */}
-        <path
-          d="M 10 50 A 40 40 0 0 1 90 50"
-          fill="none" stroke="#1e293b" strokeWidth="8" strokeLinecap="round"
-        />
+        <path d="M 10 52 A 40 40 0 0 1 90 52"
+          fill="none" stroke="currentColor" strokeWidth="8" strokeLinecap="round"
+          className="text-secondary" />
         {/* Value arc */}
-        <path
-          d="M 10 50 A 40 40 0 0 1 90 50"
+        <path d="M 10 52 A 40 40 0 0 1 90 52"
           fill="none" stroke={stroke} strokeWidth="8" strokeLinecap="round"
           strokeDasharray={`${filled} ${ARC_LEN}`}
-          className="transition-all duration-700"
-        />
-        {/* Needle — translated so its base is at the arc centre (50,50) */}
-        <g
-          transform={`rotate(${needleDeg}, 50, 50)`}
-          className="transition-transform duration-700"
-        >
-          {/* needle tip stops at 50,14 — well inside the arc, clear of the value text */}
-          <line x1="50" y1="50" x2="50" y2="16"
-            stroke={stroke} strokeWidth="2" strokeLinecap="round" />
+          className="transition-all duration-700" />
+        {/* Needle — rotates around arc centre (50,52) */}
+        <g transform={`rotate(${needleDeg}, 50, 52)`} className="transition-transform duration-700">
+          <line x1="50" y1="52" x2="50" y2="18"
+            stroke={stroke} strokeWidth="2.5" strokeLinecap="round" />
         </g>
         {/* Centre pivot */}
-        <circle cx="50" cy="50" r="3" fill={stroke} />
-        {/* Value — placed in the lower half so the needle never covers it */}
-        <text x="50" y="56" textAnchor="middle" fontSize="11" fontWeight="700" fill={stroke}>
+        <circle cx="50" cy="52" r="3.5" fill={stroke} />
+        {/* Value — sits at y=70, below the entire arc+needle zone */}
+        <text x="50" y="70" textAnchor="middle" fontSize="13" fontWeight="700" fill={stroke}>
           {Math.round(v)}{unit}
         </text>
       </svg>
@@ -80,46 +80,52 @@ interface LevelIndicatorProps {
 
 export function LevelIndicator({ level, label, size = "md" }: LevelIndicatorProps) {
   const levelMap: Record<string, { bars: number; color: string }> = {
-    excellent: { bars: 5, color: G_BRIGHT },
-    strong:    { bars: 5, color: G_BRIGHT },
-    high:      { bars: 5, color: G_BRIGHT },
-    good:      { bars: 4, color: G_MID   },
-    moderate:  { bars: 3, color: G_MID   },
-    medium:    { bars: 3, color: G_MID   },
-    acceptable:{ bars: 3, color: G_MID   },
-    weak:      { bars: 2, color: G_DEEP  },
-    low:       { bars: 2, color: G_DEEP  },
-    none:      { bars: 0, color: "#4b5563"},
+    excellent:  { bars: 5, color: G_BRIGHT },
+    strong:     { bars: 5, color: G_BRIGHT },
+    high:       { bars: 5, color: G_BRIGHT },
+    good:       { bars: 4, color: G_MID   },
+    moderate:   { bars: 3, color: G_MID   },
+    medium:     { bars: 3, color: G_MID   },
+    acceptable: { bars: 3, color: G_MID   },
+    weak:       { bars: 2, color: G_DEEP  },
+    low:        { bars: 2, color: G_DEEP  },
+    none:       { bars: 0, color: G_DEEP  },
   }
-  const cfg = levelMap[level] ?? { bars: 0, color: "#4b5563" }
+  const cfg = levelMap[level] ?? { bars: 0, color: G_DEEP }
   const containerH = size === "sm" ? 24 : 32
-  const barW       = size === "sm" ? 8  : 12
+  const barW       = size === "sm" ? 8  : 11
+  const gap        = 3
+  const totalW     = 5 * barW + 4 * gap
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex flex-col items-center gap-1">
       <svg
-        viewBox={`0 0 ${5 * barW + 4 * 3} ${containerH}`}
-        width={5 * barW + 4 * 3}
+        viewBox={`0 0 ${totalW} ${containerH}`}
+        width={totalW}
         height={containerH}
         aria-label={`${label}: ${level}`}
       >
         {[1, 2, 3, 4, 5].map((bar, i) => {
           const barH = (bar / 5) * containerH
-          const active = bar <= cfg.bars
           return (
             <rect
               key={bar}
-              x={i * (barW + 3)}
+              x={i * (barW + gap)}
               y={containerH - barH}
               width={barW}
               height={barH}
               rx="2"
-              fill={active ? cfg.color : "#1e293b"}
+              fill={bar <= cfg.bars ? cfg.color : "#374151"}
+              opacity={bar <= cfg.bars ? 1 : 0.35}
             />
           )
         })}
       </svg>
-      <p className={`${size === "sm" ? "text-[10px]" : "text-xs"} text-muted-foreground text-center font-medium capitalize`}>
+      {/* Value label below bars */}
+      <p className={`${size === "sm" ? "text-[10px]" : "text-xs"} font-bold capitalize`} style={{ color: cfg.color }}>
+        {level}
+      </p>
+      <p className={`${size === "sm" ? "text-[10px]" : "text-xs"} text-muted-foreground text-center font-medium`}>
         {label}
       </p>
     </div>
@@ -145,9 +151,9 @@ export function CircularProgress({ value, max, label, displayValue, maxLabel, si
   const stroke = pct >= 67 ? G_BRIGHT : pct >= 34 ? G_MID : G_DEEP
 
   const sizes = {
-    sm: { w: 72,  valSize: "text-xs",  subSize: "text-[9px]",  labelSize: "text-[10px]" },
-    md: { w: 96,  valSize: "text-base",subSize: "text-[10px]", labelSize: "text-xs"     },
-    lg: { w: 120, valSize: "text-lg",  subSize: "text-xs",     labelSize: "text-sm"     },
+    sm: { w: 72,  valSize: "text-xs",   subSize: "text-[9px]",  labelSize: "text-[10px]" },
+    md: { w: 96,  valSize: "text-base", subSize: "text-[10px]", labelSize: "text-xs"     },
+    lg: { w: 120, valSize: "text-lg",   subSize: "text-xs",     labelSize: "text-sm"     },
   }
   const s = sizes[size]
 
@@ -155,7 +161,7 @@ export function CircularProgress({ value, max, label, displayValue, maxLabel, si
     <div className="flex flex-col items-center gap-1" style={{ width: s.w }}>
       <div className="relative" style={{ width: s.w, height: s.w }}>
         <svg viewBox="0 0 100 100" width={s.w} height={s.w}>
-          <circle cx="50" cy="50" r={R} fill="none" stroke="#1e293b" strokeWidth="8" />
+          <circle cx="50" cy="50" r={R} fill="none" stroke="currentColor" strokeWidth="8" className="text-secondary" />
           <circle
             cx="50" cy="50" r={R} fill="none"
             stroke={stroke} strokeWidth="8"

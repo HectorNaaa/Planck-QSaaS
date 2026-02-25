@@ -251,21 +251,21 @@ export default function DashboardPage() {
             <table className="w-full">
               <thead className="bg-secondary sticky top-0 z-10">
                 <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Source</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Algorithm</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Name</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Status</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Backend</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Qubits</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Runtime</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Timestamp</th>
-                  <th className="text-left py-3 px-4 text-muted-foreground font-medium">Actions</th>
+                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Source</th>
+                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Algorithm</th>
+                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Name</th>
+                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Status</th>
+                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Backend</th>
+                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Qubits</th>
+                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Runtime</th>
+                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Time</th>
+                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {recentCircuits.map((circuit) => (
-                  <tr key={circuit.id} className="border-b border-border hover:bg-secondary/50 transition">
-                    <td className="py-3 px-4">
+                  <tr key={circuit.id} className="border-b border-border hover:bg-secondary/50 transition text-xs leading-none">
+                    <td className="py-2 px-3">
                       <span
                         className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
                           circuit.circuit_data?.source === "sdk"
@@ -276,15 +276,15 @@ export default function DashboardPage() {
                         {circuit.circuit_data?.source === "sdk" ? "SDK" : "UI"}
                       </span>
                     </td>
-                    <td className="py-3 px-4">
-                      <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-primary/20 text-primary">
+                    <td className="py-2 px-3">
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-primary/20 text-primary whitespace-nowrap">
                         {circuit.algorithm || "N/A"}
                       </span>
                     </td>
-                    <td className="py-3 px-4 font-medium text-foreground">{circuit.circuit_name}</td>
-                    <td className="py-3 px-4">
+                    <td className="py-2 px-3 font-medium text-foreground">{circuit.circuit_name}</td>
+                    <td className="py-2 px-3">
                       <span
-                        className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
                           circuit.status === "completed"
                             ? "bg-primary/20 text-primary"
                             : circuit.status === "running"
@@ -293,13 +293,13 @@ export default function DashboardPage() {
                         }`}
                       >
                         {circuit.status === "completed"
-                          ? "✓ Success"
+                          ? "Success"
                           : circuit.status === "running"
-                            ? "◀ Running"
-                            : "✗ Failed"}
+                            ? "Running"
+                            : "Failed"}
                       </span>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-2 px-3">
                       {circuit.backend_selected ? (
                         <span
                           className="inline-block px-2 py-1 rounded text-xs font-mono bg-muted text-muted-foreground"
@@ -320,14 +320,14 @@ export default function DashboardPage() {
                         <span className="text-muted-foreground text-xs">--</span>
                       )}
                     </td>
-                    <td className="py-3 px-4 text-foreground">{circuit.qubits_used}</td>
-                    <td className="py-3 px-4 text-foreground">
+                    <td className="py-2 px-3 text-foreground">{circuit.qubits_used}</td>
+                    <td className="py-2 px-3 text-foreground">
                       {circuit.runtime_ms ? `${Math.round(Number(circuit.runtime_ms))}ms` : "N/A"}
                     </td>
-                    <td className="py-3 px-4 text-muted-foreground text-sm">
+                    <td className="py-2 px-3 text-muted-foreground whitespace-nowrap">
                       {new Date(circuit.created_at).toLocaleString()}
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="py-2 px-3">
                       <Button
                         onClick={() => handleDownloadCircuitJson(circuit.id)}
                         size="sm"
