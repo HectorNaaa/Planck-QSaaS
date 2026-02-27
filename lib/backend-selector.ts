@@ -1,3 +1,16 @@
+/**
+ * backend-selector.ts
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Low-level backend selection primitives. Pure functions — no I/O.
+ *
+ * Decision thresholds (can be tuned here without touching policy logic):
+ *   < 12 qubits & depth < 50  → quantum_inspired_gpu  (fastest, cheapest)
+ *   12–19 qubits, gates < 100 → quantum_qpu            (highest fidelity)
+ *   ≥ 20 qubits | depth ≥ 100 → hpc_gpu               (best throughput)
+ *
+ * See backend-policy.ts for the higher-level policy wrapper (latency_first,
+ * cost_first, capacity_first) that most callers should use instead.
+ */
 export type Backend = "quantum_inspired_gpu" | "hpc_gpu" | "quantum_qpu"
 
 export interface CircuitMetrics {
@@ -33,9 +46,8 @@ export function selectBackendWithLatency(
   targetLatency: number | null,
   preferredBackend: Backend,
 ): Backend {
-  // If Quantum QPU is requested but latency < 500ms, downgrade to HPC or Classical
+  // Quantum QPU requires >= 500ms; downgrade to HPC if target is tighter.
   if (preferredBackend === "quantum_qpu" && targetLatency !== null && targetLatency < 500) {
-    console.log(`[v0] Quantum QPU requires >= 500ms latency. Target: ${targetLatency}ms. Selecting HPC GPU instead.`)
     return "hpc_gpu"
   }
 

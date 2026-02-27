@@ -1,7 +1,18 @@
 /**
- * OpenQASM Processor
- * Handles quantum circuit generation, processing, and analysis using pure TypeScript
- * Replaces Python and C++ dependencies for algorithm generation
+ * qasm-processor.ts
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Authoritative OpenQASM 2.0 generator and analyser. Pure TypeScript — no
+ * Python or C++ dependencies required at runtime.
+ *
+ * Supported algorithms: bell | grover | shor | vqe | qaoa
+ *
+ * Public API:
+ *   QASMProcessor.generateCircuit(algorithm, data)  → QuantumCircuit
+ *   QASMProcessor.analyzeCircuit(qasm)              → stats object
+ *
+ * Internal helpers (private):
+ *   generateBellState / generateGrover / generateShor / generateVQE / generateQAOA
+ *   parseQASMToGates
  */
 
 export interface QuantumGate {
