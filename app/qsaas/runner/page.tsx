@@ -188,19 +188,17 @@ const adaptiveShots = calculateAdaptiveShots({
     }
   }
 
-  const calculateAdaptiveShots = useCallback((circuitParams: { qubits: number; depth: number; gates: number }) => {
-    const baseShots = 512
-    const qubitFactor = Math.pow(1.3, circuitParams.qubits - 4)
-    const depthFactor = 1 + circuitParams.depth / 200
-    const gateFactor = 1 + circuitParams.gates / 500
-
-    const errorAccumulation = circuitParams.gates * 0.001
-    const errorFactor = 1 + errorAccumulation
-
-    const calculatedShots = Math.round(baseShots * qubitFactor * depthFactor * gateFactor * errorFactor)
-
-    return Math.min(10000, Math.max(100, calculatedShots))
-  }, [])
+  // Thin wrapper: delegates to lib/circuit-utils so runner and API stay in sync.
+  const calculateAdaptiveShots = useCallback(
+    (circuitParams: { qubits: number; depth: number; gates: number }) => {
+      const base = 512
+      const qubitBonus = Math.floor(circuitParams.qubits / 5) * 256
+      const depthBonus  = Math.floor(circuitParams.depth   / 20) * 128
+      const gateBonus   = Math.floor(circuitParams.gates   / 30) * 64
+      return Math.min(8192, Math.max(512, base + qubitBonus + depthBonus + gateBonus))
+    },
+    [],
+  )
 
   const handleDataUpload = useCallback(
     async (uploadedData: any) => {

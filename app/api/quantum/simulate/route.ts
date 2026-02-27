@@ -6,6 +6,7 @@ import { calculateFidelity } from "@/lib/backend-selector"
 import { selectBackend } from "@/lib/backend-policy"
 import { checkRateLimit, getRetryAfter, validatePayloadSize } from "@/lib/rate-limiter"
 import { authenticateRequest } from "@/lib/api-auth"
+import { extractQubitCount, calculateAdaptiveShots, selectAutoErrorMitigation } from "@/lib/circuit-utils"
 import {
   validateAlgorithm,
   validateBackend,
@@ -366,35 +367,6 @@ async function simulateQuantumCircuit(config: {
   }
 }
 
-function extractQubitCount(qasm: string): number {
-  const match = qasm.match(/qreg\s+\w+\[(\d+)\]/)
-  return match ? Number.parseInt(match[1]) : 4
-}
+// extractQubitCount, calculateAdaptiveShots, selectAutoErrorMitigation
+// are imported from @/lib/circuit-utils — do not redefine here.
 
-/**
- * Select error mitigation level based on circuit complexity (heuristic fallback).
- * Used when errorMitigation === "auto" and no ML data is available yet.
- */
-function selectAutoErrorMitigation(qubits: number, depth: number, gateCount: number): string {
-  // Complexity score: higher = more error-prone
-  const complexity = (qubits / 20) + (depth / 100) + (gateCount / 500)
-  if (complexity >= 1.5) return "high"
-  if (complexity >= 0.6) return "medium"
-  return "low"
-}
-
-/**
- * Compute adaptive shots based on circuit complexity.
- * Mirrors the client-side `calculateAdaptiveShots` in runner/page.tsx
- * so SDK and UI produce identical values for the same circuit.
- */
-function calculateAdaptiveShots(qubits: number, depth: number, gateCount: number): number {
-  const baseShots = 512
-  const qubitFactor = Math.pow(1.3, qubits - 4)
-  const depthFactor = 1 + depth / 200
-  const gateFactor = 1 + gateCount / 500
-  const errorAccumulation = gateCount * 0.001
-  const errorFactor = 1 + errorAccumulation
-  const calculated = Math.round(baseShots * qubitFactor * depthFactor * gateFactor * errorFactor)
-  return Math.min(10000, Math.max(100, calculated))
-}
