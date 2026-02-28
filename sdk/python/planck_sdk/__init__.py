@@ -32,7 +32,7 @@ __author__ = "Planck Technologies"
 __github__ = "https://github.com/HectorNaaa/Planck-QSaaS"
 
 from .client import PlanckUser
-from .circuit import QuantumCircuit
+from .circuit import QuantumCircuit, CircuitBuildOptions
 from .result import ExecutionResult
 from .exceptions import PlanckError, AuthenticationError, CircuitError, APIError, ValidationError
 
@@ -41,8 +41,9 @@ PlanckClient = PlanckUser
 
 __all__ = [
     "PlanckUser",
-    "PlanckClient",  # Keep for backwards compatibility
-    "QuantumCircuit", 
+    "PlanckClient",
+    "QuantumCircuit",
+    "CircuitBuildOptions",
     "ExecutionResult",
     "PlanckError",
     "AuthenticationError",

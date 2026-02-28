@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Union
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
-from .circuit import QuantumCircuit
+from .circuit import QuantumCircuit, CircuitBuildOptions
 from .result import ExecutionResult
 from .exceptions import AuthenticationError, APIError, CircuitError, ValidationError
 
@@ -209,38 +209,32 @@ class PlanckUser:
         target_latency: Optional[int] = None,
         qubits: Optional[int] = None,
         digital_twin_id: Optional[str] = None,
+        build_options: Optional[CircuitBuildOptions] = None,
         wait: bool = True
     ) -> ExecutionResult:
         """
-        Generate and execute a quantum circuit based on input data.
-        
+        Generate and execute a parametric quantum circuit from input data.
+
+        The circuit is built server-side by lib/circuit-builder.ts: gate angles,
+        register sizes, and layer counts are all derived from the uploaded dataset.
+        Pass ``build_options`` (CircuitBuildOptions) to override defaults such as
+        max qubit count, angle scaling, or layer count.
+
         Args:
-            data: Input data (list, dict, or file path to CSV/JSON)
-            algorithm: Algorithm type ('vqe', 'grover', 'qaoa', 'qft', 'bell', 'shor')
-            shots: Number of measurement shots (1-100000, auto-calculated via RL if None)
-            backend: Execution backend ('auto', 'quantum_inspired_gpu', 'hpc_gpu', 'quantum_qpu')
-            error_mitigation: Error mitigation level ('auto', 'none', 'low', 'medium', 'high').
-                'auto' uses reinforcement learning from all users' historical data.
-            circuit_name: Optional name for the execution
-            target_latency: Target latency in ms (affects backend selection)
-            qubits: Number of qubits (1-30, auto-calculated if None)
-            digital_twin_id: Optional ID of an existing digital twin to link this execution to.
-                Found in the QSaaS runner UI. Pass None (default) to leave unlinked.
-            wait: Wait for completion (default: True)
-        
+            data:             Input data (list, dict, or file path to CSV/JSON).
+            algorithm:        'vqe' | 'grover' | 'qaoa' | 'bell' | 'shor'.
+            shots:            Measurement shots (auto-tuned by RL when None).
+            backend:          'auto' | 'quantum_inspired_gpu' | 'hpc_gpu' | 'quantum_qpu'.
+            error_mitigation: 'auto' | 'none' | 'low' | 'medium' | 'high'.
+            circuit_name:     Optional label for the execution log.
+            target_latency:   Latency hint in ms (affects backend selection).
+            qubits:           Qubit hint — builder may exceed if data requires it.
+            digital_twin_id:  Link this execution to an existing digital twin.
+            build_options:    Fine-grained parametric hints (CircuitBuildOptions).
+            wait:             Block until execution completes (default: True).
+
         Returns:
-            ExecutionResult object with counts, fidelity, digital_twin, and metadata.
-            When error_mitigation='auto', the resolved level is in result.error_mitigation.
-            ML tuning details are in result.ml_tuning (dict or None).
-        
-        Example:
-            >>> result = user.run(
-            ...     data=[1.0, 2.0, 3.0, 4.0],
-            ...     algorithm="vqe"
-            ... )
-            >>> print(result.error_mitigation)  # RL-resolved level
-            'medium'
-            >>> print(result.ml_tuning)         # ML reasoning
+            ExecutionResult with counts, fidelity, and ML tuning metadata.
         """
         # Validate inputs
         validated_data = self._validate_input_data(data)
@@ -266,11 +260,12 @@ class PlanckUser:
         if isinstance(validated_data, str):
             validated_data = self._load_data_file(validated_data)
         
-        # First generate the circuit
+        # Generate circuit — passes build_options hints to the server builder
         circuit = self.generate_circuit(
             data=validated_data,
             algorithm=validated_algorithm,
-            qubits=qubits
+            qubits=qubits,
+            build_options=build_options,
         )
         
         # Sanitize circuit name
@@ -360,44 +355,43 @@ class PlanckUser:
         self,
         data: Union[List, Dict],
         algorithm: str = "vqe",
-        qubits: Optional[int] = None
+        qubits: Optional[int] = None,
+        build_options: Optional[CircuitBuildOptions] = None,
     ) -> QuantumCircuit:
         """
-        Generate a quantum circuit from input data without executing.
-        
+        Generate a parametric quantum circuit without executing it.
+
+        Circuit angles, register sizes, and layer counts are derived from
+        ``data`` by the server-side circuit-builder. Pass ``build_options``
+        to constrain or tune the parametrisation (max qubits, angle scale, etc.).
+
         Args:
-            data: Input data (list or dict)
-            algorithm: Algorithm type ('vqe', 'grover', 'qaoa', 'qft', 'bell', 'shor')
-            qubits: Number of qubits (auto-calculated if None)
-        
+            data:          Input dataset (list or dict).
+            algorithm:     'vqe' | 'grover' | 'qaoa' | 'bell' | 'shor'.
+            qubits:        Optional qubit count hint (auto-derived if None).
+            build_options: Optional CircuitBuildOptions for parametric control.
+
         Returns:
-            QuantumCircuit object with QASM code and metadata
+            QuantumCircuit with data-derived QASM and paramSummary.
         """
         validated_algorithm = self._validate_algorithm(algorithm)
-        
         if qubits is not None:
             qubits = max(1, min(30, int(qubits)))
-        
-        payload = {
+
+        payload: Dict[str, Any] = {
             "inputData": data,
             "algorithm": validated_algorithm,
             "qubits": qubits,
         }
-        
+        if build_options is not None:
+            payload["buildOptions"] = build_options.to_dict()
+
         response = self._request("POST", "generate-circuit", payload)
-        
         if not response.get("success"):
             raise CircuitError(response.get("error", "Circuit generation failed"))
-        
-        return QuantumCircuit(
-            qasm=response.get("qasm", ""),
-            qubits=response.get("qubits", 2),
-            depth=response.get("depth", 1),
-            gate_count=response.get("gateCount", 0),
-            gates=response.get("gates", []),
-            algorithm=validated_algorithm,
-            recommended_shots=response.get("recommendedShots", 1024)
-        )
+
+        # from_api_response handles both camelCase and snake_case keys
+        return QuantumCircuit.from_api_response(response)
     
     def transpile(
         self,
