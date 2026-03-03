@@ -1,350 +1,237 @@
+/**
+ * app/qsaas/dashboard/page.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * QSaaS Digital Twin Dashboard.
+ *
+ * Layout:
+ *   • 4 summary stat cards
+ *   • Tab bar: "All" + one tab per digital twin
+ *   • Each tab renders a <DigitalTwinDashboard> with 3 live charts + runs table
+ *
+ * Live updates strategy:
+ *   • Supabase Realtime (postgres_changes) fires a data reload on any INSERT
+ *   • When the user enables SDK-mode in the runner the SSE hook inside
+ *     DigitalTwinDashboard appends rows in real-time without any page reload
+ */
+
 "use client"
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BarChart3, Zap, TrendingUp, Clock, Download } from "lucide-react"
+import { BarChart3, Zap, TrendingUp, Clock, Radio } from "lucide-react"
 import Link from "next/link"
 import { PageHeader } from "@/components/page-header"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { createBrowserClient } from "@/lib/supabase/client"
-import { ExecutionCharts } from "@/components/dashboard/execution-charts"
+import { DigitalTwinDashboard } from "@/components/dashboard/digital-twin-dashboard"
+import type { ExecutionRow } from "@/hooks/use-live-executions"
 
 type TimeRange = "24h" | "7d" | "30d"
 
+interface DigitalTwin {
+  id: string
+  name: string
+  description: string | null
+  image_url: string | null
+}
+
 interface DashboardStats {
-  avgCircuitsRun: number
+  totalRuns: number
   avgSuccessRate: number
   avgRuntime: number
   avgQubits: number
 }
 
-interface RecentCircuit {
-  id: string
-  circuit_name: string
-  algorithm: string
-  status: string
-  qubits_used: number
-  runtime_ms: number
-  created_at: string
-  backend_selected: string | null
-  backend_reason: string | null
-  backend_hint: string | null
-  circuit_data: { source?: string } | null
-}
-
 export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d")
-  const [stats, setStats] = useState<DashboardStats>({
-    avgCircuitsRun: 0,
-    avgSuccessRate: 0,
-    avgRuntime: 0,
-    avgQubits: 0,
-  })
-  const [recentCircuits, setRecentCircuits] = useState<RecentCircuit[]>([])
-  const [allCircuits, setAllCircuits] = useState<RecentCircuit[]>([])
+  const [allRows, setAllRows] = useState<ExecutionRow[]>([])
+  const [twins, setTwins] = useState<DigitalTwin[]>([])
+  const [activeTab, setActiveTab] = useState<"all" | string>("all")
   const [loading, setLoading] = useState(true)
+  // Live mode: true when the user has enabled SDK/intensive-use toggle in the runner
+  const [liveEnabled, setLiveEnabled] = useState(false)
 
+  // Sync live-mode state from storage + allow toggling directly on dashboard
   useEffect(() => {
-    loadDashboardData()
-  }, [timeRange])
+    const stored = sessionStorage.getItem("planck_sdk_mode")
+    if (stored === "1") setLiveEnabled(true)
+  }, [])
 
-  // Realtime: auto-refresh when new rows arrive in execution_logs
+  // ── Load data ──────────────────────────────────────────────────────────────
+  useEffect(() => { loadAll() }, [timeRange])
+
+  // Supabase Realtime: reload on any new execution (fallback for non-SDK usage)
   useEffect(() => {
     const supabase = createBrowserClient()
     const channel = supabase
-      .channel("dashboard-realtime")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "execution_logs" },
-        () => {
-          // Reload dashboard data when a new execution is logged
-          loadDashboardData()
-        }
-      )
+      .channel("dashboard-rt")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "execution_logs" }, () => {
+        loadAll()
+      })
       .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
+    return () => { supabase.removeChannel(channel) }
   }, [timeRange])
 
-  async function loadDashboardData() {
+  async function loadAll() {
     setLoading(true)
     const supabase = createBrowserClient()
-
     try {
-      const cachedCircuits = sessionStorage.getItem("planck_recent_circuits")
-      if (cachedCircuits && timeRange === "7d") {
-        const circuits = JSON.parse(cachedCircuits)
-        setRecentCircuits(circuits.slice(0, 5))
-        calculateStats(circuits)
-      }
+      const threshold = new Date()
+      if (timeRange === "24h") threshold.setHours(threshold.getHours() - 24)
+      else if (timeRange === "7d") threshold.setDate(threshold.getDate() - 7)
+      else threshold.setDate(threshold.getDate() - 30)
 
-      const now = new Date()
-      const timeThreshold = new Date()
-      switch (timeRange) {
-        case "24h":
-          timeThreshold.setHours(now.getHours() - 24)
-          break
-        case "7d":
-          timeThreshold.setDate(now.getDate() - 7)
-          break
-        case "30d":
-          timeThreshold.setDate(now.getDate() - 30)
-          break
-      }
+      const [logsRes, twinsRes] = await Promise.all([
+        supabase
+          .from("execution_logs")
+          .select("id,circuit_name,algorithm,status,qubits_used,runtime_ms,success_rate,backend_selected,created_at,digital_twin_id,shots,error_mitigation,circuit_data")
+          .gte("created_at", threshold.toISOString())
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("digital_twins")
+          .select("id,name,description,image_url")
+          .order("created_at", { ascending: true }),
+      ])
 
-      const { data: logs, error } = await supabase
-        .from("execution_logs")
-        .select("*")
-        .gte("created_at", timeThreshold.toISOString())
-        .order("created_at", { ascending: false })
-
-      if (error) {
-        // Error fetching dashboard data
-        return
-      }
-
-      if (logs && logs.length > 0) {
-        calculateStats(logs)
-        setAllCircuits(logs as RecentCircuit[])
-        setRecentCircuits(logs as RecentCircuit[])
-
-        if (timeRange === "7d") {
-          sessionStorage.setItem("planck_recent_circuits", JSON.stringify(logs.slice(0, 10)))
-        }
-      } else {
-        setStats({
-          avgCircuitsRun: 0,
-          avgSuccessRate: 0,
-          avgRuntime: 0,
-          avgQubits: 0,
-        })
-        setAllCircuits([])
-        setRecentCircuits([])
-      }
-    } catch (error) {
-      // Error loading dashboard data
+      if (logsRes.data) setAllRows(logsRes.data as ExecutionRow[])
+      if (twinsRes.data) setTwins(twinsRes.data as DigitalTwin[])
     } finally {
       setLoading(false)
     }
   }
 
-  function calculateStats(logs: any[]) {
-    const completedOrSavedLogs = logs.filter((log) => log.status === "completed" || log.status === "saved")
-
-    const totalCircuits = completedOrSavedLogs.length
-    const successfulCircuits = completedOrSavedLogs.filter((log) => log.status === "completed").length
-    const avgSuccessRate = totalCircuits > 0 ? (successfulCircuits / totalCircuits) * 100 : 0
-
-    const totalRuntime = completedOrSavedLogs.reduce((sum, log) => sum + (log.runtime_ms || 0), 0)
-    const avgRuntime = totalCircuits > 0 ? totalRuntime / totalCircuits : 0
-
-    const totalQubits = completedOrSavedLogs.reduce((sum, log) => sum + (log.qubits_used || 0), 0)
-    const avgQubits = totalCircuits > 0 ? totalQubits / totalCircuits : 0
-
-    setStats({
-      avgCircuitsRun: totalCircuits,
-      avgSuccessRate: Math.round(avgSuccessRate * 10) / 10,
-      avgRuntime: Math.round(avgRuntime),
-      avgQubits: Math.round(avgQubits),
-    })
-  }
-
-  const handleDownloadCircuitJson = async (circuitId: string) => {
-    const supabase = createBrowserClient()
-
-    try {
-      const { data, error } = await supabase.from("execution_logs").select("*").eq("id", circuitId).single()
-
-      if (error) throw error
-
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = `${data.circuit_name}_${circuitId}.json`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-    } catch (error) {
-      // Error downloading JSON
+  // ── Stats ──────────────────────────────────────────────────────────────────
+  const stats = useMemo<DashboardStats>(() => {
+    const done = allRows.filter((r) => r.status === "completed" || r.status === "saved")
+    const n = done.length
+    if (n === 0) return { totalRuns: 0, avgSuccessRate: 0, avgRuntime: 0, avgQubits: 0 }
+    const success = done.filter((r) => r.status === "completed").length
+    return {
+      totalRuns: n,
+      avgSuccessRate: Math.round((success / n) * 1000) / 10,
+      avgRuntime: Math.round(done.reduce((s, r) => s + (r.runtime_ms || 0), 0) / n),
+      avgQubits: Math.round(done.reduce((s, r) => s + (r.qubits_used || 0), 0) / n),
     }
-  }
+  }, [allRows])
+
+  // ── Per-DT rows ────────────────────────────────────────────────────────────
+  const rowsForTab = useMemo<ExecutionRow[]>(() => {
+    if (activeTab === "all") return allRows
+    return allRows.filter((r) => r.digital_twin_id === activeTab)
+  }, [allRows, activeTab])
+
+  const activeTwin = twins.find((t) => t.id === activeTab) ?? null
 
   const statCards = [
-    {
-      label: "Digital Twins Created",
-      value: loading ? "..." : stats.avgCircuitsRun.toString(),
-      change: `Last ${timeRange}`,
-      icon: Zap,
-    },
-    {
-      label: "Avg Success Rate",
-      value: loading ? "..." : `${stats.avgSuccessRate}%`,
-      change: `Last ${timeRange}`,
-      icon: TrendingUp,
-    },
-    {
-      label: "Avg Runtime",
-      value: loading ? "..." : `${Math.round(stats.avgRuntime)}ms`,
-      change: `Last ${timeRange}`,
-      icon: Clock,
-    },
-    {
-      label: "Avg Qubits",
-      value: loading ? "..." : Math.round(stats.avgQubits).toString(),
-      change: `Last ${timeRange}`,
-      icon: BarChart3,
-    },
+    { label: "Total Runs", value: loading ? "…" : stats.totalRuns.toString(), icon: Zap },
+    { label: "Avg Success Rate", value: loading ? "…" : `${stats.avgSuccessRate}%`, icon: TrendingUp },
+    { label: "Avg Runtime", value: loading ? "…" : `${stats.avgRuntime}ms`, icon: Clock },
+    { label: "Avg Qubits", value: loading ? "…" : stats.avgQubits.toString(), icon: BarChart3 },
   ]
 
   return (
     <div className="p-8 space-y-8 px-0">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <PageHeader title="Digital Twin Dashboard" description="Your quantum digital twins activity and insights." />
-        <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRange)}>
-          <SelectTrigger className="w-[180px] shadow-lg">
-            <SelectValue placeholder="Select time range" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="24h">Last 24 Hours</SelectItem>
-            <SelectItem value="7d">Last 7 Days</SelectItem>
-            <SelectItem value="30d">Last 30 Days</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat, i) => {
-          const Icon = stat.icon
-          return (
-            <Card key={i} className="p-6 hover:shadow-lg hover:scale-105 transition-all duration-300 shadow-lg">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-muted-foreground text-sm font-medium">{stat.label}</p>
-                <Icon className="text-primary" size={24} />
-              </div>
-              <p className="text-3xl font-bold text-foreground mb-2">{stat.value}</p>
-              <p className="text-sm text-primary">{stat.change}</p>
-            </Card>
-          )
-        })}
-      </div>
-
-      <ExecutionCharts logs={allCircuits} timeRange={timeRange} />
-
-      <Card className="p-6 hover:shadow-lg transition-all duration-300 shadow-lg bg-secondary">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-foreground">Recent Digital Twins</h2>
-          <Link href="/qsaas/runner">
-            <Button className="bg-primary hover:bg-primary/90">New Digital Twin</Button>
-          </Link>
+        <PageHeader title="Digital Twin Dashboard" description="Live quantum execution activity across all your digital twins." />
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Live-mode toggle */}
+          <button
+            role="switch"
+            aria-checked={liveEnabled}
+            onClick={() => {
+              const next = !liveEnabled
+              setLiveEnabled(next)
+              sessionStorage.setItem("planck_sdk_mode", next ? "1" : "0")
+            }}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
+              liveEnabled
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Radio size={13} className={liveEnabled ? "text-primary" : "text-muted-foreground"} />
+            {liveEnabled ? "Live" : "Live off"}
+          </button>
+          <Select value={timeRange} onValueChange={(v) => setTimeRange(v as TimeRange)}>
+            <SelectTrigger className="w-36 shadow">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="24h">Last 24 h</SelectItem>
+              <SelectItem value="7d">Last 7 days</SelectItem>
+              <SelectItem value="30d">Last 30 days</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        {loading ? (
-          <p className="text-muted-foreground text-center py-8">Loading recent circuits...</p>
-        ) : recentCircuits.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">No circuits run in this time period.</p>
-        ) : (
-          <div className="overflow-x-auto max-h-[480px] overflow-y-auto">
-            <table className="w-full">
-              <thead className="bg-secondary sticky top-0 z-10">
-                <tr className="border-b border-border">
-                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Source</th>
-                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Algorithm</th>
-                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Name</th>
-                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Status</th>
-                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Backend</th>
-                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Qubits</th>
-                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Runtime</th>
-                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Time</th>
-                  <th className="text-left py-2 px-3 text-xs text-muted-foreground font-medium whitespace-nowrap">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentCircuits.map((circuit) => (
-                  <tr key={circuit.id} className="border-b border-border hover:bg-secondary/50 transition text-xs leading-none">
-                    <td className="py-2 px-3">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
-                          circuit.circuit_data?.source === "sdk"
-                            ? "bg-blue-500/20 text-blue-400"
-                            : "bg-emerald-500/20 text-emerald-400"
-                        }`}
-                      >
-                        {circuit.circuit_data?.source === "sdk" ? "SDK" : "UI"}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3">
-                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-primary/20 text-primary whitespace-nowrap">
-                        {circuit.algorithm || "N/A"}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3 font-medium text-foreground">{circuit.circuit_name}</td>
-                    <td className="py-2 px-3">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
-                          circuit.status === "completed"
-                            ? "bg-primary/20 text-primary"
-                            : circuit.status === "running"
-                              ? "bg-accent/20 text-accent"
-                              : "bg-destructive/20 text-destructive"
-                        }`}
-                      >
-                        {circuit.status === "completed"
-                          ? "Success"
-                          : circuit.status === "running"
-                            ? "Running"
-                            : "Failed"}
-                      </span>
-                    </td>
-                    <td className="py-2 px-3">
-                      {circuit.backend_selected ? (
-                        <span
-                          className="inline-block px-2 py-1 rounded text-xs font-mono bg-muted text-muted-foreground"
-                          title={circuit.backend_reason || undefined}
-                        >
-                          {circuit.backend_selected === "quantum_inspired_gpu"
-                            ? "QI-GPU"
-                            : circuit.backend_selected === "hpc_gpu"
-                              ? "HPC"
-                              : circuit.backend_selected === "quantum_qpu"
-                                ? "QPU"
-                                : circuit.backend_selected}
-                          {circuit.backend_hint && (
-                            <span className="ml-1 text-primary/60" title={`Hint: ${circuit.backend_hint}`}>*</span>
-                          )}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">--</span>
-                      )}
-                    </td>
-                    <td className="py-2 px-3 text-foreground">{circuit.qubits_used}</td>
-                    <td className="py-2 px-3 text-foreground">
-                      {circuit.runtime_ms ? `${Math.round(Number(circuit.runtime_ms))}ms` : "N/A"}
-                    </td>
-                    <td className="py-2 px-3 text-muted-foreground whitespace-nowrap">
-                      {new Date(circuit.created_at).toLocaleString()}
-                    </td>
-                    <td className="py-2 px-3">
-                      <Button
-                        onClick={() => handleDownloadCircuitJson(circuit.id)}
-                        size="sm"
-                        variant="ghost"
-                        className="flex items-center gap-1"
-                      >
-                        <Download size={16} />
-                        JSON
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {statCards.map(({ label, value, icon: Icon }, i) => (
+          <Card key={i} className="p-5 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 shadow">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-muted-foreground text-sm font-medium">{label}</p>
+              <Icon className="text-primary" size={22} />
+            </div>
+            <p className="text-3xl font-bold text-foreground">{value}</p>
+            <p className="text-xs text-primary mt-1">Last {timeRange}</p>
+          </Card>
+        ))}
+      </div>
+
+      {/* Tab bar: All + one per DT */}
+      <div className="flex items-center gap-1 flex-wrap">
+        <button
+          onClick={() => setActiveTab("all")}
+          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "all"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+          }`}
+        >
+          All
+        </button>
+        {twins.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              activeTab === t.id
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+            }`}
+          >
+            {t.image_url && (
+              <img src={t.image_url} alt="" className="w-4 h-4 rounded-full object-cover" />
+            )}
+            {t.name}
+            <span className="text-[10px] opacity-70">
+              {allRows.filter((r) => r.digital_twin_id === t.id).length}
+            </span>
+          </button>
+        ))}
+        <Link href="/qsaas/runner">
+          <Button size="sm" className="ml-auto bg-primary hover:bg-primary/90 text-xs">
+            + New Digital Twin
+          </Button>
+        </Link>
+      </div>
+
+      {/* Active tab content */}
+      {loading ? (
+        <p className="text-muted-foreground text-sm py-12 text-center">Loading…</p>
+      ) : (
+        <DigitalTwinDashboard
+          key={activeTab}
+          initialRows={rowsForTab}
+          liveEnabled={liveEnabled}
+          digitalTwinId={activeTab === "all" ? null : activeTab}
+          title={activeTab === "all" ? "All Digital Twins" : (activeTwin?.name ?? activeTab)}
+          timeRange={timeRange}
+        />
+      )}
     </div>
   )
 }

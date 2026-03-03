@@ -9,7 +9,7 @@ import { DatabaseUploader } from "@/components/runner/database-uploader"
 import { AutoParser } from "@/components/runner/autoparser"
 import { ExpectedResults } from "@/components/runner/expected-results"
 import { CircuitResults } from "@/components/runner/circuit-results"
-import { Save, Play, RotateCcw, Download, Loader2 } from "lucide-react"
+import { Save, Play, RotateCcw, Download, Loader2, Radio } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { PageHeader } from "@/components/page-header"
 import type { CircuitData } from "@/lib/qasm-generator"
@@ -46,6 +46,7 @@ export default function RunnerPage() {
   const [showCodeEditor, setShowCodeEditor] = useState(false)
   const [showDominantStates, setShowDominantStates] = useState(false)
   const [selectedDigitalTwinId, setSelectedDigitalTwinId] = useState<string | null>(null)
+  const [sdkMode, setSdkMode] = useState(false)
 
   useEffect(() => {
     const algorithmFromTemplates = sessionStorage.getItem("selectedAlgorithm")
@@ -634,6 +635,39 @@ const adaptiveShots = calculateAdaptiveShots({
   return (
     <div className="p-8 space-y-8 px-0">
       <PageHeader title="Runner" description="Configure and execute your quantum circuits" />
+
+      {/* SDK / Intensive-use mode toggle */}
+      <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-secondary/40">
+        <div className="flex items-center gap-3">
+          <Radio size={18} className={sdkMode ? "text-primary" : "text-muted-foreground"} />
+          <div>
+            <p className="text-sm font-medium text-foreground">SDK / Intensive-use mode</p>
+            <p className="text-xs text-muted-foreground">
+              {sdkMode
+                ? "Live feed active — dashboard charts update every 3 s as SDK calls arrive."
+                : "Enable when sending runs from a notebook or script to get real-time dashboard updates."}
+            </p>
+          </div>
+        </div>
+        <button
+          role="switch"
+          aria-checked={sdkMode}
+          onClick={() => {
+              const next = !sdkMode
+              setSdkMode(next)
+              sessionStorage.setItem("planck_sdk_mode", next ? "1" : "0")
+            }}
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            sdkMode ? "bg-primary" : "bg-muted"
+          }`}
+        >
+          <span
+            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+              sdkMode ? "translate-x-6" : "translate-x-1"
+            }`}
+          />
+        </button>
+      </div>
 
       {/* Digital Twin Selector */}
       <DigitalTwinSelector 
