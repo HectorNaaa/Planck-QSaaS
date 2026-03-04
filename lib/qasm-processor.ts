@@ -134,7 +134,7 @@ export class QASMProcessor {
 // ─── Private helpers ───────────────────────────────────────────────────────────
 
 function sanitizeAlgorithm(raw: string): SupportedAlgorithm {
-  const supported: SupportedAlgorithm[] = ["vqe", "qaoa", "grover", "shor", "bell"]
+  const supported: SupportedAlgorithm[] = ["vqe", "qaoa", "grover", "shor", "bell", "qft"]
   const lower = (raw ?? "").toLowerCase().trim() as SupportedAlgorithm
   return supported.includes(lower) ? lower : "vqe"
 }

@@ -84,20 +84,12 @@ class PlanckUser:
     
     @staticmethod
     def _validate_algorithm(algorithm: str) -> str:
-        """Validate and normalize algorithm name."""
+        """Validate and normalise algorithm name to lowercase for the API."""
         if not algorithm:
             return "vqe"
         normalized = algorithm.lower().strip()
-        # Map common variations
-        algorithm_map = {
-            "bell": "Bell",
-            "grover": "Grover", 
-            "shor": "Shor",
-            "vqe": "VQE",
-            "qaoa": "QAOA",
-            "qft": "QFT",
-        }
-        return algorithm_map.get(normalized, "VQE")
+        allowed = {"bell", "grover", "shor", "vqe", "qaoa", "qft"}
+        return normalized if normalized in allowed else "vqe"
     
     def _validate_input_data(self, data: Any) -> Any:
         """Validate and sanitize input data."""
@@ -390,8 +382,9 @@ class PlanckUser:
         if not response.get("success"):
             raise CircuitError(response.get("error", "Circuit generation failed"))
 
-        # from_api_response handles both camelCase and snake_case keys
-        return QuantumCircuit.from_api_response(response)
+        # from_api_response handles both old shape (recommendedShots/gates) and
+        # new circuit-builder shape (paramSummary/gateCount) via .get() fallbacks.
+        return QuantumCircuit.from_api_response({**response, "algorithm": validated_algorithm})
     
     def transpile(
         self,
