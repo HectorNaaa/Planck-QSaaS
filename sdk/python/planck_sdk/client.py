@@ -43,8 +43,8 @@ class PlanckUser:
     # Supported backends — must match API (security.ts) and UI (execution-settings.tsx)
     SUPPORTED_BACKENDS = ["auto", "quantum_inspired_gpu", "hpc_gpu", "quantum_qpu"]
     
-  # Supported error mitigation levels — must match API (security.ts) and UI (circuit-settings.tsx)
-  SUPPORTED_ERROR_MITIGATION = ["none", "low", "medium", "high", "auto"]
+    # Supported error mitigation levels — must match API (security.ts) and UI (circuit-settings.tsx)
+    SUPPORTED_ERROR_MITIGATION = ["none", "low", "medium", "high", "auto"]
     
     def __init__(
         self,
