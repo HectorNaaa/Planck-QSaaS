@@ -19,7 +19,7 @@
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type SupportedAlgorithm = "vqe" | "qaoa" | "grover" | "shor" | "bell"
+export type SupportedAlgorithm = "vqe" | "qaoa" | "grover" | "shor" | "bell" | "qft"
 
 export interface DataProfile {
   /** Number of qubits required; clamped [2, 20]. */
@@ -103,6 +103,7 @@ export function buildCircuit(
     case "shor":   return buildShor(profile)
     case "vqe":    return buildVQE(profile)
     case "qaoa":   return buildQAOA(profile)
+    case "qft":    return buildQFT(profile)
   }
 }
 
@@ -294,7 +295,44 @@ function buildQAOA(p: DataProfile): BuiltCircuit {
   }
 }
 
-// ─── Private helpers ──────────────────────────────────────────────────────────
+// ── QFT ───────────────────────────────────────────────────────────────────────
+function buildQFT(p: DataProfile): BuiltCircuit {
+  const n = Math.max(2, Math.min(p.qubits, 8))
+  const lines: string[] = [
+    "OPENQASM 2.0;",
+    'include "qelib1.inc";',
+    `qreg q[${n}];`,
+    `creg c[${n}];`,
+  ]
+  // Parametric initialisation: Ry from data angles
+  for (let i = 0; i < n; i++) {
+    const θ = (p.angles[i % p.angles.length] ?? Math.PI / 4).toFixed(6)
+    lines.push(`ry(${θ}) q[${i}];`)
+  }
+  // QFT: H then controlled-phase rotations
+  for (let i = 0; i < n; i++) {
+    lines.push(`h q[${i}];`)
+    for (let j = i + 1; j < n; j++) {
+      const k = j - i + 1
+      const φ = (Math.PI / Math.pow(2, k - 1)).toFixed(6)
+      lines.push(`cu1(${φ}) q[${i}],q[${j}];`)
+    }
+  }
+  // Swap to reverse bit order
+  for (let i = 0; i < Math.floor(n / 2); i++) {
+    lines.push(`swap q[${i}],q[${n - 1 - i}];`)
+  }
+  for (let i = 0; i < n; i++) lines.push(`measure q[${i}] -> c[${i}];`)
+  const gc = n + n + n * (n - 1) / 2 + Math.floor(n / 2) + n
+  return {
+    qasm: lines.join("\n"),
+    qubits: n, depth: n + n + Math.floor(n / 2), gateCount: gc,
+    algorithm: "qft",
+    paramSummary: `${n}-qubit QFT, Ry init from ${p.featureCount} data features`,
+  }
+}
+
+// ─── Private helpers ───────────────────────────────────────────────────────────
 
 function normaliseRows(data: unknown): unknown[] {
   if (Array.isArray(data)) return data

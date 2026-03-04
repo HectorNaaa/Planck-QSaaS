@@ -22,14 +22,9 @@ const PATTERNS = {
   XSS: /<script|javascript:|on\w+\s*=|<iframe|<object|<embed|<svg\s+onload/i,
 }
 
-// Allowed algorithms
+// Allowed algorithms — lowercase only; validateAlgorithm returns lowercase
 const ALLOWED_ALGORITHMS = new Set([
-  'bell', 'Bell',
-  'grover', 'Grover',
-  'shor', 'Shor',
-  'vqe', 'VQE',
-  'qaoa', 'QAOA',
-  'qft', 'QFT',
+  'bell', 'grover', 'shor', 'vqe', 'qaoa', 'qft',
 ])
 
 // Allowed backends — must match UI (execution-settings.tsx) + SDK
@@ -66,27 +61,14 @@ export function validateUUID(uuid: string | null): boolean {
 }
 
 /**
- * Validate algorithm name
+ * Validate algorithm name — returns lowercase to match circuit-builder.ts SupportedAlgorithm.
  */
 export function validateAlgorithm(algorithm: string | null): string {
-  if (!algorithm || typeof algorithm !== 'string') return 'VQE'
+  if (!algorithm || typeof algorithm !== 'string') return 'vqe'
   
-  const normalized = algorithm.trim()
-  if (!ALLOWED_ALGORITHMS.has(normalized)) {
-    return 'VQE'
-  }
-  
-  // Normalize to standard casing
-  const algorithmMap: Record<string, string> = {
-    'bell': 'Bell',
-    'grover': 'Grover',
-    'shor': 'Shor',
-    'vqe': 'VQE',
-    'qaoa': 'QAOA',
-    'qft': 'QFT',
-  }
-  
-  return algorithmMap[normalized.toLowerCase()] || normalized
+  const normalized = algorithm.trim().toLowerCase()
+  const allowed = new Set(['bell', 'grover', 'shor', 'vqe', 'qaoa', 'qft'])
+  return allowed.has(normalized) ? normalized : 'vqe'
 }
 
 /**
