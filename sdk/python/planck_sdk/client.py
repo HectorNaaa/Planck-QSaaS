@@ -221,7 +221,9 @@ class PlanckUser:
             circuit_name:     Optional label for the execution log.
             target_latency:   Latency hint in ms (affects backend selection).
             qubits:           Qubit hint — builder may exceed if data requires it.
-            digital_twin_id:  Link this execution to an existing digital twin.
+            digital_twin_id:  ID of a digital twin to link this execution to.
+                Pass None, 0, or '' to leave unlinked (default).
+                Use list_digital_twins() to see available IDs.
             build_options:    Fine-grained parametric hints (CircuitBuildOptions).
             wait:             Block until execution completes (default: True).
 
@@ -231,6 +233,12 @@ class PlanckUser:
         # Validate inputs
         validated_data = self._validate_input_data(data)
         validated_algorithm = self._validate_algorithm(algorithm)
+
+        # Normalise digital_twin_id: treat 0, '', 'none', 'null' as None
+        if digital_twin_id in (0, "", "none", "null", "None", "Null") or digital_twin_id is None:
+            digital_twin_id = None
+        else:
+            digital_twin_id = str(digital_twin_id).strip() or None
         
         # Validate backend
         if backend not in self.SUPPORTED_BACKENDS:
@@ -492,6 +500,44 @@ class PlanckUser:
             raise APIError(response.get("error", "Digital twin generation failed"))
         
         return response.get("digital_twin", {})
+
+    def list_digital_twins(self) -> List[Dict[str, Any]]:
+        """
+        Return all digital twins belonging to the authenticated user.
+
+        Each item in the returned list contains:
+            id          — UUID used as ``digital_twin_id`` in run()
+            name        — human-readable label
+            description — optional description
+            created_at  — ISO-8601 timestamp
+
+        Example::
+
+            twins = user.list_digital_twins()
+            for t in twins:
+                print(t["id"], t["name"])
+
+            # Then use an id in run():
+            result = user.run(data, digital_twin_id=twins[0]["id"])
+
+        Returns:
+            List of digital twin dicts, empty list if none exist.
+        """
+        response = self._request("GET", "digital-twin")
+        if not isinstance(response, dict):
+            return []
+        twins = response.get("digital_twins") or response.get("data") or []
+        if not isinstance(twins, list):
+            return []
+        return [
+            {
+                "id":          t.get("id", ""),
+                "name":        t.get("name", ""),
+                "description": t.get("description"),
+                "created_at":  t.get("created_at", ""),
+            }
+            for t in twins
+        ]
     
     def get_recommendations(
         self,

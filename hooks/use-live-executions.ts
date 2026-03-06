@@ -82,11 +82,16 @@ export function useLiveExecutions({
     const buildUrl = () => {
       const params = new URLSearchParams({ since: sinceRef.current })
       if (digitalTwinId) params.set("digital_twin_id", digitalTwinId)
+      // Pass api_key as query param — EventSource cannot send custom headers
       if (apiKey) params.set("api_key", apiKey)
       return `/api/quantum/stream?${params.toString()}`
     }
 
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+
     const connect = () => {
+      if (esRef.current) { esRef.current.close(); esRef.current = null }
+
       const es = new EventSource(buildUrl())
       esRef.current = es
 
@@ -103,10 +108,10 @@ export function useLiveExecutions({
             if (newRows.length > 0) {
               sinceRef.current = newRows[newRows.length - 1].created_at
               setRows((prev) => {
-                // Deduplicate by id, newest last
                 const ids = new Set(prev.map((r) => r.id))
                 const fresh = newRows.filter((r) => !ids.has(r.id))
-                return [...prev, ...fresh].slice(-500) // cap at 500 rows
+                if (fresh.length === 0) return prev
+                return [...prev, ...fresh].slice(-500)
               })
             }
           } else if (msg.type === "error") {
@@ -120,14 +125,16 @@ export function useLiveExecutions({
       es.onerror = () => {
         setConnected(false)
         es.close()
+        esRef.current = null
         // Reconnect after 5 s
-        setTimeout(connect, 5_000)
+        reconnectTimer = setTimeout(connect, 5_000)
       }
     }
 
     connect()
 
     return () => {
+      if (reconnectTimer) clearTimeout(reconnectTimer)
       esRef.current?.close()
       esRef.current = null
       setConnected(false)

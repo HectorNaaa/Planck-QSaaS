@@ -18,18 +18,39 @@
 import { type NextRequest } from "next/server"
 import { getAdminClient } from "@/lib/supabase/admin"
 import { authenticateRequest } from "@/lib/api-auth"
+import { validateApiKey } from "@/lib/security"
 
 export const dynamic = "force-dynamic"
-export const maxDuration = 300 // 5-minute max on Vercel Pro; adjust as needed
+export const maxDuration = 300
 
 export async function GET(req: NextRequest) {
-  // Auth
-  const auth = await authenticateRequest(req)
-  if (!auth.success || !auth.userId) {
-    return new Response("Unauthorized", { status: 401 })
+  const { searchParams } = new URL(req.url)
+
+  // EventSource cannot send headers — accept api_key as query param as fallback.
+  // Priority: x-api-key header (SDK) → api_key query param (browser EventSource).
+  const queryApiKey = searchParams.get("api_key")
+  let userId: string | null = null
+
+  if (queryApiKey && validateApiKey(queryApiKey)) {
+    // Resolve user from query-param API key
+    const admin = getAdminClient()
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("api_key", queryApiKey)
+      .single()
+    userId = profile?.id ?? null
   }
 
-  const { searchParams } = new URL(req.url)
+  if (!userId) {
+    // Fallback to header / session auth
+    const auth = await authenticateRequest(req)
+    if (!auth.ok || !auth.userId) {
+      return new Response("Unauthorized", { status: 401 })
+    }
+    userId = auth.userId
+  }
+
   const digitalTwinId = searchParams.get("digital_twin_id") ?? null
   let since = searchParams.get("since") ?? new Date(0).toISOString()
 
@@ -39,47 +60,39 @@ export async function GET(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       const send = (data: object) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
-      }
-      const keepAlive = () => {
-        controller.enqueue(encoder.encode(": ping\n\n"))
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
+        } catch { /* stream closed */ }
       }
 
       let open = true
       req.signal.addEventListener("abort", () => {
         open = false
-        controller.close()
+        try { controller.close() } catch { /* already closed */ }
       })
 
-      // Keep-alive every 15 s
+      // Keep-alive ping every 15 s
       const kaInterval = setInterval(() => {
         if (!open) { clearInterval(kaInterval); return }
-        keepAlive()
+        try { controller.enqueue(encoder.encode(": ping\n\n")) } catch { /* closed */ }
       }, 15_000)
 
       // Poll every 3 s
       const pollInterval = setInterval(async () => {
         if (!open) { clearInterval(pollInterval); return }
-
         try {
           let query = supabase
             .from("execution_logs")
             .select("id,circuit_name,algorithm,status,qubits_used,runtime_ms,success_rate,backend_selected,created_at,digital_twin_id,shots,error_mitigation,circuit_data")
-            .eq("user_id", auth.userId!)
+            .eq("user_id", userId!)
             .gt("created_at", since)
             .order("created_at", { ascending: true })
             .limit(50)
 
-          if (digitalTwinId) {
-            query = query.eq("digital_twin_id", digitalTwinId)
-          }
+          if (digitalTwinId) query = query.eq("digital_twin_id", digitalTwinId)
 
           const { data: rows, error } = await query
-
-          if (error) {
-            send({ type: "error", message: error.message })
-            return
-          }
+          if (error) { send({ type: "error", message: error.message }); return }
 
           if (rows && rows.length > 0) {
             since = rows[rows.length - 1].created_at
@@ -90,11 +103,12 @@ export async function GET(req: NextRequest) {
         }
       }, 3_000)
 
-      // Auto-close after maxDuration - 10 s to avoid hard cutoff
+      // Auto-close before hard Vercel timeout
       setTimeout(() => {
         clearInterval(kaInterval)
         clearInterval(pollInterval)
-        if (open) { controller.close() }
+        open = false
+        try { controller.close() } catch { /* already closed */ }
       }, (maxDuration - 10) * 1_000)
     },
   })
@@ -103,7 +117,7 @@ export async function GET(req: NextRequest) {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
+      "Connection": "keep-alive",
       "X-Accel-Buffering": "no",
     },
   })

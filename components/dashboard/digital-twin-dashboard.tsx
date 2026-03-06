@@ -43,13 +43,10 @@ const GRAY = "rgb(100, 100, 100)"
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface Props {
-  /** Rows pre-loaded from an SSR/SWR query. The hook will append live rows. */
   initialRows?: ExecutionRow[]
-  /** When true the SSE connection is opened. */
   liveEnabled: boolean
-  /** If set, the SSE stream and table are filtered to this DT. */
+  apiKey?: string | null
   digitalTwinId?: string | null
-  /** Display name shown in chart titles */
   title?: string
   timeRange?: string
 }
@@ -103,6 +100,7 @@ const baseChartOptions = (yLabel?: string) => ({
 export function DigitalTwinDashboard({
   initialRows = [],
   liveEnabled,
+  apiKey = null,
   digitalTwinId = null,
   title = "All Digital Twins",
   timeRange = "7d",
@@ -115,6 +113,7 @@ export function DigitalTwinDashboard({
     enabled: liveEnabled,
     digitalTwinId,
     initialRows,
+    apiKey,
   })
 
   // Limit chart to last 80 points for readability

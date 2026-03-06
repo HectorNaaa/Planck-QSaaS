@@ -49,13 +49,29 @@ export default function DashboardPage() {
   const [twins, setTwins] = useState<DigitalTwin[]>([])
   const [activeTab, setActiveTab] = useState<"all" | string>("all")
   const [loading, setLoading] = useState(true)
-  // Live mode: true when the user has enabled SDK/intensive-use toggle in the runner
   const [liveEnabled, setLiveEnabled] = useState(false)
+  // User's API key — fetched once for SSE auth (EventSource can't send headers)
+  const [userApiKey, setUserApiKey] = useState<string | null>(null)
 
   // Sync live-mode state from storage + allow toggling directly on dashboard
   useEffect(() => {
     const stored = sessionStorage.getItem("planck_sdk_mode")
     if (stored === "1") setLiveEnabled(true)
+  }, [])
+
+  // Fetch user's API key once — needed to authenticate the browser EventSource
+  // (EventSource doesn't support custom headers, so we pass api_key as a query param)
+  useEffect(() => {
+    const supabase = createBrowserClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.user.id) return
+      supabase
+        .from("profiles")
+        .select("api_key")
+        .eq("id", session.user.id)
+        .single()
+        .then(({ data }) => { if (data?.api_key) setUserApiKey(data.api_key) })
+    })
   }, [])
 
   // ── Load data ──────────────────────────────────────────────────────────────
@@ -227,6 +243,7 @@ export default function DashboardPage() {
           key={activeTab}
           initialRows={rowsForTab}
           liveEnabled={liveEnabled}
+          apiKey={userApiKey}
           digitalTwinId={activeTab === "all" ? null : activeTab}
           title={activeTab === "all" ? "All Digital Twins" : (activeTwin?.name ?? activeTab)}
           timeRange={timeRange}
