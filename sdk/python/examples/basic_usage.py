@@ -30,6 +30,22 @@ def example_health():
     print(f"[health] status={health.get('status')}  version={health.get('version')}")
 
 
+# ── 0b. List digital twins ────────────────────────────────────────────────────
+def example_list_twins():
+    """Print all digital twins available in this account.
+
+    Use the 'id' from here as digital_twin_id in run().
+    Pass digital_twin_id=None (or 0 / '') to leave a run unlinked.
+    """
+    twins = user.list_digital_twins()
+    if not twins:
+        print("[digital twins] none found — create one in the QSaaS Runner UI.")
+        return
+    for t in twins:
+        print(f"  {t['id']}  {t['name']:30s}  created: {t['created_at'][:10]}")
+    return twins
+
+
 # ── 1. Bell state ─────────────────────────────────────────────────────────────
 def example_bell():
     """Simplest entangled circuit — should produce ~50% |00⟩, 50% |11⟩."""

@@ -315,3 +315,32 @@ function generateDigitalTwinInsights(
     timestamp: new Date().toISOString(),
   }
 }
+
+/**
+ * GET /api/quantum/digital-twin
+ * Returns all digital twins belonging to the authenticated user.
+ * Used by the Python SDK's list_digital_twins() method.
+ */
+export async function GET(request: NextRequest) {
+  const auth = await authenticateRequest(request)
+  if (!auth.ok || !auth.userId) {
+    return NextResponse.json({ success: false, error: auth.error }, { status: auth.status })
+  }
+
+  try {
+    const admin = getAdminClient()
+    const { data, error } = await admin
+      .from("digital_twins")
+      .select("id,name,description,created_at")
+      .eq("user_id", auth.userId)
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, digital_twins: data ?? [] })
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err?.message ?? "Unknown error" }, { status: 500 })
+  }
+}
