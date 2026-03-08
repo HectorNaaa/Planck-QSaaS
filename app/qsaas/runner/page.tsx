@@ -9,13 +9,14 @@ import { DatabaseUploader } from "@/components/runner/database-uploader"
 import { AutoParser } from "@/components/runner/autoparser"
 import { ExpectedResults } from "@/components/runner/expected-results"
 import { CircuitResults } from "@/components/runner/circuit-results"
-import { Save, Play, RotateCcw, Download, Loader2, Radio } from "lucide-react"
+import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { PageHeader } from "@/components/page-header"
 import type { CircuitData } from "@/lib/qasm-generator"
 import { selectOptimalBackend, calculateFidelity, estimateRuntime } from "@/lib/backend-selector"
 import { DigitalTwinPanel } from "@/components/runner/digital-twin-panel"
 import { DigitalTwinSelector } from "@/components/runner/digital-twin-selector"
+import { useLiveExecutions } from "@/hooks/use-live-executions"
 
 export default function RunnerPage() {
   const [isRunning, setIsRunning] = useState(false)
@@ -47,6 +48,59 @@ export default function RunnerPage() {
   const [showDominantStates, setShowDominantStates] = useState(false)
   const [selectedDigitalTwinId, setSelectedDigitalTwinId] = useState<string | null>(null)
   const [sdkMode, setSdkMode] = useState(false)
+  // User API key — needed for browser EventSource auth (can't send custom headers)
+  const [userApiKey, setUserApiKey] = useState<string | null>(null)
+
+  // Fetch API key once on mount
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.user.id) return
+      supabase
+        .from("profiles")
+        .select("api_key")
+        .eq("id", session.user.id)
+        .single()
+        .then(({ data }) => { if (data?.api_key) setUserApiKey(data.api_key) })
+    })
+  }, [])
+
+  // Live SSE feed — active only when SDK mode is on
+  const { rows: liveRows, connected: liveConnected } = useLiveExecutions({
+    enabled: sdkMode,
+    digitalTwinId: selectedDigitalTwinId,
+    apiKey: userApiKey,
+  })
+
+  // When a new live row arrives, update results + circuit display from the latest job
+  useEffect(() => {
+    if (!sdkMode || liveRows.length === 0) return
+    const latest = liveRows[liveRows.length - 1]
+    // Map ExecutionRow shape → the results shape CircuitResults expects
+    setResults((prev: any) => {
+      const next = {
+        ...prev,
+        success_rate: latest.success_rate ?? prev?.success_rate ?? 0,
+        runtime_ms:   latest.runtime_ms   ?? prev?.runtime_ms   ?? 0,
+        fidelity:     latest.circuit_data?.fidelity ?? prev?.fidelity ?? 95,
+        total_shots:  latest.shots        ?? prev?.total_shots   ?? 1024,
+        qubits_used:  latest.qubits_used  ?? prev?.qubits_used   ?? qubits,
+        backend_selected: latest.backend_selected ?? prev?.backend_selected ?? backend,
+        error_mitigation: latest.error_mitigation ?? prev?.error_mitigation ?? "none",
+        counts:       latest.circuit_data?.counts ?? prev?.counts ?? {},
+        algorithm:    latest.algorithm    ?? circuitName,
+        circuit_name: latest.circuit_name ?? prev?.circuit_name,
+        digital_twin: prev?.digital_twin,
+        _liveJobId:   latest.id,
+      }
+      return next
+    })
+    // Update displayed qubit count from live job
+    if (latest.qubits_used) setQubits(latest.qubits_used)
+    if (latest.algorithm)   setCircuitName(latest.algorithm)
+    if (latest.backend_selected) setBackend(latest.backend_selected as any)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveRows, sdkMode])
 
   useEffect(() => {
     const algorithmFromTemplates = sessionStorage.getItem("selectedAlgorithm")
@@ -637,15 +691,27 @@ const adaptiveShots = calculateAdaptiveShots({
       <PageHeader title="Runner" description="Configure and execute your quantum circuits" />
 
       {/* SDK / Intensive-use mode toggle */}
-      <div className="flex items-center justify-between p-4 rounded-lg border border-border bg-secondary/40">
+      <div className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
+        sdkMode ? "border-primary/40 bg-primary/5" : "border-border bg-secondary/40"
+      }`}>
         <div className="flex items-center gap-3">
           <Radio size={18} className={sdkMode ? "text-primary" : "text-muted-foreground"} />
           <div>
-            <p className="text-sm font-medium text-foreground">SDK / Intensive-use mode</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-foreground">SDK / Live mode</p>
+              {sdkMode && (
+                <span className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                  liveConnected ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                }`}>
+                  {liveConnected ? <Wifi size={10} /> : <WifiOff size={10} />}
+                  {liveConnected ? "Connected" : "Connecting…"}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               {sdkMode
-                ? "Live feed active — dashboard charts update every 3 s as SDK calls arrive."
-                : "Enable when sending runs from a notebook or script to get real-time dashboard updates."}
+                ? "Results update automatically every 3 s from SDK jobs. Upload and editing are disabled."
+                : "Enable to receive live results from notebook/script SDK calls."}
             </p>
           </div>
         </div>
@@ -653,29 +719,72 @@ const adaptiveShots = calculateAdaptiveShots({
           role="switch"
           aria-checked={sdkMode}
           onClick={() => {
-              const next = !sdkMode
-              setSdkMode(next)
-              sessionStorage.setItem("planck_sdk_mode", next ? "1" : "0")
-            }}
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            const next = !sdkMode
+            setSdkMode(next)
+            sessionStorage.setItem("planck_sdk_mode", next ? "1" : "0")
+          }}
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
             sdkMode ? "bg-primary" : "bg-muted"
           }`}
         >
-          <span
-            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-              sdkMode ? "translate-x-6" : "translate-x-1"
-            }`}
-          />
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            sdkMode ? "translate-x-6" : "translate-x-1"
+          }`} />
         </button>
       </div>
 
-      {/* Digital Twin Selector */}
-      <DigitalTwinSelector 
+      {/* Digital Twin Selector — always visible */}
+      <DigitalTwinSelector
         selectedTwinId={selectedDigitalTwinId}
         onSelect={setSelectedDigitalTwinId}
       />
 
-      <Card className="p-6 shadow-lg bg-secondary px-6">
+      {/* ── SDK live feed panel ─────────────────────────────────────────── */}
+      {sdkMode && (
+        <Card className="p-5 border border-primary/20 bg-primary/5 shadow-md">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Radio size={16} className="text-primary" />
+              <h3 className="text-sm font-semibold text-foreground">Live SDK Feed</h3>
+              {liveConnected && (
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">{liveRows.length} job{liveRows.length !== 1 ? "s" : ""} received</p>
+          </div>
+
+          {liveRows.length === 0 ? (
+            <div className="flex items-center justify-center py-8 rounded-lg border border-dashed border-border bg-secondary/30">
+              <p className="text-sm text-muted-foreground">Waiting for SDK jobs… Run <code className="text-xs bg-secondary px-1.5 py-0.5 rounded">user.run(data)</code> from your notebook.</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-56 overflow-y-auto">
+              {[...liveRows].reverse().map((row) => (
+                <div key={row.id} className={`flex items-center justify-between px-3 py-2 rounded-md border text-xs transition-colors ${
+                  row.id === (results as any)?._liveJobId ? "border-primary/40 bg-primary/10" : "border-border bg-secondary/30"
+                }`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${row.status === "completed" ? "bg-primary" : row.status === "running" ? "bg-accent" : "bg-destructive"}`} />
+                    <span className="font-medium text-foreground truncate">{row.circuit_name || row.algorithm}</span>
+                    <span className="text-muted-foreground capitalize hidden sm:inline">{row.algorithm}</span>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0 text-muted-foreground">
+                    <span>{row.qubits_used}q</span>
+                    <span>{row.runtime_ms}ms</span>
+                    <span className="font-medium" style={{ color: "#7ab5ac" }}>{row.success_rate?.toFixed(1)}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* ── Manual-mode setup sections (hidden in SDK / live mode) ────────── */}
+      {!sdkMode && (
         <div className="space-y-4">
           <div>
             <label htmlFor="execution-name" className="block text-sm font-medium text-foreground mb-2">
@@ -763,8 +872,9 @@ const adaptiveShots = calculateAdaptiveShots({
               </>
             )}
           </Button>
+          </div>
         </div>
-      </div>
+      )} {/* end !sdkMode manual sections */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -892,8 +1002,8 @@ const adaptiveShots = calculateAdaptiveShots({
             </div>
           ) : null}
 
-          {/* Section Toggles */}
-          {dataUploaded && (circuitImageUrl || circuitCode) && (
+          {/* Section Toggles — only in manual mode */}
+          {!sdkMode && dataUploaded && (circuitImageUrl || circuitCode) && (
             <Card className="p-4 shadow-lg bg-card">
               <h3 className="text-sm font-semibold text-muted-foreground mb-3">Show / Hide Sections</h3>
               <div className="flex flex-wrap gap-3">
@@ -937,8 +1047,8 @@ const adaptiveShots = calculateAdaptiveShots({
             </Card>
           )}
 
-          {/* Circuit Visualizer */}
-          {dataUploaded && circuitImageUrl && showVisualizer && (
+          {/* Circuit Visualizer — manual mode only */}
+          {!sdkMode && dataUploaded && circuitImageUrl && showVisualizer && (
             <Card className="p-6 shadow-lg">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-foreground">Circuit Visualizer</h3>
@@ -962,8 +1072,8 @@ const adaptiveShots = calculateAdaptiveShots({
             </Card>
           )}
 
-          {/* Circuit Code Editor */}
-          {dataUploaded && circuitCode && showCodeEditor && (
+          {/* Circuit Code Editor — manual mode only */}
+          {!sdkMode && dataUploaded && circuitCode && showCodeEditor && (
             <Card className="p-6 shadow-lg">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-foreground">Circuit Code Editor</h3>
