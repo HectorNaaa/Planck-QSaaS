@@ -12,7 +12,11 @@ import { CircuitResults } from "@/components/runner/circuit-results"
 import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { PageHeader } from "@/components/page-header"
-import type { CircuitData } from "@/lib/qasm-generator"
+import type { BuiltCircuit } from "@/lib/circuit-builder"
+
+// CircuitData extends BuiltCircuit with a gates array for backwards-compat
+// (BuiltCircuit stores only gateCount; CircuitData keeps the full gate list)
+type CircuitData = BuiltCircuit & { gates: string[] }
 import { selectOptimalBackend, calculateFidelity, estimateRuntime } from "@/lib/backend-selector"
 import { DigitalTwinPanel } from "@/components/runner/digital-twin-panel"
 import { DigitalTwinSelector } from "@/components/runner/digital-twin-selector"

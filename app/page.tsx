@@ -72,6 +72,7 @@ export default function LandingPage() {
               width={140}
               height={45}
               className="h-10 w-auto"
+              style={{ height: "auto" }}
             />
             <nav className="flex gap-8 items-center justify-center">
               <a href="#features" className="text-foreground hover:text-primary transition">
@@ -101,6 +102,7 @@ export default function LandingPage() {
               width={90}
               height={29}
               className="h-6 w-auto flex-shrink-0"
+              style={{ height: "auto" }}
             />
             <div className="flex items-center gap-2">
               <Link href="/auth/login">
