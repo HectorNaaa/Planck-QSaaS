@@ -12,7 +12,11 @@ import { CircuitResults } from "@/components/runner/circuit-results"
 import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { PageHeader } from "@/components/page-header"
-import type { CircuitData } from "@/lib/qasm-generator"
+import type { BuiltCircuit } from "@/lib/circuit-builder"
+
+// CircuitData extends BuiltCircuit with a gates array for backwards-compat
+// (BuiltCircuit stores only gateCount; CircuitData keeps the full gate list)
+type CircuitData = BuiltCircuit & { gates: string[] }
 import { selectOptimalBackend, calculateFidelity, estimateRuntime } from "@/lib/backend-selector"
 import { DigitalTwinPanel } from "@/components/runner/digital-twin-panel"
 import { DigitalTwinSelector } from "@/components/runner/digital-twin-selector"
@@ -76,7 +80,7 @@ export default function RunnerPage() {
   useEffect(() => {
     if (!sdkMode || liveRows.length === 0) return
     const latest = liveRows[liveRows.length - 1]
-    // Map ExecutionRow shape → the results shape CircuitResults expects
+    // Map ExecutionRow shape to the results shape CircuitResults expects
     setResults((prev: any) => {
       const next = {
         ...prev,
@@ -818,7 +822,7 @@ const adaptiveShots = calculateAdaptiveShots({
               />
               <span className="text-sm font-medium text-muted-foreground">ms</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">QPU requires ≥500ms. Below that falls back to HPC.</p>
+            <p className="text-xs text-muted-foreground mt-1">QPU requires &gt;=500ms. Below that falls back to HPC.</p>
           </div>
         </div>
       </Card>

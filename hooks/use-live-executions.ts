@@ -29,7 +29,12 @@ export interface ExecutionRow {
   digital_twin_id: string | null
   shots: number
   error_mitigation: string | null
-  circuit_data: { source?: string } | null
+  circuit_data: {
+    source?: string
+    fidelity?: number
+    counts?: Record<string, number>
+    [key: string]: unknown
+  } | null
 }
 
 interface UseLiveExecutionsOptions {
