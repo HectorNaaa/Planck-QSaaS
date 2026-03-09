@@ -80,7 +80,7 @@ export default function RunnerPage() {
   useEffect(() => {
     if (!sdkMode || liveRows.length === 0) return
     const latest = liveRows[liveRows.length - 1]
-    // Map ExecutionRow shape → the results shape CircuitResults expects
+    // Map ExecutionRow shape to the results shape CircuitResults expects
     setResults((prev: any) => {
       const next = {
         ...prev,
@@ -822,7 +822,7 @@ const adaptiveShots = calculateAdaptiveShots({
               />
               <span className="text-sm font-medium text-muted-foreground">ms</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">QPU requires ≥500ms. Below that falls back to HPC.</p>
+            <p className="text-xs text-muted-foreground mt-1">QPU requires &gt;=500ms. Below that falls back to HPC.</p>
           </div>
         </div>
       </Card>
