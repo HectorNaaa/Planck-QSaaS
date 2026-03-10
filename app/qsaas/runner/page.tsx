@@ -825,7 +825,7 @@ const adaptiveShots = calculateAdaptiveShots({
             <p className="text-xs text-muted-foreground mt-1">QPU requires &gt;=500ms. Below that falls back to HPC.</p>
           </div>
         </div>
-      </Card>
+      )}
 
       <div className="lg:hidden space-y-6">
         <DatabaseUploader
@@ -878,8 +878,6 @@ const adaptiveShots = calculateAdaptiveShots({
           </Button>
           </div>
         </div>
-      )} {/* end !sdkMode manual sections */}
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Main execution pipeline - Always visible */}
