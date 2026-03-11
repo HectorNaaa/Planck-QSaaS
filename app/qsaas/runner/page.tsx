@@ -20,6 +20,7 @@ type CircuitData = BuiltCircuit & { gates: string[] }
 import { selectOptimalBackend, calculateFidelity, estimateRuntime } from "@/lib/backend-selector"
 import { DigitalTwinPanel } from "@/components/runner/digital-twin-panel"
 import { DigitalTwinSelector } from "@/components/runner/digital-twin-selector"
+import { DigitalTwinDashboard } from "@/components/dashboard/digital-twin-dashboard"
 import { useLiveExecutions } from "@/hooks/use-live-executions"
 
 export default function RunnerPage() {
@@ -882,9 +883,10 @@ const adaptiveShots = calculateAdaptiveShots({
         </div>
       )} {/* end !sdkMode mobile pipeline */}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          {/* Main execution pipeline - Always visible */}
+      <div className={`grid grid-cols-1 gap-6 ${!sdkMode ? "lg:grid-cols-3" : ""}`}>
+        <div className={`space-y-6 ${!sdkMode ? "lg:col-span-2" : ""}`}>
+          {/* Execution Pipeline — manual mode only */}
+          {!sdkMode && (
           <Card className="p-6 shadow-lg bg-card px-4 py-4">
             <h2 className="text-2xl font-bold text-foreground mb-4">Execution Pipeline</h2>
             {!dataUploaded ? (
@@ -976,11 +978,23 @@ const adaptiveShots = calculateAdaptiveShots({
               </div>
             )}
           </Card>
+          )} {/* end !sdkMode pipeline */}
 
           {/* Results — always shown in SDK mode; shown after a manual run otherwise */}
           {(results || sdkMode) ? (
             <div className="space-y-6">
-              <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} />
+              <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} isLive={sdkMode} />
+
+              {/* Digital Twin Dashboard — shown in SDK mode so it updates live alongside CircuitResults */}
+              {sdkMode && (
+                <DigitalTwinDashboard
+                  liveEnabled={true}
+                  apiKey={userApiKey}
+                  digitalTwinId={selectedDigitalTwinId}
+                  title={selectedDigitalTwinId ? "Selected Digital Twin" : "All Digital Twins"}
+                />
+              )}
+
               {results && uploadedData && circuitCode && (
                 <DigitalTwinPanel
                   algorithm={circuitName}
@@ -1121,6 +1135,8 @@ const adaptiveShots = calculateAdaptiveShots({
           )}
         </div>
 
+        {/* Right column: pipeline settings — manual mode only */}
+        {!sdkMode && (
         <div className="hidden lg:block space-y-6">
           <DatabaseUploader
             onDataUpload={handleDataUpload}
@@ -1157,8 +1173,11 @@ const adaptiveShots = calculateAdaptiveShots({
             </div>
           )}
         </div>
+        )} {/* end !sdkMode right column */}
       </div>
 
+      {/* Run / Save / Reset — manual mode only */}
+      {!sdkMode && (
       <div className="hidden lg:flex justify-center gap-3 pt-6 border-border border-t-2">
         <Button onClick={handleReset} variant="outline" className="flex items-center gap-2 bg-secondary">
           <RotateCcw size={18} />
@@ -1186,6 +1205,7 @@ const adaptiveShots = calculateAdaptiveShots({
           )}
         </Button>
       </div>
+      )} {/* end !sdkMode run buttons */}
     </div>
   )
 }
