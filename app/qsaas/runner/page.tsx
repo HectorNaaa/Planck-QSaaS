@@ -827,6 +827,8 @@ const adaptiveShots = calculateAdaptiveShots({
         </div>
       )}
 
+      {/* Mobile pipeline — hidden in SDK/live mode */}
+      {!sdkMode && (
       <div className="lg:hidden space-y-6">
         <DatabaseUploader
           onDataUpload={handleDataUpload}
@@ -878,6 +880,9 @@ const adaptiveShots = calculateAdaptiveShots({
           </Button>
           </div>
         </div>
+      </div>
+      )} {/* end !sdkMode mobile pipeline */}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Main execution pipeline - Always visible */}
@@ -973,8 +978,8 @@ const adaptiveShots = calculateAdaptiveShots({
             )}
           </Card>
 
-          {/* Results section - Primary display */}
-          {results ? (
+          {/* Results — always shown in SDK mode; shown after a manual run otherwise */}
+          {(results || sdkMode) ? (
             <div className="space-y-6">
               <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} />
               {results && uploadedData && circuitCode && (

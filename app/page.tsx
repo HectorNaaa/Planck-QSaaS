@@ -69,9 +69,9 @@ export default function LandingPage() {
             <Image
               src="/images/design-mode/Planck%20Logotype%20no%20bg(2).png"
               alt="Planck Logo"
-              width={140}
-              height={45}
-              className="h-10 w-auto"
+              width={90}
+              height={29}
+              className="h-7 w-auto"
               style={{ height: "auto" }}
             />
             <nav className="flex gap-8 items-center justify-center">
