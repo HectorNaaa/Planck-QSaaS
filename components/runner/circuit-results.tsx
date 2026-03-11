@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { ChevronDown, Download, Brain, TrendingUp, Lightbulb, Info } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,9 +11,53 @@ interface CircuitResultsProps {
   results?: any
   qubits: number
   onDownload?: () => void
+  /** When true (SDK / live mode) numbers animate on change */
+  isLive?: boolean
 }
 
-export function CircuitResults({ backend, results, qubits, onDownload }: CircuitResultsProps) {
+/** Smoothly counts from `prev` to `next` over ~600 ms using rAF */
+function useAnimatedValue(next: number, isLive?: boolean): number {
+  const [display, setDisplay] = useState(next)
+  const rafRef = useRef<number>(0)
+  const startRef = useRef<number>(0)
+  const fromRef = useRef<number>(next)
+
+  useEffect(() => {
+    if (!isLive) { setDisplay(next); return }
+    cancelAnimationFrame(rafRef.current)
+    const from = fromRef.current
+    const duration = 600
+    startRef.current = performance.now()
+    const animate = (now: number) => {
+      const t = Math.min((now - startRef.current) / duration, 1)
+      // ease-out cubic
+      const ease = 1 - Math.pow(1 - t, 3)
+      setDisplay(Math.round(from + (next - from) * ease))
+      if (t < 1) rafRef.current = requestAnimationFrame(animate)
+      else fromRef.current = next
+    }
+    rafRef.current = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(rafRef.current)
+  }, [next, isLive])
+
+  return display
+}
+
+/** Returns a flash CSS class whenever `value` changes */
+function useFlash(value: number, isLive?: boolean): string {
+  const [flash, setFlash] = useState(false)
+  const prev = useRef(value)
+  useEffect(() => {
+    if (!isLive || value === prev.current) return
+    prev.current = value
+    setFlash(true)
+    const t = setTimeout(() => setFlash(false), 700)
+    return () => clearTimeout(t)
+  }, [value, isLive])
+  return flash ? "ring-2 ring-primary/50 shadow-[0_0_12px_2px_var(--primary)] transition-shadow" : "transition-shadow"
+}
+
+export function CircuitResults({ backend, results, qubits, onDownload, isLive }: CircuitResultsProps) {
   const [isExpanded, setIsExpanded] = useState(true)
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false)
   const [showDigitalTwinDetails, setShowDigitalTwinDetails] = useState(false)
@@ -25,20 +69,30 @@ export function CircuitResults({ backend, results, qubits, onDownload }: Circuit
   }
 
   const b = results || {}
-  const successRate  = Math.round(b.success_rate  ?? b.successRate  ?? 0)
-  const totalShots   = b.total_shots ?? b.shots ?? 1024
-  const qubitsUsed   = b.qubits_used ?? b.qubitsUsed ?? qubits
-  const fidelity     = Math.round(b.fidelity ?? 95)
-  const runtimeMs    = Math.round(b.runtime_ms ?? (b.runtime ?? 0) * 1000)
-  const emLevel      = results?.error_mitigation ?? "none"
+  const successRateRaw  = Math.round(b.success_rate  ?? b.successRate  ?? 0)
+  const totalShotsRaw   = b.total_shots ?? b.shots ?? 1024
+  const qubitsUsedRaw   = b.qubits_used ?? b.qubitsUsed ?? qubits
+  const fidelityRaw     = Math.round(b.fidelity ?? 95)
+  const runtimeMsRaw    = Math.round(b.runtime_ms ?? (b.runtime ?? 0) * 1000)
+  const emLevel         = results?.error_mitigation ?? "none"
+
+  // Animated display values (count-up on change in live mode)
+  const successRate = useAnimatedValue(successRateRaw, isLive)
+  const totalShots  = useAnimatedValue(totalShotsRaw,  isLive)
+  const qubitsUsed  = useAnimatedValue(qubitsUsedRaw,  isLive)
+  const fidelity    = useAnimatedValue(fidelityRaw,    isLive)
+  const runtimeMs   = useAnimatedValue(runtimeMsRaw,   isLive)
+
+  // Flash ring on value change
+  const srFlash       = useFlash(successRateRaw, isLive)
+  const shotsFlash    = useFlash(totalShotsRaw,  isLive)
+  const runtimeFlash  = useFlash(runtimeMsRaw,   isLive)
 
   const digitalTwin  = results?.digital_twin
   const hasDT        = !!digitalTwin
 
-  // Reliability: blend success rate + fidelity (0–100)
+  // Gauge scores — use animated values so needles sweep smoothly in live mode
   const reliabilityScore = Math.round((successRate + fidelity) / 2)
-
-  // Performance score: lower runtime = higher score
   const perfScore = runtimeMs <= 100 ? 95
     : runtimeMs <= 500  ? 82
     : runtimeMs <= 2000 ? 60
@@ -129,12 +183,12 @@ export function CircuitResults({ backend, results, qubits, onDownload }: Circuit
           {/* ── Quick stat cards ─────────────────────────────── */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: "Success Rate", value: `${successRate}%` },
-              { label: "Total Shots",  value: `${totalShots}`   },
-              { label: "Backend",      value: backendNames[backend] ?? backend },
-              { label: "Runtime",      value: `${runtimeMs}ms`  },
-            ].map(({ label, value }) => (
-              <div key={label} className="p-3 bg-secondary/50 rounded-lg border border-border text-center">
+              { label: "Success Rate", value: `${successRate}%`,  flash: srFlash      },
+              { label: "Total Shots",  value: `${totalShots}`,    flash: shotsFlash   },
+              { label: "Backend",      value: backendNames[backend] ?? backend, flash: "" },
+              { label: "Runtime",      value: `${runtimeMs}ms`,  flash: runtimeFlash  },
+            ].map(({ label, value, flash }) => (
+              <div key={label} className={`p-3 bg-secondary/50 rounded-lg border border-border text-center ${flash}`}>
                 <p className="text-xs text-muted-foreground mb-1">{label}</p>
                 <p className="text-lg font-bold text-foreground leading-tight">{value}</p>
               </div>
