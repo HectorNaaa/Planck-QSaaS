@@ -880,7 +880,6 @@ const adaptiveShots = calculateAdaptiveShots({
           </Button>
           </div>
         </div>
-      </div>
       )} {/* end !sdkMode mobile pipeline */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
