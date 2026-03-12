@@ -285,6 +285,7 @@ export default function LandingPage() {
               width={600}
               height={180}
               className="rounded-lg opacity-60"
+              style={{ width: "100%", height: "auto", maxWidth: 600 }}
             />
           </div>
         </section>
