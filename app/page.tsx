@@ -69,10 +69,9 @@ export default function LandingPage() {
             <Image
               src="/images/design-mode/Planck%20Logotype%20no%20bg(2).png"
               alt="Planck Logo"
-              width={90}
-              height={29}
-              className="h-7 w-auto"
-              style={{ height: "auto" }}
+              width={110}
+              height={35}
+              className="h-8 w-auto object-contain"
             />
             <nav className="flex gap-8 items-center justify-center">
               <a href="#features" className="text-foreground hover:text-primary transition">
@@ -99,10 +98,9 @@ export default function LandingPage() {
             <Image
               src="/images/design-mode/Planck%20Logotype%20no%20bg(2).png"
               alt="Planck Logo"
-              width={90}
-              height={29}
-              className="h-6 w-auto flex-shrink-0"
-              style={{ height: "auto" }}
+              width={80}
+              height={26}
+              className="h-6 w-auto object-contain flex-shrink-0"
             />
             <div className="flex items-center gap-2">
               <Link href="/auth/login">
@@ -285,6 +283,7 @@ export default function LandingPage() {
               width={600}
               height={180}
               className="rounded-lg opacity-60"
+              style={{ width: "100%", height: "auto", maxWidth: 600 }}
             />
           </div>
         </section>
