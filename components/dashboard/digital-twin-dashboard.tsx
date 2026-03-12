@@ -203,12 +203,15 @@ export function DigitalTwinDashboard({
 
   return (
     <div className="space-y-6">
-      {/* Live indicator */}
-      {liveEnabled && (
+      {/* Live indicator — shown when SSE is on, or when fed externally by the runner */}
+      {(liveEnabled || rows.length > 0) && (
         <div className="flex items-center gap-2 text-xs">
-          {connected
-            ? <><Wifi size={13} className="text-primary" /><span className="text-primary">Live — updating every 3 s</span></>
-            : <><WifiOff size={13} className="text-muted-foreground" /><span className="text-muted-foreground">Connecting…</span></>}
+          {liveEnabled
+            ? connected
+              ? <><Wifi size={13} className="text-primary" /><span className="text-primary">Live — updating every 3 s</span></>
+              : <><WifiOff size={13} className="text-muted-foreground" /><span className="text-muted-foreground">Connecting…</span></>
+            : <><Wifi size={13} className="text-primary" /><span className="text-primary">Live — synced from runner feed</span></>
+          }
           {error && <span className="text-destructive ml-2">{error}</span>}
           <span className="text-muted-foreground ml-auto">{rows.length} run{rows.length !== 1 ? "s" : ""} loaded</span>
         </div>
