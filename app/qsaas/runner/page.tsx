@@ -985,16 +985,33 @@ const adaptiveShots = calculateAdaptiveShots({
             <div className="space-y-6">
               <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} isLive={sdkMode} />
 
-              {/* Digital Twin Dashboard — driven by the runner's single SSE feed via initialRows */}
-              {sdkMode && (
-                <DigitalTwinDashboard
-                  liveEnabled={false}
-                  apiKey={null}
-                  digitalTwinId={selectedDigitalTwinId}
-                  initialRows={liveRows}
-                  title={selectedDigitalTwinId ? "Selected Digital Twin" : "All Digital Twins"}
-                />
-              )}
+              {/* Digital Twin Dashboard — always shown after a run; live-driven in SDK mode */}
+              <DigitalTwinDashboard
+                liveEnabled={false}
+                apiKey={null}
+                digitalTwinId={selectedDigitalTwinId}
+                initialRows={
+                  sdkMode
+                    ? liveRows
+                    : results
+                    ? [{
+                        id: results._liveJobId ?? "manual-run",
+                        created_at: new Date().toISOString(),
+                        circuit_name: results.circuit_name ?? circuitName,
+                        algorithm: results.algorithm ?? circuitName,
+                        status: "completed",
+                        shots: results.total_shots ?? shots,
+                        qubits_used: results.qubits_used ?? qubits,
+                        runtime_ms: results.runtime_ms ?? 0,
+                        success_rate: results.success_rate ?? 0,
+                        backend_selected: results.backend_selected ?? backend,
+                        error_mitigation: results.error_mitigation ?? errorMitigation,
+                        circuit_data: { fidelity: results.fidelity, counts: results.counts },
+                      }]
+                    : []
+                }
+                title={selectedDigitalTwinId ? "Selected Digital Twin" : "All Digital Twins"}
+              />
 
               {results && uploadedData && circuitCode && (
                 <DigitalTwinPanel
