@@ -23,6 +23,27 @@ import { DigitalTwinSelector } from "@/components/runner/digital-twin-selector"
 import { DigitalTwinDashboard } from "@/components/dashboard/digital-twin-dashboard"
 import { useLiveExecutions } from "@/hooks/use-live-executions"
 
+/** Convert a manual-run results object into the ExecutionRow shape the DT dashboard expects. */
+function resultToRow(
+  r: any,
+  ctx: { circuitName: string; shots: number; qubits: number; backend: string; errorMitigation: string },
+) {
+  return {
+    id: r._liveJobId ?? "manual-run",
+    created_at: new Date().toISOString(),
+    circuit_name: r.circuit_name ?? ctx.circuitName,
+    algorithm: r.algorithm ?? ctx.circuitName,
+    status: "completed" as const,
+    shots: r.total_shots ?? ctx.shots,
+    qubits_used: r.qubits_used ?? ctx.qubits,
+    runtime_ms: r.runtime_ms ?? 0,
+    success_rate: r.success_rate ?? 0,
+    backend_selected: r.backend_selected ?? ctx.backend,
+    error_mitigation: r.error_mitigation ?? ctx.errorMitigation,
+    circuit_data: { fidelity: r.fidelity, counts: r.counts },
+  }
+}
+
 export default function RunnerPage() {
   const [isRunning, setIsRunning] = useState(false)
   const [executionName, setExecutionName] = useState("")
@@ -990,26 +1011,7 @@ const adaptiveShots = calculateAdaptiveShots({
                 liveEnabled={false}
                 apiKey={null}
                 digitalTwinId={selectedDigitalTwinId}
-                initialRows={
-                  sdkMode
-                    ? liveRows
-                    : results
-                    ? [{
-                        id: results._liveJobId ?? "manual-run",
-                        created_at: new Date().toISOString(),
-                        circuit_name: results.circuit_name ?? circuitName,
-                        algorithm: results.algorithm ?? circuitName,
-                        status: "completed",
-                        shots: results.total_shots ?? shots,
-                        qubits_used: results.qubits_used ?? qubits,
-                        runtime_ms: results.runtime_ms ?? 0,
-                        success_rate: results.success_rate ?? 0,
-                        backend_selected: results.backend_selected ?? backend,
-                        error_mitigation: results.error_mitigation ?? errorMitigation,
-                        circuit_data: { fidelity: results.fidelity, counts: results.counts },
-                      }]
-                    : []
-                }
+                initialRows={sdkMode ? liveRows : results ? [resultToRow(results, { circuitName, shots, qubits, backend, errorMitigation })] : []}
                 title={selectedDigitalTwinId ? "Selected Digital Twin" : "All Digital Twins"}
               />
 

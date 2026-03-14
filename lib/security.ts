@@ -65,10 +65,8 @@ export function validateUUID(uuid: string | null): boolean {
  */
 export function validateAlgorithm(algorithm: string | null): string {
   if (!algorithm || typeof algorithm !== 'string') return 'vqe'
-  
   const normalized = algorithm.trim().toLowerCase()
-  const allowed = new Set(['bell', 'grover', 'shor', 'vqe', 'qaoa', 'qft'])
-  return allowed.has(normalized) ? normalized : 'vqe'
+  return ALLOWED_ALGORITHMS.has(normalized) ? normalized : 'vqe'
 }
 
 /**
