@@ -30,36 +30,42 @@ export default function LoginPage() {
     try {
       const supabase = createClient()
 
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      if (authError) {
+        setError(authError.message)
+        return
+      }
 
-      if (authError) throw authError
-
-      // Check if profile exists (but don't delete if it doesn't)
+      // Ensure a profile row exists (may have been lost during DB outage)
       if (authData.user) {
-        const { data: profileData, error: profileError } = await supabase
+        const { data: profile } = await supabase
           .from("profiles")
           .select("id")
           .eq("id", authData.user.id)
-          .single()
+          .maybeSingle()
 
-        // If no profile exists, sign out but don't delete the account
-        if (!profileData || profileError) {
-          await supabase.auth.signOut()
-          throw new Error("Account not properly registered. Please sign up first.")
+        if (!profile) {
+          // Recreate profile row from auth metadata
+          const meta = authData.user.user_metadata ?? {}
+          await supabase.from("profiles").upsert({
+            id: authData.user.id,
+            email: authData.user.email,
+            name: meta.name ?? meta.full_name ?? email.split("@")[0],
+            country: meta.country ?? "",
+            country_code: meta.country_code ?? "",
+            phone_number: meta.phone_number ?? "",
+            occupation: meta.occupation ?? "",
+            organization: meta.organization ?? "",
+            email_verified: !!authData.user.confirmed_at,
+          }, { onConflict: "id" })
         }
       }
 
-      // Set browser cookie for session persistence (30 days)
       document.cookie = `planck_session=active; max-age=${30 * 24 * 60 * 60}; path=/; SameSite=Strict`
-
       sessionStorage.setItem("planck_nav_source", "auth")
-
       router.push("/qsaas/dashboard")
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "An error occurred")
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An unexpected error occurred")
     } finally {
       setIsLoading(false)
     }
