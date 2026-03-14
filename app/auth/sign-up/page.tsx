@@ -199,7 +199,6 @@ export default function SignUpPage() {
 
       // Explicitly upsert profile — don't rely solely on DB trigger
       // (trigger may fail silently if DB was at capacity)
-      const fullName = [firstName, lastName].filter(Boolean).join(" ")
       const { error: profileError } = await supabase.from("profiles").upsert({
         id: authData.user.id,
         email,
