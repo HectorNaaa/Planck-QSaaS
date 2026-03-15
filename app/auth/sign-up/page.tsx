@@ -188,20 +188,20 @@ export default function SignUpPage() {
       })
 
       if (signUpError) {
-        setError(signUpError.message)
+        setError(signUpError.message || "Sign up failed. Please try again.")
         return
       }
 
       if (!authData.user) {
-        setError("No user data returned from sign up")
+        setError("No user data returned. Please try again.")
         return
       }
 
-      // Explicitly upsert profile — don't rely solely on DB trigger
-      // (trigger may fail silently if DB was at capacity)
-      try {
-        const { error: profileError } = await supabase.from("profiles").upsert({
-          id: authData.user.id,
+      // Profile upsert — the session may not yet be fully propagated in the browser
+      // so we retry once after a short delay to satisfy RLS auth.uid() = id
+      const upsertProfile = async () => {
+        const { error } = await supabase.from("profiles").upsert({
+          id: authData.user!.id,
           email,
           name: fullName,
           country,
@@ -211,14 +211,21 @@ export default function SignUpPage() {
           organization,
           email_verified: false,
         }, { onConflict: "id" })
+        return error
+      }
 
+      try {
+        let profileError = await upsertProfile()
         if (profileError) {
-          console.error("[v0] Profile upsert error:", profileError)
-          // Non-fatal: user is created, profile can be fixed on next login
+          // Retry once after 800 ms to let the session cookie propagate
+          await new Promise(r => setTimeout(r, 800))
+          profileError = await upsertProfile()
+          if (profileError) {
+            console.error("[v0] Profile upsert failed after retry:", profileError.message)
+          }
         }
       } catch (profileCatchErr) {
         console.error("[v0] Profile upsert catch:", profileCatchErr)
-        // Non-fatal error, proceed with redirect
       }
 
       router.push("/qsaas/dashboard")
