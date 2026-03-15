@@ -199,21 +199,26 @@ export default function SignUpPage() {
 
       // Explicitly upsert profile — don't rely solely on DB trigger
       // (trigger may fail silently if DB was at capacity)
-      const { error: profileError } = await supabase.from("profiles").upsert({
-        id: authData.user.id,
-        email,
-        name: fullName,
-        country,
-        country_code: phonePrefix,
-        phone_number: `${phonePrefix}${phoneNumber}`,
-        occupation,
-        organization,
-        email_verified: false,
-      }, { onConflict: "id" })
+      try {
+        const { error: profileError } = await supabase.from("profiles").upsert({
+          id: authData.user.id,
+          email,
+          name: fullName,
+          country,
+          country_code: phonePrefix,
+          phone_number: `${phonePrefix}${phoneNumber}`,
+          occupation,
+          organization,
+          email_verified: false,
+        }, { onConflict: "id" })
 
-      if (profileError) {
-        console.error("[v0] Profile upsert error:", profileError.message)
-        // Non-fatal: user is created, profile can be fixed on next login
+        if (profileError) {
+          console.error("[v0] Profile upsert error:", profileError)
+          // Non-fatal: user is created, profile can be fixed on next login
+        }
+      } catch (profileCatchErr) {
+        console.error("[v0] Profile upsert catch:", profileCatchErr)
+        // Non-fatal error, proceed with redirect
       }
 
       router.push("/qsaas/dashboard")

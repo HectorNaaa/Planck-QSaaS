@@ -38,26 +38,36 @@ export default function LoginPage() {
 
       // Ensure a profile row exists (may have been lost during DB outage)
       if (authData.user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("id", authData.user.id)
-          .maybeSingle()
+        try {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("id", authData.user.id)
+            .maybeSingle()
 
-        if (!profile) {
-          // Recreate profile row from auth metadata
-          const meta = authData.user.user_metadata ?? {}
-          await supabase.from("profiles").upsert({
-            id: authData.user.id,
-            email: authData.user.email,
-            name: meta.name ?? meta.full_name ?? email.split("@")[0],
-            country: meta.country ?? "",
-            country_code: meta.country_code ?? "",
-            phone_number: meta.phone_number ?? "",
-            occupation: meta.occupation ?? "",
-            organization: meta.organization ?? "",
-            email_verified: !!authData.user.confirmed_at,
-          }, { onConflict: "id" })
+          if (!profile) {
+            // Recreate profile row from auth metadata
+            const meta = authData.user.user_metadata ?? {}
+            const { error: upsertErr } = await supabase.from("profiles").upsert({
+              id: authData.user.id,
+              email: authData.user.email,
+              name: meta.name ?? meta.full_name ?? email.split("@")[0],
+              country: meta.country ?? "",
+              country_code: meta.country_code ?? "",
+              phone_number: meta.phone_number ?? "",
+              occupation: meta.occupation ?? "",
+              organization: meta.organization ?? "",
+              email_verified: !!authData.user.confirmed_at,
+            }, { onConflict: "id" })
+
+            if (upsertErr) {
+              console.error("[v0] Profile upsert error during login:", upsertErr)
+              // Non-fatal: continue even if profile upsert fails
+            }
+          }
+        } catch (profileErr) {
+          console.error("[v0] Profile check/upsert error:", profileErr)
+          // Non-fatal: profile issues don't block login
         }
       }
 
