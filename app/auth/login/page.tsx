@@ -14,6 +14,24 @@ import Image from "next/image"
 import { createClient } from "@/lib/supabase/client"
 import { LoadingSpinner } from "@/components/loading-spinner"
 
+/** Safely extract an error message from any error type */
+function getErrorMessage(err: unknown): string {
+  if (!err) return "An unknown error occurred"
+  if (typeof err === "string") return err
+  if (err instanceof Error) return err.message || "An error occurred"
+  if (typeof err === "object" && "message" in err && typeof (err as { message: unknown }).message === "string") {
+    return (err as { message: string }).message
+  }
+  // Last resort: try to stringify but avoid showing {}
+  try {
+    const str = JSON.stringify(err)
+    if (str === "{}" || str === "null" || str === "undefined") return "An error occurred"
+    return str
+  } catch {
+    return "An error occurred"
+  }
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -32,7 +50,8 @@ export default function LoginPage() {
 
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password })
       if (authError) {
-        setError(authError.message || "Sign in failed. Please check your credentials.")
+        setError(getErrorMessage(authError))
+        setIsLoading(false)
         return
       }
 
@@ -60,13 +79,10 @@ export default function LoginPage() {
               email_verified: !!authData.user.confirmed_at,
             }, { onConflict: "id" })
 
-            if (upsertErr) {
-              console.error("[v0] Profile upsert error during login:", upsertErr)
-              // Non-fatal: continue even if profile upsert fails
-            }
+            // Non-fatal: continue even if profile upsert fails
+            void upsertErr
           }
-        } catch (profileErr) {
-          console.error("[v0] Profile check/upsert error:", profileErr)
+        } catch {
           // Non-fatal: profile issues don't block login
         }
       }
@@ -75,7 +91,7 @@ export default function LoginPage() {
       sessionStorage.setItem("planck_nav_source", "auth")
       router.push("/qsaas/dashboard")
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An unexpected error occurred")
+      setError(getErrorMessage(err))
     } finally {
       setIsLoading(false)
     }
