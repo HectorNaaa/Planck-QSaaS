@@ -18,6 +18,23 @@ import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/contexts/language-context"
 import { Eye, EyeOff } from "lucide-react"
 
+/** Safely extract an error message from any error type */
+function getErrorMessage(err: unknown): string {
+  if (!err) return "An unknown error occurred"
+  if (typeof err === "string") return err
+  if (err instanceof Error) return err.message || "An error occurred"
+  if (typeof err === "object" && "message" in err && typeof (err as { message: unknown }).message === "string") {
+    return (err as { message: string }).message
+  }
+  try {
+    const str = JSON.stringify(err)
+    if (str === "{}" || str === "null" || str === "undefined") return "An error occurred"
+    return str
+  } catch {
+    return "An error occurred"
+  }
+}
+
 const COUNTRY_CODES: { [key: string]: string } = {
   Argentina: "+54",
   Australia: "+61",
@@ -188,7 +205,8 @@ export default function SignUpPage() {
       })
 
       if (signUpError) {
-        setError(signUpError.message || "Sign up failed. Please try again.")
+        setError(getErrorMessage(signUpError))
+        setIsLoading(false)
         return
       }
 
@@ -220,18 +238,15 @@ export default function SignUpPage() {
           // Retry once after 800 ms to let the session cookie propagate
           await new Promise(r => setTimeout(r, 800))
           profileError = await upsertProfile()
-          if (profileError) {
-            console.error("[v0] Profile upsert failed after retry:", profileError.message)
-          }
+          void profileError
         }
-      } catch (profileCatchErr) {
-        console.error("[v0] Profile upsert catch:", profileCatchErr)
+      } catch {
+        // Non-fatal profile error
       }
 
       router.push("/qsaas/dashboard")
     } catch (err) {
-      console.error("[v0] Sign up error:", err)
-      setError(err instanceof Error ? err.message : "An unexpected error occurred")
+      setError(getErrorMessage(err))
     } finally {
       setIsLoading(false)
     }
@@ -571,7 +586,7 @@ export default function SignUpPage() {
                   {!hasScrolledTerms && (
                     <span className="block text-xs text-muted-foreground mt-1">
                       {language === "es"
-                        ? "(Desplázate hasta el final para habilitar)"
+                        ? "(Despl��zate hasta el final para habilitar)"
                         : "(Scroll to the bottom to enable)"}
                     </span>
                   )}
