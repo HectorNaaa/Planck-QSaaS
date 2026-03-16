@@ -212,37 +212,13 @@ export default function SignUpPage() {
 
       if (!authData.user) {
         setError("No user data returned. Please try again.")
+        setIsLoading(false)
         return
       }
 
-      // Profile upsert — the session may not yet be fully propagated in the browser
-      // so we retry once after a short delay to satisfy RLS auth.uid() = id
-      const upsertProfile = async () => {
-        const { error } = await supabase.from("profiles").upsert({
-          id: authData.user!.id,
-          email,
-          name: fullName,
-          country,
-          country_code: phonePrefix,
-          phone_number: `${phonePrefix}${phoneNumber}`,
-          occupation,
-          organization,
-          email_verified: false,
-        }, { onConflict: "id" })
-        return error
-      }
-
-      try {
-        let profileError = await upsertProfile()
-        if (profileError) {
-          // Retry once after 800 ms to let the session cookie propagate
-          await new Promise(r => setTimeout(r, 800))
-          profileError = await upsertProfile()
-          void profileError
-        }
-      } catch {
-        // Non-fatal profile error
-      }
+      // Profile row is created by a DB trigger (handle_new_user) with security definer.
+      // We do NOT attempt a client-side insert here — without email confirmation
+      // the session is not established yet, so auth.uid() = null and RLS blocks it.
 
       router.push("/qsaas/dashboard")
     } catch (err) {
