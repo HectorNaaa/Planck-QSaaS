@@ -48,45 +48,15 @@ export default function LoginPage() {
     try {
       const supabase = createClient()
 
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
       if (authError) {
         setError(getErrorMessage(authError))
         setIsLoading(false)
         return
       }
 
-      // Ensure a profile row exists (may have been lost during DB outage)
-      if (authData.user) {
-        try {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("id", authData.user.id)
-            .maybeSingle()
-
-          if (!profile) {
-            // Recreate profile row from auth metadata
-            const meta = authData.user.user_metadata ?? {}
-            const { error: upsertErr } = await supabase.from("profiles").upsert({
-              id: authData.user.id,
-              email: authData.user.email,
-              name: meta.name ?? meta.full_name ?? email.split("@")[0],
-              country: meta.country ?? "",
-              country_code: meta.country_code ?? "",
-              phone_number: meta.phone_number ?? "",
-              occupation: meta.occupation ?? "",
-              organization: meta.organization ?? "",
-              email_verified: !!authData.user.confirmed_at,
-            }, { onConflict: "id" })
-
-            // Non-fatal: continue even if profile upsert fails
-            void upsertErr
-          }
-        } catch {
-          // Non-fatal: profile issues don't block login
-        }
-      }
-
+      // Session cookies are set by Supabase browser client automatically.
+      // The proxy middleware will keep them refreshed on every request.
       document.cookie = `planck_session=active; max-age=${30 * 24 * 60 * 60}; path=/; SameSite=Strict`
       sessionStorage.setItem("planck_nav_source", "auth")
       router.push("/qsaas/dashboard")
