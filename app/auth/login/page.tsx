@@ -45,22 +45,40 @@ export default function LoginPage() {
     setError(null)
     setIsLoading(true)
 
+    console.log("[v0] handleLogin started", { email })
+
     try {
       const supabase = createClient()
+      console.log("[v0] Supabase client created")
 
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      console.log("[v0] signInWithPassword response:", { data, authError })
+
       if (authError) {
-        setError(getErrorMessage(authError))
+        console.log("[v0] Auth error details:", {
+          message: authError.message,
+          status: authError.status,
+          name: authError.name,
+          code: (authError as any).code,
+        })
+        setError(authError.message || "Sign in failed. Please check your credentials.")
         setIsLoading(false)
         return
       }
 
-      // Session cookies are set by Supabase browser client automatically.
-      // The proxy middleware will keep them refreshed on every request.
+      if (!data?.user) {
+        console.log("[v0] No user in response")
+        setError("Sign in failed - no user data returned")
+        setIsLoading(false)
+        return
+      }
+
+      console.log("[v0] Login successful, redirecting...")
       document.cookie = `planck_session=active; max-age=${30 * 24 * 60 * 60}; path=/; SameSite=Strict`
       sessionStorage.setItem("planck_nav_source", "auth")
       router.push("/qsaas/dashboard")
     } catch (err: unknown) {
+      console.log("[v0] Login catch block:", err)
       setError(getErrorMessage(err))
     } finally {
       setIsLoading(false)

@@ -187,6 +187,8 @@ export default function SignUpPage() {
       const fullPhone = `${phonePrefix}${phoneNumber}`
       const fullName = `${firstName} ${lastName}`
 
+      console.log("[v0] handleSignUp started", { email, fullName })
+
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -204,18 +206,28 @@ export default function SignUpPage() {
         },
       })
 
+      console.log("[v0] signUp response:", { authData, signUpError })
+
       if (signUpError) {
-        setError(getErrorMessage(signUpError))
+        console.log("[v0] SignUp error details:", {
+          message: signUpError.message,
+          status: signUpError.status,
+          name: signUpError.name,
+          code: (signUpError as any).code,
+        })
+        setError(signUpError.message || "Sign up failed. Please try again.")
         setIsLoading(false)
         return
       }
 
       if (!authData.user) {
+        console.log("[v0] No user in response")
         setError("No user data returned. Please try again.")
         setIsLoading(false)
         return
       }
 
+      console.log("[v0] SignUp successful, redirecting...")
       // Profile row is created by a DB trigger (handle_new_user) with security definer.
       // We do NOT attempt a client-side insert here — without email confirmation
       // the session is not established yet, so auth.uid() = null and RLS blocks it.
