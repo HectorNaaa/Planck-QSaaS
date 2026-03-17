@@ -29,7 +29,14 @@ export async function updateSession(request: NextRequest) {
   )
 
   // IMPORTANT: Do NOT run code between createServerClient and getUser()
-  const { data: { user } } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data?.user ?? null
+  } catch (err) {
+    console.error("[v0] Middleware getUser error:", err)
+    // Continue without user - auth pages will handle login
+  }
 
   const path = request.nextUrl.pathname
 
