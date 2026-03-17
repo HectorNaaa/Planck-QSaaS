@@ -16,20 +16,40 @@ import { LoadingSpinner } from "@/components/loading-spinner"
 
 /** Safely extract an error message from any error type */
 function getErrorMessage(err: unknown): string {
+  console.log("[v0] getErrorMessage called with:", err, "type:", typeof err)
+  
   if (!err) return "An unknown error occurred"
-  if (typeof err === "string") return err
-  if (err instanceof Error) return err.message || "An error occurred"
-  if (typeof err === "object" && "message" in err && typeof (err as { message: unknown }).message === "string") {
-    return (err as { message: string }).message
+  if (typeof err === "string") return err || "An error occurred"
+  
+  // Check for Error instance
+  if (err instanceof Error) {
+    return err.message || err.name || "An error occurred"
   }
-  // Last resort: try to stringify but avoid showing {}
-  try {
-    const str = JSON.stringify(err)
-    if (str === "{}" || str === "null" || str === "undefined") return "An error occurred"
-    return str
-  } catch {
-    return "An error occurred"
+  
+  // Check for object with message property (Supabase AuthApiError)
+  if (typeof err === "object") {
+    const obj = err as Record<string, unknown>
+    
+    // Try common error properties in order of preference
+    if (typeof obj.message === "string" && obj.message) return obj.message
+    if (typeof obj.error_description === "string" && obj.error_description) return obj.error_description
+    if (typeof obj.error === "string" && obj.error) return obj.error
+    if (typeof obj.msg === "string" && obj.msg) return obj.msg
+    if (typeof obj.name === "string" && obj.name) return obj.name
+    if (typeof obj.code === "string" && obj.code) return `Error code: ${obj.code}`
+    
+    // Try to stringify but avoid showing {}
+    try {
+      const str = JSON.stringify(err)
+      if (str && str !== "{}" && str !== "null" && str !== "undefined" && str.length > 2) {
+        return str.length > 100 ? str.substring(0, 100) + "..." : str
+      }
+    } catch {
+      // Ignore stringify errors
+    }
   }
+  
+  return "An error occurred. Please try again."
 }
 
 export default function LoginPage() {
@@ -45,23 +65,45 @@ export default function LoginPage() {
     setError(null)
     setIsLoading(true)
 
+    console.log("[v0] handleLogin started", { email })
+    console.log("[v0] Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
+
     try {
       const supabase = createClient()
+      console.log("[v0] Supabase client created successfully")
 
-      const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      
+      console.log("[v0] signInWithPassword completed")
+      console.log("[v0] data:", JSON.stringify(data, null, 2))
+      console.log("[v0] authError:", authError ? JSON.stringify(authError, null, 2) : "none")
+
       if (authError) {
-        setError(getErrorMessage(authError))
+        const errorMsg = getErrorMessage(authError)
+        console.log("[v0] Extracted error message:", errorMsg)
+        setError(errorMsg)
         setIsLoading(false)
         return
       }
 
-      // Session cookies are set by Supabase browser client automatically.
-      // The proxy middleware will keep them refreshed on every request.
+      if (!data?.user) {
+        console.log("[v0] No user in response data")
+        setError("Sign in failed - no user data returned")
+        setIsLoading(false)
+        return
+      }
+
+      console.log("[v0] Login successful for user:", data.user.email)
       document.cookie = `planck_session=active; max-age=${30 * 24 * 60 * 60}; path=/; SameSite=Strict`
       sessionStorage.setItem("planck_nav_source", "auth")
       router.push("/qsaas/dashboard")
     } catch (err: unknown) {
-      setError(getErrorMessage(err))
+      console.log("[v0] Login CATCH block - raw error:", err)
+      console.log("[v0] Error type:", typeof err)
+      console.log("[v0] Error constructor:", err?.constructor?.name)
+      const errorMsg = getErrorMessage(err)
+      console.log("[v0] Extracted catch error message:", errorMsg)
+      setError(errorMsg)
     } finally {
       setIsLoading(false)
     }
@@ -125,7 +167,9 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && typeof error === "string" && error.length > 0 && error !== "{}" && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
             <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading}>
               {isLoading ? (
                 <div className="flex items-center gap-2">

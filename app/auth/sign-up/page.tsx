@@ -20,19 +20,35 @@ import { Eye, EyeOff } from "lucide-react"
 
 /** Safely extract an error message from any error type */
 function getErrorMessage(err: unknown): string {
+  console.log("[v0] getErrorMessage called with:", err, "type:", typeof err)
+  
   if (!err) return "An unknown error occurred"
-  if (typeof err === "string") return err
-  if (err instanceof Error) return err.message || "An error occurred"
-  if (typeof err === "object" && "message" in err && typeof (err as { message: unknown }).message === "string") {
-    return (err as { message: string }).message
+  if (typeof err === "string") return err || "An error occurred"
+  
+  if (err instanceof Error) {
+    return err.message || err.name || "An error occurred"
   }
-  try {
-    const str = JSON.stringify(err)
-    if (str === "{}" || str === "null" || str === "undefined") return "An error occurred"
-    return str
-  } catch {
-    return "An error occurred"
+  
+  if (typeof err === "object") {
+    const obj = err as Record<string, unknown>
+    if (typeof obj.message === "string" && obj.message) return obj.message
+    if (typeof obj.error_description === "string" && obj.error_description) return obj.error_description
+    if (typeof obj.error === "string" && obj.error) return obj.error
+    if (typeof obj.msg === "string" && obj.msg) return obj.msg
+    if (typeof obj.name === "string" && obj.name) return obj.name
+    if (typeof obj.code === "string" && obj.code) return `Error code: ${obj.code}`
+    
+    try {
+      const str = JSON.stringify(err)
+      if (str && str !== "{}" && str !== "null" && str !== "undefined" && str.length > 2) {
+        return str.length > 100 ? str.substring(0, 100) + "..." : str
+      }
+    } catch {
+      // Ignore
+    }
   }
+  
+  return "An error occurred. Please try again."
 }
 
 const COUNTRY_CODES: { [key: string]: string } = {
@@ -187,6 +203,8 @@ export default function SignUpPage() {
       const fullPhone = `${phonePrefix}${phoneNumber}`
       const fullName = `${firstName} ${lastName}`
 
+      console.log("[v0] handleSignUp started", { email, fullName })
+
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -204,25 +222,37 @@ export default function SignUpPage() {
         },
       })
 
+      console.log("[v0] signUp response:", { authData, signUpError })
+
       if (signUpError) {
-        setError(getErrorMessage(signUpError))
+        console.log("[v0] SignUp error - raw:", signUpError)
+        console.log("[v0] SignUp error - stringified:", JSON.stringify(signUpError, null, 2))
+        const errorMsg = getErrorMessage(signUpError)
+        console.log("[v0] Extracted error message:", errorMsg)
+        setError(errorMsg)
         setIsLoading(false)
         return
       }
 
       if (!authData.user) {
+        console.log("[v0] No user in response")
         setError("No user data returned. Please try again.")
         setIsLoading(false)
         return
       }
 
+      console.log("[v0] SignUp successful, redirecting...")
       // Profile row is created by a DB trigger (handle_new_user) with security definer.
       // We do NOT attempt a client-side insert here — without email confirmation
       // the session is not established yet, so auth.uid() = null and RLS blocks it.
 
       router.push("/qsaas/dashboard")
     } catch (err) {
-      setError(getErrorMessage(err))
+      console.log("[v0] SignUp CATCH - raw error:", err)
+      console.log("[v0] Error type:", typeof err)
+      const errorMsg = getErrorMessage(err)
+      console.log("[v0] Extracted catch error message:", errorMsg)
+      setError(errorMsg)
     } finally {
       setIsLoading(false)
     }
@@ -570,7 +600,9 @@ export default function SignUpPage() {
               </div>
             </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && typeof error === "string" && error.length > 0 && error !== "{}" && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
 
             <Button
               type="submit"
