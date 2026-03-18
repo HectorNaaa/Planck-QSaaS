@@ -5,43 +5,39 @@ import type React from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { MainLayout } from "@/components/layout/main-layout"
 import { QuantumLoadingScreen } from "@/components/quantum-loading-screen"
+import { GuestBanner } from "@/components/guest-banner"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { useTheme } from "next-themes"
 
-export default function QsaasLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+function hasGuestCookie(): boolean {
+  if (typeof document === "undefined") return false
+  return document.cookie.split(";").some((c) => c.trim().startsWith("planck_guest=true"))
+}
+
+export default function QsaasLayout({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
   const { setTheme } = useTheme()
 
   useEffect(() => {
-    const initializeUserSession = async () => {
+    const init = async () => {
       try {
-        const supabase = createBrowserClient()
-
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession()
-
-        if (sessionError) {
-          throw sessionError
+        // Guest bypass — skip all Supabase calls
+        if (hasGuestCookie()) {
+          setTimeout(() => setIsLoading(false), 1200)
+          return
         }
 
-        if (!session) {
+        const supabase = createBrowserClient()
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+        if (sessionError || !session) {
           router.push("/auth/login")
           return
         }
 
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser()
-
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
         if (userError || !user) {
           router.push("/auth/login")
           return
@@ -54,10 +50,7 @@ export default function QsaasLayout({
           .single()
 
         if (!profileError && profile) {
-          if (profile.theme_preference) {
-            setTheme(profile.theme_preference)
-          }
-
+          if (profile.theme_preference) setTheme(profile.theme_preference)
           sessionStorage.setItem("planck_user_id", user.id)
           sessionStorage.setItem("planck_user_email", user.email || "")
           sessionStorage.setItem("planck_user_name", profile.name || "")
@@ -77,28 +70,21 @@ export default function QsaasLayout({
         }
 
         sessionStorage.setItem("planck_nav_source", "qsaas")
-
-        const minLoadingTime = 2000
-        const startTime = Date.now()
-        const elapsedTime = Date.now() - startTime
-        const remainingTime = Math.max(0, minLoadingTime - elapsedTime)
-
-        setTimeout(() => {
-          setIsLoading(false)
-        }, remainingTime)
-      } catch (error) {
-        setTimeout(() => {
-          setIsLoading(false)
-        }, 2000)
+        setTimeout(() => setIsLoading(false), 2000)
+      } catch {
+        setTimeout(() => setIsLoading(false), 2000)
       }
     }
 
-    initializeUserSession()
+    init()
   }, [router, pathname, setTheme])
 
-  if (isLoading) {
-    return <QuantumLoadingScreen />
-  }
+  if (isLoading) return <QuantumLoadingScreen />
 
-  return <MainLayout>{children}</MainLayout>
+  return (
+    <MainLayout>
+      <GuestBanner />
+      {children}
+    </MainLayout>
+  )
 }

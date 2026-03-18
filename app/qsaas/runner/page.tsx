@@ -22,6 +22,7 @@ import { DigitalTwinPanel } from "@/components/runner/digital-twin-panel"
 import { DigitalTwinSelector } from "@/components/runner/digital-twin-selector"
 import { DigitalTwinDashboard } from "@/components/dashboard/digital-twin-dashboard"
 import { useLiveExecutions } from "@/hooks/use-live-executions"
+import { useIsGuest } from "@/components/guest-banner"
 
 /** Convert a manual-run results object into the ExecutionRow shape the DT dashboard expects. */
 function resultToRow(
@@ -76,6 +77,7 @@ export default function RunnerPage() {
   const [sdkMode, setSdkMode] = useState(false)
   // User API key — needed for browser EventSource auth (can't send custom headers)
   const [userApiKey, setUserApiKey] = useState<string | null>(null)
+  const isGuest = useIsGuest()
 
   // Fetch API key once on mount
   useEffect(() => {
@@ -413,6 +415,10 @@ const adaptiveShots = calculateAdaptiveShots({
   }, [])
 
   const handleRunCircuit = useCallback(async () => {
+    if (isGuest) {
+      alert("Create a free account or sign in to run quantum circuits.")
+      return
+    }
     setIsRunning(true)
 
     try {
