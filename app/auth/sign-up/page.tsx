@@ -18,36 +18,27 @@ import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/contexts/language-context"
 import { Eye, EyeOff } from "lucide-react"
 
-/** Safely extract an error message from any error type */
+/** Safely extract a human-readable message from any Supabase/network error */
 function getErrorMessage(err: unknown): string {
-  console.log("[v0] getErrorMessage called with:", err, "type:", typeof err)
-  
-  if (!err) return "An unknown error occurred"
-  if (typeof err === "string") return err || "An error occurred"
-  
-  if (err instanceof Error) {
-    return err.message || err.name || "An error occurred"
-  }
-  
+  if (!err) return "An error occurred. Please try again."
+  if (typeof err === "string" && err && err !== "{}") return err
   if (typeof err === "object") {
     const obj = err as Record<string, unknown>
-    if (typeof obj.message === "string" && obj.message) return obj.message
-    if (typeof obj.error_description === "string" && obj.error_description) return obj.error_description
-    if (typeof obj.error === "string" && obj.error) return obj.error
-    if (typeof obj.msg === "string" && obj.msg) return obj.msg
-    if (typeof obj.name === "string" && obj.name) return obj.name
-    if (typeof obj.code === "string" && obj.code) return `Error code: ${obj.code}`
-    
-    try {
-      const str = JSON.stringify(err)
-      if (str && str !== "{}" && str !== "null" && str !== "undefined" && str.length > 2) {
-        return str.length > 100 ? str.substring(0, 100) + "..." : str
-      }
-    } catch {
-      // Ignore
+    if (typeof obj.status === "number") {
+      if (obj.status === 503) return "Authentication service temporarily unavailable. Please try again in a moment."
+      if (obj.status === 429) return "Too many requests. Please wait a moment and try again."
+      if (obj.status === 400) return "Invalid details. Please check your information."
+      if (obj.status === 422) return "Email already registered or invalid format."
+      if (obj.status >= 500) return "Server error. Please try again shortly."
     }
+    if (obj.__isAuthError) {
+      if (obj.name === "AuthRetryableFetchError") return "Cannot reach authentication server. Please check your connection."
+      if (typeof obj.message === "string" && obj.message && obj.message !== "{}") return obj.message
+    }
+    if (typeof obj.message === "string" && obj.message && obj.message !== "{}") return obj.message
+    if (typeof obj.error_description === "string" && obj.error_description) return obj.error_description
   }
-  
+  if (err instanceof Error && err.message && err.message !== "{}") return err.message
   return "An error occurred. Please try again."
 }
 
@@ -142,6 +133,7 @@ export default function SignUpPage() {
   const termsRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [successEmail, setSuccessEmail] = useState<string | null>(null)
   const router = useRouter()
 
   const phonePrefix = country ? COUNTRY_CODES[country] : ""
@@ -200,19 +192,17 @@ export default function SignUpPage() {
 
     try {
       const supabase = createClient()
-      const fullPhone = `${phonePrefix}${phoneNumber}`
-      const fullName = `${firstName} ${lastName}`
-
-      console.log("[v0] handleSignUp started", { email, fullName })
+      const trimmedEmail = email.trim()
+      const fullName = `${firstName.trim()} ${lastName.trim()}`
 
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email,
+        email: trimmedEmail,
         password,
         options: {
           data: {
             name: fullName,
-            first_name: firstName,
-            last_name: lastName,
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
             country,
             country_code: phonePrefix,
             phone_number: phoneNumber,
@@ -222,40 +212,55 @@ export default function SignUpPage() {
         },
       })
 
-      console.log("[v0] signUp response:", { authData, signUpError })
-
       if (signUpError) {
-        console.log("[v0] SignUp error - raw:", signUpError)
-        console.log("[v0] SignUp error - stringified:", JSON.stringify(signUpError, null, 2))
-        const errorMsg = getErrorMessage(signUpError)
-        console.log("[v0] Extracted error message:", errorMsg)
-        setError(errorMsg)
+        setError(getErrorMessage(signUpError))
         setIsLoading(false)
         return
       }
 
-      if (!authData.user) {
-        console.log("[v0] No user in response")
-        setError("No user data returned. Please try again.")
+      // If email confirmation is required, Supabase returns a user but no session.
+      // Show a success message and wait for the user to confirm their email.
+      if (!authData.session) {
+        setSuccessEmail(trimmedEmail)
         setIsLoading(false)
         return
       }
 
-      console.log("[v0] SignUp successful, redirecting...")
-      // Profile row is created by a DB trigger (handle_new_user) with security definer.
-      // We do NOT attempt a client-side insert here — without email confirmation
-      // the session is not established yet, so auth.uid() = null and RLS blocks it.
-
+      // Session exists — email confirmation is disabled, go straight to dashboard.
+      sessionStorage.setItem("planck_nav_source", "auth")
       router.push("/qsaas/dashboard")
     } catch (err) {
-      console.log("[v0] SignUp CATCH - raw error:", err)
-      console.log("[v0] Error type:", typeof err)
-      const errorMsg = getErrorMessage(err)
-      console.log("[v0] Extracted catch error message:", errorMsg)
-      setError(errorMsg)
+      setError(getErrorMessage(err))
     } finally {
       setIsLoading(false)
     }
+  }
+
+  // Show email confirmation success screen
+  if (successEmail) {
+    return (
+      <div className="w-full max-w-md px-4">
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle className="text-2xl">
+              {language === "es" ? "Revisa tu correo" : "Check your email"}
+            </CardTitle>
+            <CardDescription>
+              {language === "es"
+                ? `Hemos enviado un enlace de confirmación a ${successEmail}. Confírma tu cuenta para continuar.`
+                : `We sent a confirmation link to ${successEmail}. Confirm your account to continue.`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/auth/login">
+              <Button variant="outline" className="w-full">
+                {language === "es" ? "Volver al inicio de sesión" : "Back to Sign In"}
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -600,8 +605,8 @@ export default function SignUpPage() {
               </div>
             </div>
 
-            {error && typeof error === "string" && error.length > 0 && error !== "{}" && (
-              <p className="text-sm text-destructive">{error}</p>
+            {error && (
+              <p className="text-sm text-destructive" role="alert">{error}</p>
             )}
 
             <Button
