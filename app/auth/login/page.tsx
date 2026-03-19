@@ -8,21 +8,17 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { Eye, EyeOff, UserRound } from "lucide-react"
+import { Eye, EyeOff, UserRound, AlertCircle } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/client"
 import { LoadingSpinner } from "@/components/loading-spinner"
 
-/** Safely extract a human-readable message from any Supabase/network error */
 function getErrorMessage(err: unknown): string {
   if (!err) return "An error occurred. Please try again."
   if (typeof err === "string" && err && err !== "{}") return err
-
   if (typeof err === "object") {
     const obj = err as Record<string, unknown>
-
-    // HTTP status codes — covers AuthRetryableFetchError (503) etc.
     if (typeof obj.status === "number") {
       if (obj.status === 503) return "Authentication service temporarily unavailable. Please try again in a moment."
       if (obj.status === 429) return "Too many requests. Please wait a moment and try again."
@@ -30,21 +26,20 @@ function getErrorMessage(err: unknown): string {
       if (obj.status === 422) return "Email not found or invalid format."
       if (obj.status >= 500) return "Server error. Please try again shortly."
     }
-
-    // Supabase __isAuthError
     if (obj.__isAuthError) {
       if (obj.name === "AuthRetryableFetchError") return "Cannot reach authentication server. Please check your connection."
       if (typeof obj.message === "string" && obj.message && obj.message !== "{}") return obj.message
     }
-
     if (typeof obj.message === "string" && obj.message && obj.message !== "{}") return obj.message
     if (typeof obj.error_description === "string" && obj.error_description) return obj.error_description
   }
-
   if (err instanceof Error && err.message && err.message !== "{}") return err.message
-
   return "An error occurred. Please try again."
 }
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const missingEnv = !supabaseUrl || !supabaseKey
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -58,23 +53,29 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
-    setIsLoading(true)
 
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail) { setError("Email is required."); return }
+    if (!password) { setError("Password is required."); return }
+
+    setIsLoading(true)
     try {
       const supabase = createClient()
-      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      })
 
       if (authError) {
         setError(getErrorMessage(authError))
         return
       }
 
-      if (!data?.user) {
+      if (!data?.session || !data?.user) {
         setError("Sign in failed. Please try again.")
         return
       }
 
-      document.cookie = `planck_session=active; max-age=${30 * 24 * 60 * 60}; path=/; SameSite=Strict`
       sessionStorage.setItem("planck_nav_source", "auth")
       router.push("/qsaas/dashboard")
     } catch (err: unknown) {
@@ -86,9 +87,27 @@ export default function LoginPage() {
 
   const handleGuest = () => {
     setIsGuestLoading(true)
-    // Set a short-lived guest cookie (2 hours)
     document.cookie = `planck_guest=true; max-age=${2 * 60 * 60}; path=/; SameSite=Strict`
     router.push("/qsaas/dashboard")
+  }
+
+  if (missingEnv) {
+    return (
+      <div className="w-full max-w-md px-4">
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3 text-destructive">
+              <AlertCircle size={20} className="mt-0.5 shrink-0" />
+              <p className="text-sm">
+                Supabase environment variables are missing. Please set{" "}
+                <code className="font-mono">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
+                <code className="font-mono">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -112,13 +131,14 @@ export default function LoginPage() {
           <CardDescription>Sign in to your Planck account</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-6">
+          <form onSubmit={handleLogin} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
                 id="email"
                 type="email"
                 placeholder="your@email.com"
+                autoComplete="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -132,6 +152,7 @@ export default function LoginPage() {
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -141,6 +162,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -149,18 +171,16 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <p className="text-sm text-destructive">{error}</p>
+              <p className="text-sm text-destructive" role="alert">{error}</p>
             )}
 
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <span className="flex items-center gap-2">
                   <LoadingSpinner size="sm" />
                   Signing in...
                 </span>
-              ) : (
-                "Sign In"
-              )}
+              ) : "Sign In"}
             </Button>
           </form>
 
@@ -193,157 +213,15 @@ export default function LoginPage() {
             )}
           </Button>
 
-          <div className="mt-6 text-center text-sm">
+          <p className="mt-6 text-center text-sm">
             {"Don't have an account? "}
             <Link href="/auth/sign-up" className="text-primary hover:underline">
               Sign up
             </Link>
-          </div>
+          </p>
         </CardContent>
       </Card>
     </div>
   )
 }
 
-
-export default function LoginPage() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setIsLoading(true)
-
-    console.log("[v0] handleLogin started", { email })
-    console.log("[v0] Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL)
-
-    try {
-      const supabase = createClient()
-      console.log("[v0] Supabase client created successfully")
-
-      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
-      
-      console.log("[v0] signInWithPassword completed")
-      console.log("[v0] data:", JSON.stringify(data, null, 2))
-      console.log("[v0] authError:", authError ? JSON.stringify(authError, null, 2) : "none")
-
-      if (authError) {
-        const errorMsg = getErrorMessage(authError)
-        console.log("[v0] Extracted error message:", errorMsg)
-        setError(errorMsg)
-        setIsLoading(false)
-        return
-      }
-
-      if (!data?.user) {
-        console.log("[v0] No user in response data")
-        setError("Sign in failed - no user data returned")
-        setIsLoading(false)
-        return
-      }
-
-      console.log("[v0] Login successful for user:", data.user.email)
-      document.cookie = `planck_session=active; max-age=${30 * 24 * 60 * 60}; path=/; SameSite=Strict`
-      sessionStorage.setItem("planck_nav_source", "auth")
-      router.push("/qsaas/dashboard")
-    } catch (err: unknown) {
-      console.log("[v0] Login CATCH block - raw error:", err)
-      console.log("[v0] Error type:", typeof err)
-      console.log("[v0] Error constructor:", err?.constructor?.name)
-      const errorMsg = getErrorMessage(err)
-      console.log("[v0] Extracted catch error message:", errorMsg)
-      setError(errorMsg)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  return (
-    <div className="w-full max-w-md px-4">
-      <div className="flex items-center justify-between mb-6">
-        <Link href="/" className="flex items-center gap-3">
-          <Image
-            src="/images/isotipo-20planck-20png.png"
-            alt="Planck"
-            width={40}
-            height={40}
-            className="object-contain"
-          />
-        </Link>
-        <div className="flex items-center gap-2">
-          <ThemeToggle />
-        </div>
-      </div>
-
-      <Card className="border-border">
-        <CardHeader>
-          <CardTitle className="text-2xl">Sign In</CardTitle>
-          <CardDescription>Sign in to your Planck account</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your@email.com"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
-                className="bg-input border-border"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
-                  className="bg-input border-border pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-            </div>
-            {error && typeof error === "string" && error.length > 0 && error !== "{}" && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={isLoading}>
-              {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <LoadingSpinner size="sm" />
-                  Signing in...
-                </div>
-              ) : (
-                "Sign In"
-              )}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center text-sm">
-            {"Don't have an account? "}
-            <Link href="/auth/sign-up" className="text-primary hover:underline">
-              Sign up
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
