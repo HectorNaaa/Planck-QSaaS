@@ -33,14 +33,16 @@ export async function updateSession(request: NextRequest) {
   try {
     const { data } = await supabase.auth.getUser()
     user = data?.user ?? null
-  } catch (err) {
-    console.error("[v0] Middleware getUser error:", err)
-    // Continue without user - auth pages will handle login
+  } catch {
+    // Network error — continue without user, auth pages will handle it
   }
 
   const path = request.nextUrl.pathname
 
-  if (path.startsWith("/qsaas") && !user) {
+  // Allow guest access via short-lived cookie set on "Continue as Guest"
+  const isGuest = request.cookies.get("planck_guest")?.value === "true"
+
+  if (path.startsWith("/qsaas") && !user && !isGuest) {
     const url = request.nextUrl.clone()
     url.pathname = "/auth/login"
     url.searchParams.set("redirect", path)
