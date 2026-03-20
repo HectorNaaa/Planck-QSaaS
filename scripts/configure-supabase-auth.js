@@ -1,85 +1,71 @@
 /**
- * Configures Supabase Auth via the Management API:
+ * Configures Supabase Auth via Management API:
  * - Enables email/password provider
- * - Disables email confirmation requirement
- * - Disables magic links / OTP (keep only password flow)
- * - Sets correct Site URL and redirect URLs
+ * - Disables email confirmation (mailer_autoconfirm=true)
+ * - Sets correct site URL
  *
- * Requires: SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF env vars.
- * These are set automatically when the Supabase integration is active.
+ * Uses SUPABASE_ACCESS_TOKEN if set, otherwise prints manual instructions.
  */
 
-const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || (() => {
-  // Derive from SUPABASE_URL: https://<ref>.supabase.co
+const PROJECT_REF = (() => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ""
   const match = url.match(/https:\/\/([^.]+)\.supabase\.co/)
   return match ? match[1] : null
 })()
 
+const ACCESS_TOKEN = process.env.SUPABASE_ACCESS_TOKEN
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
 
 if (!PROJECT_REF) {
-  console.error("Could not determine SUPABASE_PROJECT_REF from env. Set it explicitly.")
-  process.exit(1)
-}
-if (!SERVICE_ROLE_KEY) {
-  console.error("SUPABASE_SERVICE_ROLE_KEY not found in env.")
+  console.error("Could not determine project ref from NEXT_PUBLIC_SUPABASE_URL")
   process.exit(1)
 }
 
-console.log(`Configuring Supabase Auth for project: ${PROJECT_REF}`)
+console.log("Project ref:", PROJECT_REF)
 
-// We use the admin API with service role key to update auth config
-// Note: Supabase Management API needs a Personal Access Token (SUPABASE_ACCESS_TOKEN)
-// but we can achieve the same by directly updating auth.config via admin client.
-// The management REST endpoint is: PATCH https://api.supabase.com/v1/projects/{ref}/config/auth
+async function tryManagementAPI() {
+  if (!ACCESS_TOKEN) {
+    console.log("No SUPABASE_ACCESS_TOKEN — skipping Management API.")
+    return false
+  }
 
-const ACCESS_TOKEN = process.env.SUPABASE_ACCESS_TOKEN
-
-if (!ACCESS_TOKEN) {
-  console.warn("SUPABASE_ACCESS_TOKEN not set — will use service role + direct SQL approach instead.")
-}
-
-async function configureAuthViaManagementAPI() {
   const res = await fetch(`https://api.supabase.com/v1/projects/${PROJECT_REF}/config/auth`, {
     method: "PATCH",
     headers: {
-      "Authorization": `Bearer ${ACCESS_TOKEN}`,
+      Authorization: `Bearer ${ACCESS_TOKEN}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      // Enable email provider
       external_email_enabled: true,
-      // Disable email confirmation — users can sign in immediately after sign up
       mailer_autoconfirm: true,
-      // Disable magic links / OTP (password-only flow)
       enable_signup: true,
-      // Site URL for redirects
       site_url: "https://www.plancktechnologies.xyz",
-      // Additional redirect URLs (localhost for dev)
       additional_redirect_urls: [
         "http://localhost:3000",
         "http://localhost:3000/**",
         "https://www.plancktechnologies.xyz/**",
       ],
-      // Disable phone provider (not needed)
       external_phone_enabled: false,
-      // Disable email change confirmation
       mailer_secure_email_change_enabled: false,
     }),
   })
 
   const body = await res.text()
   if (!res.ok) {
-    throw new Error(`Management API failed (${res.status}): ${body}`)
+    console.error(`Management API error (${res.status}):`, body)
+    return false
   }
-  console.log("Auth config updated via Management API:", body)
-  return JSON.parse(body)
+
+  console.log("Management API success:", body)
+  return true
 }
 
-async function configureAuthViaSQL() {
-  // Fallback: use postgres directly via POSTGRES_URL to update auth.config
-  // This is the raw approach when Management API token is not available
+async function verifyAdminAndAutoConfirmUsers() {
+  if (!SERVICE_ROLE_KEY) {
+    console.log("No SUPABASE_SERVICE_ROLE_KEY — cannot verify users via admin.")
+    return
+  }
+
   const { createClient } = await import("@supabase/supabase-js")
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -87,33 +73,62 @@ async function configureAuthViaSQL() {
     { auth: { persistSession: false } }
   )
 
-  // Check current auth settings via admin
-  const { data: users, error } = await supabase.auth.admin.listUsers({ perPage: 1 })
+  // List all users and auto-confirm any that aren't confirmed
+  const { data: { users }, error } = await supabase.auth.admin.listUsers()
   if (error) {
-    console.error("Admin API error:", error.message)
+    console.error("Admin listUsers error:", error.message)
     return
   }
-  console.log(`Admin API accessible. Total users: ${users?.users?.length ?? "?"}`)
-  console.log("Auth config can only be changed via Supabase Dashboard or Management API token.")
-  console.log("Please go to: https://supabase.com/dashboard/project/" + PROJECT_REF + "/auth/providers")
-  console.log("1. Enable 'Email' provider")
-  console.log("2. Disable 'Confirm email'")
-  console.log("3. Disable 'Secure email change'")
+
+  console.log(`Total users in auth.users: ${users.length}`)
+
+  let confirmed = 0
+  for (const user of users) {
+    if (!user.email_confirmed_at) {
+      const { error: updateError } = await supabase.auth.admin.updateUserById(user.id, {
+        email_confirm: true,
+      })
+      if (updateError) {
+        console.error(`Failed to confirm ${user.email}:`, updateError.message)
+      } else {
+        console.log(`Auto-confirmed: ${user.email}`)
+        confirmed++
+      }
+    }
+  }
+
+  const unconfirmed = users.filter(u => !u.email_confirmed_at).length
+  console.log(`Users already confirmed: ${users.length - unconfirmed}`)
+  console.log(`Newly confirmed: ${confirmed}`)
 }
 
 ;(async () => {
   try {
-    if (ACCESS_TOKEN) {
-      await configureAuthViaManagementAPI()
-      console.log("SUCCESS: Supabase Auth configured.")
-      console.log("- Email provider: ENABLED")
-      console.log("- Email confirmation: DISABLED (mailer_autoconfirm=true)")
-      console.log("- Site URL: https://www.plancktechnologies.xyz")
+    const managementSuccess = await tryManagementAPI()
+
+    if (managementSuccess) {
+      console.log("")
+      console.log("Auth settings updated via Management API:")
+      console.log("  email_enabled: true")
+      console.log("  mailer_autoconfirm: true (no email confirmation required)")
+      console.log("  enable_signup: true")
     } else {
-      await configureAuthViaSQL()
+      console.log("")
+      console.log("Could not update auth settings automatically.")
+      console.log("Please do this manually in Supabase Dashboard:")
+      console.log(`  https://supabase.com/dashboard/project/${PROJECT_REF}/auth/providers`)
+      console.log("  1. Enable 'Email' provider")
+      console.log("  2. Turn OFF 'Confirm email'")
+      console.log("  3. Save")
     }
+
+    // Always auto-confirm existing users regardless of management API success
+    console.log("")
+    console.log("Checking for unconfirmed users...")
+    await verifyAdminAndAutoConfirmUsers()
+
   } catch (err) {
-    console.error("Failed:", err.message)
+    console.error("Script failed:", err.message)
     process.exit(1)
   }
 })()
