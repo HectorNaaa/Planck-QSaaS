@@ -66,7 +66,6 @@ export default function QsaasLayout({ children }: { children: React.ReactNode })
         sessionStorage.setItem("planck_user_name", profile.name || "")
         sessionStorage.setItem("planck_user_org", profile.org || "")
         sessionStorage.setItem("planck_user_country", profile.country || "")
-        }
 
         const { data: recentLogs } = await supabase
           .from("execution_logs")
