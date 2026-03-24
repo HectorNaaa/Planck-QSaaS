@@ -33,29 +33,39 @@ export default function QsaasLayout({ children }: { children: React.ReactNode })
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
         if (sessionError || !session) {
+          await supabase.auth.signOut()
           router.push("/auth/login")
           return
         }
 
         const { data: { user }, error: userError } = await supabase.auth.getUser()
         if (userError || !user) {
+          await supabase.auth.signOut()
           router.push("/auth/login")
           return
         }
 
+        // Verify the profile row still exists — handles deleted accounts
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("*")
           .eq("id", user.id)
           .single()
 
-        if (!profileError && profile) {
-          if (profile.theme_preference) setTheme(profile.theme_preference)
-          sessionStorage.setItem("planck_user_id", user.id)
-          sessionStorage.setItem("planck_user_email", user.email || "")
-          sessionStorage.setItem("planck_user_name", profile.name || "")
-          sessionStorage.setItem("planck_user_org", profile.org || "")
-          sessionStorage.setItem("planck_user_country", profile.country || "")
+        if (profileError || !profile) {
+          // Profile gone — sign out and redirect
+          await supabase.auth.signOut()
+          sessionStorage.clear()
+          router.push("/auth/login")
+          return
+        }
+
+        if (profile.theme_preference) setTheme(profile.theme_preference)
+        sessionStorage.setItem("planck_user_id", user.id)
+        sessionStorage.setItem("planck_user_email", user.email || "")
+        sessionStorage.setItem("planck_user_name", profile.name || "")
+        sessionStorage.setItem("planck_user_org", profile.org || "")
+        sessionStorage.setItem("planck_user_country", profile.country || "")
         }
 
         const { data: recentLogs } = await supabase
