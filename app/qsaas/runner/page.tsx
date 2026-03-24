@@ -424,6 +424,7 @@ const adaptiveShots = calculateAdaptiveShots({
     try {
       const transpileResponse = await fetch("/api/quantum/transpile", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           qasm: circuitCode,
@@ -440,6 +441,7 @@ const adaptiveShots = calculateAdaptiveShots({
 
       const simulateResponse = await fetch("/api/quantum/simulate", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           qasm: transpileData.transpiledQASM,
@@ -463,6 +465,7 @@ const adaptiveShots = calculateAdaptiveShots({
 
       const digitalTwinResponse = await fetch("/api/quantum/digital-twin", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           algorithm: circuitName,

@@ -128,14 +128,16 @@ export default function SettingsPage() {
 
     try {
       await supabase.auth.signOut()
-      document.cookie = "planck_session=; max-age=0; path=/"
-      localStorage.removeItem("planck_stay_logged_in")
-      router.push("/auth/login")
-    } catch (error) {
-      console.error("Logout error:", error)
-      router.push("/auth/login")
+    } catch {
+      // Proceed regardless
     } finally {
+      // Clear all client state — cookies, sessionStorage, localStorage
+      document.cookie = "planck_session=; max-age=0; path=/"
+      document.cookie = "planck_guest=; max-age=0; path=/"
+      sessionStorage.clear()
+      localStorage.removeItem("planck_stay_logged_in")
       setIsLoggingOut(false)
+      router.push("/auth/login")
     }
   }
 
@@ -149,12 +151,14 @@ export default function SettingsPage() {
         throw new Error(result.error)
       }
 
-      localStorage.removeItem("planck_stay_logged_in")
+      // Clear all client state after successful deletion
+      document.cookie = "planck_session=; max-age=0; path=/"
+      document.cookie = "planck_guest=; max-age=0; path=/"
+      sessionStorage.clear()
       localStorage.clear()
 
       router.push("/")
     } catch (error: any) {
-      console.error("Delete account error:", error)
       alert("Error deleting account. Please contact support at hello@plancktechnologies.xyz")
     } finally {
       setIsDeleting(false)
