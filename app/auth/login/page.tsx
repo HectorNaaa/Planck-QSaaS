@@ -60,19 +60,16 @@ export default function LoginPage() {
 
     setIsLoading(true)
     try {
-      const supabase = createClient()
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email: trimmedEmail,
-        password,
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedEmail, password }),
       })
 
-      if (authError) {
-        setError(getErrorMessage(authError))
-        return
-      }
+      const data = await response.json()
 
-      if (!data?.session || !data?.user) {
-        setError("Sign in failed. Please try again.")
+      if (!response.ok) {
+        setError(data.error || "Login failed. Please try again.")
         return
       }
 

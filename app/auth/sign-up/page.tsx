@@ -191,44 +191,35 @@ export default function SignUpPage() {
     }
 
     try {
-      const supabase = createClient()
       const trimmedEmail = email.trim()
       const fullName = `${firstName.trim()} ${lastName.trim()}`
 
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: trimmedEmail,
-        password,
-        options: {
-          data: {
-            name: fullName,
-            first_name: firstName.trim(),
-            last_name: lastName.trim(),
-            country,
-            country_code: phonePrefix,
-            phone_number: phoneNumber,
-            occupation,
-            organization,
-          },
-        },
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          password,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          country,
+          phone: phoneNumber,
+          occupation,
+          organization,
+        }),
       })
 
-      if (signUpError) {
-        setError(getErrorMessage(signUpError))
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(getErrorMessage(data.error || 'Signup failed'))
         setIsLoading(false)
         return
       }
 
-      // If email confirmation is required, Supabase returns a user but no session.
-      // Show a success message and wait for the user to confirm their email.
-      if (!authData.session) {
-        setSuccessEmail(trimmedEmail)
-        setIsLoading(false)
-        return
-      }
-
-      // Session exists — email confirmation is disabled, go straight to dashboard.
-      sessionStorage.setItem("planck_nav_source", "auth")
-      router.push("/qsaas/dashboard")
+      // Show success message with email confirmation info
+      setSuccessEmail(trimmedEmail)
+      setIsLoading(false)
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
