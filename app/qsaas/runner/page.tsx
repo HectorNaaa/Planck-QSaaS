@@ -1010,12 +1010,12 @@ const adaptiveShots = calculateAdaptiveShots({
           {/* Results — always shown in SDK mode; shown after a manual run otherwise */}
           {(results || sdkMode) ? (
             <div className="space-y-6">
-              <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} isLive={sdkMode} />
+              {results && <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} isLive={sdkMode} />}
 
               {/* Digital Twin Dashboard — always shown after a run; live-driven in SDK mode */}
               <DigitalTwinDashboard
-                liveEnabled={false}
-                apiKey={null}
+                liveEnabled={sdkMode}
+                apiKey={sdkMode ? userApiKey : null}
                 digitalTwinId={selectedDigitalTwinId}
                 initialRows={sdkMode ? liveRows : results ? [resultToRow(results, { circuitName, shots, qubits, backend, errorMitigation })] : []}
                 title={selectedDigitalTwinId ? "Selected Digital Twin" : "All Digital Twins"}
