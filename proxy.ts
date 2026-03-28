@@ -7,6 +7,6 @@ export default async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!api/quantum|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!api/quantum|api/auth|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 }

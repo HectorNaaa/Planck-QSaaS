@@ -14,6 +14,8 @@ import Image from "next/image"
 import { createClient } from "@/lib/supabase/client"
 import { LoadingSpinner } from "@/components/loading-spinner"
 
+export const dynamic = 'force-dynamic'
+
 function getErrorMessage(err: unknown): string {
   if (!err) return "An error occurred. Please try again."
   if (typeof err === "string" && err && err !== "{}") return err

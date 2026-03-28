@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+
+export const dynamic = 'force-dynamic'
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useRef, useEffect } from "react"

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { LoadingSpinner } from "@/components/loading-spinner"
 
+export const dynamic = 'force-dynamic'
+
 export default function OAuthCallbackPage() {
   const router = useRouter()
 
