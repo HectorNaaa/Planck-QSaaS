@@ -1,12 +1,5 @@
-import { updateSession } from "@/lib/supabase/middleware"
-import type { NextRequest } from "next/server"
-
-export default async function proxy(request: NextRequest) {
-  return await updateSession(request)
-}
-
-export const config = {
-  matcher: [
-    "/((?!api/quantum|api/auth|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-  ],
-}
+/**
+ * @deprecated Use middleware.ts — this file is kept only for Vercel build
+ * backwards compatibility. Next.js 15 reads middleware.ts, not proxy.ts.
+ */
+export { default, config } from "./middleware"
