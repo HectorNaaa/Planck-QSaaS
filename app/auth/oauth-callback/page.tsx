@@ -1,40 +1,38 @@
 "use client"
 
-import { createClient } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
 import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
+import { LoadingSpinner } from "@/components/loading-spinner"
 
-/**
- * OAuth callback handler.
- * Supabase exchanges the `code` query param for a session and sets the auth
- * cookies. We then redirect the user to the app. Uses `getUser()` (not
- * `getSession()`) so the JWT is always re-validated server-side.
- */
+export const dynamic = 'force-dynamic'
+
 export default function OAuthCallbackPage() {
   const router = useRouter()
 
   useEffect(() => {
-    const handle = async () => {
+    const handleCallback = async () => {
       const supabase = createClient()
       const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser()
+        data: { session },
+      } = await supabase.auth.getSession()
 
-      if (error || !user) {
-        router.replace("/auth/login?error=oauth_callback_failed")
-        return
+      if (session) {
+        router.push("/qsaas/dashboard")
+      } else {
+        router.push("/auth/login")
       }
-
-      router.replace("/qsaas/dashboard")
     }
 
-    void handle()
+    handleCallback()
   }, [router])
 
   return (
-    <div className="flex min-h-svh items-center justify-center">
-      <p className="text-sm text-muted-foreground">Completing sign-in…</p>
+    <div className="w-full h-screen flex items-center justify-center bg-background">
+      <div className="text-center">
+        <LoadingSpinner size="lg" />
+        <p className="mt-4 text-muted-foreground">Completing sign in...</p>
+      </div>
     </div>
   )
 }

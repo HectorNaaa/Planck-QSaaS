@@ -1,55 +1,90 @@
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
-import { cookies } from "next/headers"
-import type { ReactNode } from "react"
+"use client"
 
-/**
- * Layout for all /qsaas/** routes.
- *
- * Auth priority:
- *  1. Valid Supabase session → full authenticated access.
- *  2. No session + `planck_guest` cookie present → read-only guest mode.
- *  3. Neither → redirect to /auth/login.
- *
- * Guest mode is intentionally read-only and is never a substitute for a real
- * session. The middleware already guards this route, but we double-check here
- * to protect against edge cases where the middleware was bypassed (e.g., RSC
- * direct fetch).
- */
-export default async function QSaaSLayout({ children }: { children: ReactNode }) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+import { useState, useEffect } from "react"
+import type React from "react"
+import { useRouter, usePathname } from "next/navigation"
+import { MainLayout } from "@/components/layout/main-layout"
+import { QuantumLoadingScreen } from "@/components/quantum-loading-screen"
+import { GuestBanner } from "@/components/guest-banner"
+import { createBrowserClient } from "@/lib/supabase/client"
+import { useTheme } from "next-themes"
 
-  // Real session — allow through.
-  if (user) {
-    return <>{children}</>
-  }
+function hasGuestCookie(): boolean {
+  if (typeof document === "undefined") return false
+  return document.cookie.split(";").some((c) => c.trim().startsWith("planck_guest=true"))
+}
 
-  // No real session — check for explicit guest cookie.
-  const cookieStore = await cookies()
-  const guestCookie = cookieStore.get("planck_guest")
-  const isGuest = guestCookie?.value === "true"
+export default function QsaasLayout({ children }: { children: React.ReactNode }) {
+  const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
+  const pathname = usePathname()
+  const { setTheme } = useTheme()
 
-  if (!isGuest) {
-    redirect("/auth/login")
-  }
+  useEffect(() => {
+    const init = async () => {
+      try {
+        // Guest bypass — skip all Supabase calls
+        if (hasGuestCookie()) {
+          setTimeout(() => setIsLoading(false), 1200)
+          return
+        }
 
-  // Guest access — render the layout with a visual notice.
+        const supabase = createBrowserClient()
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+        if (sessionError || !session) {
+          router.push("/auth/login")
+          return
+        }
+
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        if (userError || !user) {
+          router.push("/auth/login")
+          return
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single()
+
+        if (!profileError && profile) {
+          if (profile.theme_preference) setTheme(profile.theme_preference)
+          sessionStorage.setItem("planck_user_id", user.id)
+          sessionStorage.setItem("planck_user_email", user.email || "")
+          sessionStorage.setItem("planck_user_name", profile.name || "")
+          sessionStorage.setItem("planck_user_org", profile.org || "")
+          sessionStorage.setItem("planck_user_country", profile.country || "")
+        }
+
+        const { data: recentLogs } = await supabase
+          .from("execution_logs")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(10)
+
+        if (recentLogs) {
+          sessionStorage.setItem("planck_recent_circuits", JSON.stringify(recentLogs))
+        }
+
+        sessionStorage.setItem("planck_nav_source", "qsaas")
+        setTimeout(() => setIsLoading(false), 2000)
+      } catch {
+        setTimeout(() => setIsLoading(false), 2000)
+      }
+    }
+
+    init()
+  }, [router, pathname, setTheme])
+
+  if (isLoading) return <QuantumLoadingScreen />
+
   return (
-    <>
-      <div
-        role="banner"
-        className="flex items-center justify-center gap-2 bg-muted px-4 py-2 text-center text-sm text-muted-foreground"
-      >
-        {"You are browsing as a guest. "}
-        <a href="/auth/sign-up" className="font-medium underline underline-offset-4">
-          Sign up
-        </a>
-        {" for full access."}
-      </div>
+    <MainLayout>
+      <GuestBanner />
       {children}
-    </>
+    </MainLayout>
   )
 }

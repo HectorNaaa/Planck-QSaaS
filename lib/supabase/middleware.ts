@@ -2,8 +2,11 @@ import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request })
+  let supabaseResponse = NextResponse.next({
+    request,
+  })
 
+  // IMPORTANT: Do NOT add any code between createServerClient and getUser()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -13,14 +16,9 @@ export async function updateSession(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          // Phase 1 — forward to the mutated request so downstream RSCs see the
-          // refreshed token immediately in the same request.
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           )
-          // Phase 2 — re-create the response *after* mutating the request so
-          // the new request headers are baked in, then attach cookies with their
-          // full options (HttpOnly, SameSite, Secure, Max-Age, Path, etc.).
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
@@ -30,33 +28,34 @@ export async function updateSession(request: NextRequest) {
     },
   )
 
-  // IMPORTANT: Do not place any code between createServerClient and
-  // supabase.auth.getUser(). A simple mistake here could make it very hard to
-  // debug users being randomly logged out.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // IMPORTANT: Do NOT run code between createServerClient and getUser()
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data?.user ?? null
+  } catch {
+    // Network error — continue without user, auth pages will handle it
+  }
 
-  // Protect all /qsaas/** routes — redirect unauthenticated users to login.
-  // Guest-mode logic lives in the layout, but the server-side guard here
-  // prevents raw navigation to protected routes without a valid session.
-  const isProtected = request.nextUrl.pathname.startsWith("/qsaas")
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/auth")
+  const path = request.nextUrl.pathname
 
-  if (isProtected && !user) {
+  // Allow guest access via short-lived cookie set on "Continue as Guest"
+  const isGuest = request.cookies.get("planck_guest")?.value === "true"
+
+  if (path.startsWith("/qsaas") && !user && !isGuest) {
     const url = request.nextUrl.clone()
     url.pathname = "/auth/login"
+    url.searchParams.set("redirect", path)
     return NextResponse.redirect(url)
   }
 
-  // If a logged-in user hits an auth page, send them to the app.
-  if (isAuthRoute && user) {
+  if (user && (path === "/auth/login" || path === "/auth/sign-up")) {
     const url = request.nextUrl.clone()
     url.pathname = "/qsaas/dashboard"
     return NextResponse.redirect(url)
   }
 
-  // IMPORTANT: return the supabaseResponse object as-is so cookies are
-  // propagated correctly to the browser.
+  // IMPORTANT: return supabaseResponse so refreshed session cookies are forwarded
   return supabaseResponse
 }
+
