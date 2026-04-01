@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { streamText } from "ai"
-import { createServerClient } from "@/lib/supabase/server"
 import { authenticateRequest } from "@/lib/api-auth"
 import {
   sanitizeString,
