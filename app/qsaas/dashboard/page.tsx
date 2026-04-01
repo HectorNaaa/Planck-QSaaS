@@ -49,69 +49,20 @@ export default function DashboardPage() {
   const [twins, setTwins] = useState<DigitalTwin[]>([])
   const [activeTab, setActiveTab] = useState<"all" | string>("all")
   const [loading, setLoading] = useState(true)
-  const [liveEnabled, setLiveEnabled] = useState(false)
-  // User's API key — fetched once for SSE auth (EventSource can't send headers)
-  const [userApiKey, setUserApiKey] = useState<string | null>(null)
-
-  // Sync live-mode state from storage + allow toggling directly on dashboard
-  useEffect(() => {
-    const stored = sessionStorage.getItem("planck_sdk_mode")
-    if (stored === "1") setLiveEnabled(true)
-  }, [])
-
-  // Fetch user's API key once — needed to authenticate the browser EventSource
-  // (EventSource doesn't support custom headers, so we pass api_key as a query param)
-  useEffect(() => {
-    const supabase = createBrowserClient()
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.user.id) return
-      supabase
-        .from("profiles")
-        .select("api_key")
-        .eq("id", session.user.id)
-        .single()
-        .then(({ data }) => { if (data?.api_key) setUserApiKey(data.api_key) })
-    })
-  }, [])
 
   // ── Load data ──────────────────────────────────────────────────────────────
   useEffect(() => { loadAll() }, [timeRange])
 
-  // Supabase Realtime: reload on any new execution (fallback for non-SDK usage)
-  useEffect(() => {
-    const supabase = createBrowserClient()
-    const channel = supabase
-      .channel("dashboard-rt")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "execution_logs" }, () => {
-        loadAll()
-      })
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [timeRange])
-
   async function loadAll() {
     setLoading(true)
-    const supabase = createBrowserClient()
     try {
-      const threshold = new Date()
-      if (timeRange === "24h") threshold.setHours(threshold.getHours() - 24)
-      else if (timeRange === "7d") threshold.setDate(threshold.getDate() - 7)
-      else threshold.setDate(threshold.getDate() - 30)
-
-      const [logsRes, twinsRes] = await Promise.all([
-        supabase
-          .from("execution_logs")
-          .select("id,circuit_name,algorithm,status,qubits_used,runtime_ms,success_rate,backend_selected,created_at,digital_twin_id,shots,error_mitigation,circuit_data")
-          .gte("created_at", threshold.toISOString())
-          .order("created_at", { ascending: true }),
-        supabase
-          .from("digital_twins")
-          .select("id,name,description,image_url")
-          .order("created_at", { ascending: true }),
-      ])
-
-      if (logsRes.data) setAllRows(logsRes.data as ExecutionRow[])
-      if (twinsRes.data) setTwins(twinsRes.data as DigitalTwin[])
+      const res = await fetch(`/api/dashboard/data?timeRange=${timeRange}`)
+      const data = await res.json()
+      
+      setAllRows(data.logs || [])
+      setTwins(data.twins || [])
+    } catch (error) {
+      console.error('Error loading dashboard data:', error)
     } finally {
       setLoading(false)
     }

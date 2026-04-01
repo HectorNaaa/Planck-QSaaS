@@ -18,6 +18,17 @@ yarn-error.log*
 
 # env files
 .env.local
+
+# SQLite database
+.data/
+*.db
+
+# IDE
+.vscode/
+
+# Logs
+build.log
+
 .env*.local
 .env
 

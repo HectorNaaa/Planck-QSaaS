@@ -8,10 +8,9 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { Eye, EyeOff, UserRound, AlertCircle } from "lucide-react"
+import { Eye, EyeOff, UserRound } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
 import Image from "next/image"
-import { createClient } from "@/lib/supabase/client"
 import { LoadingSpinner } from "@/components/loading-spinner"
 
 export const dynamic = 'force-dynamic'
@@ -22,26 +21,15 @@ function getErrorMessage(err: unknown): string {
   if (typeof err === "object") {
     const obj = err as Record<string, unknown>
     if (typeof obj.status === "number") {
-      if (obj.status === 503) return "Authentication service temporarily unavailable. Please try again in a moment."
       if (obj.status === 429) return "Too many requests. Please wait a moment and try again."
       if (obj.status === 400 || obj.status === 401) return "Invalid email or password."
-      if (obj.status === 422) return "Email not found or invalid format."
       if (obj.status >= 500) return "Server error. Please try again shortly."
     }
-    if (obj.__isAuthError) {
-      if (obj.name === "AuthRetryableFetchError") return "Cannot reach authentication server. Please check your connection."
-      if (typeof obj.message === "string" && obj.message && obj.message !== "{}") return obj.message
-    }
     if (typeof obj.message === "string" && obj.message && obj.message !== "{}") return obj.message
-    if (typeof obj.error_description === "string" && obj.error_description) return obj.error_description
   }
   if (err instanceof Error && err.message && err.message !== "{}") return err.message
   return "An error occurred. Please try again."
 }
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-const missingEnv = !supabaseUrl || !supabaseKey
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -88,25 +76,6 @@ export default function LoginPage() {
     setIsGuestLoading(true)
     document.cookie = `planck_guest=true; max-age=${2 * 60 * 60}; path=/; SameSite=Strict`
     router.push("/qsaas/dashboard")
-  }
-
-  if (missingEnv) {
-    return (
-      <div className="w-full max-w-md px-4">
-        <Card className="border-destructive">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3 text-destructive">
-              <AlertCircle size={20} className="mt-0.5 shrink-0" />
-              <p className="text-sm">
-                Supabase environment variables are missing. Please set{" "}
-                <code className="font-mono">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
-                <code className="font-mono">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
   }
 
   return (

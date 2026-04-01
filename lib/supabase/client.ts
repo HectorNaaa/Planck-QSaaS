@@ -1,13 +1,10 @@
-import { createBrowserClient as createSupabaseBrowserClient } from "@supabase/ssr"
+// Deprecated: Supabase functionality has been replaced with internal SQLite + JWT auth
 
 export function createBrowserClient() {
-  return createSupabaseBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
+  throw new Error('Supabase is no longer supported. Use internal auth via /api/auth/ endpoints.')
 }
 
-// Legacy export for backward compatibility
 export function createClient() {
-  return createBrowserClient()
+  throw new Error('Supabase is no longer supported. Use internal auth via /api/auth/ endpoints.')
 }
+
