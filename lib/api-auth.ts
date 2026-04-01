@@ -37,35 +37,8 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
 
   // ── Path 1: API-key authentication ─────────────────────────────
   if (apiKey) {
-    // Format validation
-    if (!validateApiKey(apiKey)) {
-      console.warn("[Auth] Invalid API key format, masked:", maskKey(apiKey))
-      return { ok: false, userId: null, method: "api_key", status: 401, error: "Invalid API key format" }
-    }
-
-    try {
     // TODO: Implement API key validation with internal DB.
-    return { ok: false, userId: null, method: "api_key", status: 501, error: "API key auth not implemented" }
-
-      if (dbError) {
-        console.warn("[Auth] DB lookup failed for key", maskKey(apiKey), "| error:", dbError.message)
-  // Session-cookie authentication is removed as well.
-        return { ok: false, userId: null, method: "api_key", status: 401, error: "Invalid API key" }
-
-  // Additional session handling logic can be implemented here if needed.
-    if (authError || !user) {
-      return {
-        ok: false,
-        userId: null,
-        method: "session",
-        status: 401,
-        error: "Unauthorized. Provide an API key via the x-api-key header or authenticate via session.",
-      }
-    }
-
-    return { ok: true, userId: user.id, method: "session", status: 200, error: "" }
-  } catch (err: any) {
-    console.error("[Auth] Session auth error:", err?.message)
-    return { ok: false, userId: null, method: "session", status: 500, error: "Authentication service error" }
+    return { ok: false, userId: null, method: "api_key", status: 501, error: "API key auth not implemented" };
   }
+  // Additional session handling logic can be implemented here if needed.
 }

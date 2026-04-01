@@ -2,7 +2,7 @@
 export async function GET() {
   return new Response(JSON.stringify({
     error: 'This endpoint has been removed. Supabase diagnostics are no longer supported.'
-  }), { status: 410, headers: { 'Content-Type': 'application/json' } })
+  }), { status: 410, headers: { 'Content-Type': 'application/json' } });
 }
     return NextResponse.json({
       status: 'error',
