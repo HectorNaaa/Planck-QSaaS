@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { streamText } from "ai"
 import { authenticateRequest } from "@/lib/api-auth"
+import { Executions } from "@/lib/db/client"
 import {
   sanitizeString,
   createSafeErrorResponse,
@@ -45,18 +46,11 @@ export async function POST(request: NextRequest) {
     }
     const userId = auth.userId!
 
-    const supabase = await createServerClient()
-
     // Fetch user's execution history for context if requested
     let executionContext = ""
     if (includeHistory !== false && userId) {
       try {
-        const { data: recentExecutions } = await supabase
-          .from("execution_logs")
-          .select("circuit_name, algorithm, qubits_used, runtime_ms, status, created_at")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(10)
+        const recentExecutions = Executions.findByUserId(userId).slice(0, 10)
 
         if (recentExecutions && recentExecutions.length > 0) {
           executionContext = `

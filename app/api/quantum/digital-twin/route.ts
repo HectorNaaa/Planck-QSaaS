@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase/server"
-import { getAdminClient } from "@/lib/supabase/admin"
 import { authenticateRequest } from "@/lib/api-auth"
+import { Executions } from "@/lib/db/client"
 import {
   validateAlgorithm,
   validateInputData,
@@ -44,27 +43,30 @@ export async function POST(request: NextRequest) {
     }
     const userId = auth.userId!
 
-    // Use admin client for SDK requests to bypass RLS
-    const supabase = auth.method === "api_key"
-      ? getAdminClient()
-      : await createServerClient()
-
     // Generate digital twin insights
     const digitalTwin = generateDigitalTwinInsights(algorithm, inputData, circuitInfo, executionResults, backendConfig)
 
-    // Save to Supabase if execution_id is provided and valid
+    // Save digital twin payload in execution.circuit_data if execution_id is provided.
     if (executionResults?.execution_id && validateUUID(executionResults.execution_id)) {
       try {
-        const { error: updateError } = await supabase
-          .from("execution_logs")
-          .update({
-            digital_twin: digitalTwin,
-          })
-          .eq("user_id", userId)
-          .eq("id", executionResults.execution_id)
+        const existing = Executions.findById(executionResults.execution_id)
+        if (existing && existing.user_id === userId) {
+          let payload: any = {}
+          try {
+            payload = existing.circuit_data ? JSON.parse(existing.circuit_data) : {}
+          } catch {
+            payload = {}
+          }
 
-        if (updateError) {
-          console.error("[API] Failed to save Digital Twin to Supabase:", updateError.message)
+          payload.digital_twin = digitalTwin
+          payload.digital_twin_id = payload.digital_twin_id || executionResults.execution_id
+
+          Executions.updateStatus(
+            executionResults.execution_id,
+            existing.status || "completed",
+            JSON.stringify(payload),
+            existing.error || undefined,
+          )
         }
       } catch (saveError) {
         console.error("[API] Error saving digital twin:", saveError)
@@ -328,18 +330,25 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const admin = getAdminClient()
-    const { data, error } = await admin
-      .from("digital_twins")
-      .select("id,name,description,created_at")
-      .eq("user_id", auth.userId)
-      .order("created_at", { ascending: false })
+    const allExecutions = Executions.findByUserId(auth.userId)
+    const twins = allExecutions
+      .map((e: any) => {
+        try {
+          const payload = e.circuit_data ? JSON.parse(e.circuit_data) : null
+          if (!payload?.digital_twin) return null
+          return {
+            id: payload.digital_twin_id || e.id,
+            name: e.circuit_name || "Digital Twin",
+            description: e.algorithm || "Quantum execution twin",
+            created_at: e.created_at,
+          }
+        } catch {
+          return null
+        }
+      })
+      .filter(Boolean)
 
-    if (error) {
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ success: true, digital_twins: data ?? [] })
+    return NextResponse.json({ success: true, digital_twins: twins })
   } catch (err: any) {
     return NextResponse.json({ success: false, error: err?.message ?? "Unknown error" }, { status: 500 })
   }

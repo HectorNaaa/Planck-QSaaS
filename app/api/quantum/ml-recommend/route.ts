@@ -1,7 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { CppMLEngine } from "@/lib/ml/cpp-ml-engine"
-import { createServerClient } from "@/lib/supabase/server"
-import { getAdminClient } from "@/lib/supabase/admin"
 import { authenticateRequest } from "@/lib/api-auth"
 import {
   validateAlgorithm,
@@ -46,43 +44,7 @@ export async function POST(request: NextRequest) {
     }
     const userId = auth.userId!
 
-    // Use admin client for SDK requests to bypass RLS
-    const supabase = auth.method === "api_key"
-      ? getAdminClient()
-      : await createServerClient()
-
-    let userHistoricalAccuracy = 0.5
-    try {
-      // Try mega-table first, fall back to legacy
-      const { data: userHistory, error: historyError } = await supabase
-        .from("ml_execution_features")
-        .select("reward_score")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(20)
-
-      if (historyError && historyError.code !== "PGRST205" && historyError.code !== "42P01") {
-        // Try legacy table
-        const { data: legacyHistory } = await supabase
-          .from("ml_feature_vectors")
-          .select("reward_score")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(10)
-
-        if (legacyHistory && legacyHistory.length > 0) {
-          userHistoricalAccuracy =
-            legacyHistory.reduce((sum, h) => sum + (h.reward_score || 0), 0) / legacyHistory.length / 100
-        }
-      } else if (userHistory && userHistory.length > 0) {
-        userHistoricalAccuracy =
-          userHistory.reduce((sum, h) => sum + (h.reward_score || 0), 0) / userHistory.length / 100
-      }
-    } catch (tableError: any) {
-      if (tableError.code !== "PGRST205") {
-        console.error("[API] Error checking ML history:", tableError)
-      }
-    }
+    const userHistoricalAccuracy = 0.5
 
     const recommendation = await CppMLEngine.getRecommendation({
       qubits,

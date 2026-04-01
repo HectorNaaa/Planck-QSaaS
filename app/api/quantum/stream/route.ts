@@ -16,9 +16,9 @@
  */
 
 import { type NextRequest } from "next/server"
-import { getAdminClient } from "@/lib/supabase/admin"
 import { authenticateRequest } from "@/lib/api-auth"
 import { validateApiKey } from "@/lib/security"
+import { ApiKeys, Executions } from "@/lib/db/client"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
@@ -32,14 +32,8 @@ export async function GET(req: NextRequest) {
   let userId: string | null = null
 
   if (queryApiKey && validateApiKey(queryApiKey)) {
-    // Resolve user from query-param API key
-    const admin = getAdminClient()
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("api_key", queryApiKey)
-      .single()
-    userId = profile?.id ?? null
+    const key = ApiKeys.findByKey(queryApiKey)
+    userId = key?.user_id ?? null
   }
 
   if (!userId) {
@@ -54,7 +48,6 @@ export async function GET(req: NextRequest) {
   const digitalTwinId = searchParams.get("digital_twin_id") ?? null
   let since = searchParams.get("since") ?? new Date(0).toISOString()
 
-  const supabase = getAdminClient()
   const encoder = new TextEncoder()
 
   const stream = new ReadableStream({
@@ -81,18 +74,20 @@ export async function GET(req: NextRequest) {
       const pollInterval = setInterval(async () => {
         if (!open) { clearInterval(pollInterval); return }
         try {
-          let query = supabase
-            .from("execution_logs")
-            .select("id,circuit_name,algorithm,status,qubits_used,runtime_ms,success_rate,backend_selected,created_at,digital_twin_id,shots,error_mitigation,circuit_data")
-            .eq("user_id", userId!)
-            .gt("created_at", since)
-            .order("created_at", { ascending: true })
-            .limit(50)
-
-          if (digitalTwinId) query = query.eq("digital_twin_id", digitalTwinId)
-
-          const { data: rows, error } = await query
-          if (error) { send({ type: "error", message: error.message }); return }
+          const allRows = Executions.findByUserId(userId!)
+          const rows = allRows
+            .filter((r: any) => new Date(r.created_at).toISOString() > since)
+            .filter((r: any) => {
+              if (!digitalTwinId) return true
+              try {
+                const payload = r.circuit_data ? JSON.parse(r.circuit_data) : null
+                return payload?.digital_twin_id === digitalTwinId
+              } catch {
+                return false
+              }
+            })
+            .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+            .slice(0, 50)
 
           if (rows && rows.length > 0) {
             since = rows[rows.length - 1].created_at

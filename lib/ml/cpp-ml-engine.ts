@@ -130,96 +130,7 @@ export class CppMLEngine {
    * Get ML-powered recommendation using network effect
    */
   static async getRecommendation(features: CircuitFeatures): Promise<MLRecommendation> {
-    // Always use admin client -- this is a server-side read across all users
-    const supabase = getAdminClient()
-
-    // Generate feature vector
-    const featureVector = await this.vectorizeFeatures(features)
-
-    try {
-      // Query similar executions from the mega-table using pgvector
-      const { data: similarExecutions, error } = await supabase.rpc("find_similar_execution_features", {
-        query_vector: featureVector,
-        similarity_threshold: 0.6,
-        limit_count: 80,
-      })
-
-      // If function doesn't exist (PGRST202) or other errors, fall back to defaults
-      if (error) {
-        if (error.code === "PGRST202" || error.code === "42883") {
-          return this.getDefaultRecommendation(features)
-        }
-        throw error
-      }
-
-      if (!similarExecutions || similarExecutions.length === 0) {
-        return this.getDefaultRecommendation(features)
-      }
-
-      // ── Weighted voting based on similarity + reward ──────────
-      const shotsVotes: Record<number, number> = {}
-      const backendVotes: Record<string, number> = {}
-      const errorMitigationVotes: Record<string, number> = {}
-      let totalWeight = 0
-
-      for (const exec of similarExecutions) {
-        // Reward-weighted similarity: higher rewards amplify vote weight
-        const rewardBonus = Math.max(0, exec.reward_score) / 100
-        const weight = exec.similarity * (1 + rewardBonus)
-        totalWeight += weight
-
-        // Shots: bucket to nearest 100 to avoid fragmentation
-        const bucketedShots = Math.round(exec.shots_used / 100) * 100
-        shotsVotes[bucketedShots] = (shotsVotes[bucketedShots] || 0) + weight
-        backendVotes[exec.backend_used] = (backendVotes[exec.backend_used] || 0) + weight
-        if (exec.error_mitigation) {
-          errorMitigationVotes[exec.error_mitigation] = (errorMitigationVotes[exec.error_mitigation] || 0) + weight
-        }
-      }
-
-      // ── Pick best from weighted votes ─────────────────────────
-      let bestShots = this.calculateDefaultShots(features)
-      let bestShotsWeight = 0
-      for (const [shots, weight] of Object.entries(shotsVotes)) {
-        if (weight > bestShotsWeight) {
-          bestShotsWeight = weight
-          bestShots = Number(shots)
-        }
-      }
-
-      let bestBackend = this.selectDefaultBackend(features)
-      let bestBackendWeight = 0
-      for (const [backend, weight] of Object.entries(backendVotes)) {
-        if (weight > bestBackendWeight) {
-          bestBackendWeight = weight
-          bestBackend = backend
-        }
-      }
-
-      let bestErrorMitigation = this.selectDefaultErrorMitigation(features)
-      let bestErrorMitigationWeight = 0
-      for (const [mitigation, weight] of Object.entries(errorMitigationVotes)) {
-        if (weight > bestErrorMitigationWeight) {
-          bestErrorMitigationWeight = weight
-          bestErrorMitigation = mitigation
-        }
-      }
-
-      const confidence = Math.min(0.95, totalWeight / (similarExecutions.length * 2))
-      const avgSimilarity =
-        (similarExecutions.reduce((sum: number, e: any) => sum + e.similarity, 0) / similarExecutions.length) * 100
-
-      return {
-        recommendedShots: bestShots,
-        recommendedBackend: bestBackend,
-        recommendedErrorMitigation: bestErrorMitigation,
-        confidence,
-        reasoning: `RL network effect: ${similarExecutions.length} similar circuits (${avgSimilarity.toFixed(0)}% avg match)`,
-        basedOnExecutions: similarExecutions.length,
-      }
-    } catch (error: any) {
-      return this.getDefaultRecommendation(features)
-    }
+    return this.getDefaultRecommendation(features)
   }
 
   /**
@@ -284,78 +195,10 @@ export class CppMLEngine {
       predictedFidelity: number
     },
   ): Promise<void> {
-    try {
-      // Use admin client to bypass RLS -- trusted server-side write
-      const supabase = getAdminClient()
-
-      // Generate feature vector
-      const featureVector = await this.vectorizeFeatures(features)
-
-      // Calculate reward score
-      const reward = this.calculateReward(
-        outcomes.actualFidelity,
-        outcomes.actualRuntime,
-        features.targetLatency,
-        outcomes.predictedFidelity,
-      )
-
-      // Write to mega-table (ml_execution_features) -- lightweight, cross-user RL data
-      const megaInsert = supabase.from("ml_execution_features").insert({
-        execution_id: executionId,
-        user_id: userId,
-        algorithm: features.algorithm,
-        num_qubits: features.qubits,
-        circuit_depth: features.depth,
-        gate_count: features.gateCount,
-        data_size: features.dataSize,
-        data_complexity: features.dataComplexity,
-        shots_used: outcomes.actualShots,
-        backend_used: outcomes.actualBackend,
-        error_mitigation: features.errorMitigation,
-        target_latency_ms: features.targetLatency,
-        success_rate: outcomes.actualSuccessRate,
-        runtime_ms: outcomes.actualRuntime,
-        fidelity_score: outcomes.actualFidelity,
-        reward_score: reward,
-        feature_vector: featureVector,
-      })
-
-      // Write to legacy table (ml_feature_vectors) for backward compat
-      const legacyInsert = supabase.from("ml_feature_vectors").insert({
-        execution_id: executionId,
-        user_id: userId,
-        feature_vector: featureVector,
-        num_qubits: features.qubits,
-        circuit_depth: features.depth,
-        gate_count: features.gateCount,
-        algorithm_type: features.algorithm,
-        data_size: features.dataSize,
-        backend_used: outcomes.actualBackend,
-        shots_used: outcomes.actualShots,
-        runtime_ms: outcomes.actualRuntime,
-        fidelity_score: outcomes.actualFidelity,
-        success: outcomes.actualSuccessRate > 50,
-        reward_score: reward,
-      })
-
-      // Fire both in parallel; don't fail the caller on either
-      const [megaResult, legacyResult] = await Promise.allSettled([megaInsert, legacyInsert])
-
-      if (megaResult.status === "fulfilled" && megaResult.value.error) {
-        const e = megaResult.value.error
-        if (e.code !== "PGRST205" && e.code !== "42P01") {
-          console.error("[ML] mega-table insert error:", e.message)
-        }
-      }
-      if (legacyResult.status === "fulfilled" && legacyResult.value.error) {
-        const e = legacyResult.value.error
-        if (e.code !== "PGRST205" && e.code !== "42P01") {
-          console.error("[ML] legacy-table insert error:", e.message)
-        }
-      }
-    } catch (error) {
-      // Silently fail - ML features are optional
-    }
+    void features
+    void executionId
+    void userId
+    void outcomes
   }
 
   /**

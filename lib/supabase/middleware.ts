@@ -1,2 +1,5 @@
-// Removed: Supabase middleware is no longer supported. Use internal auth/session logic.
+import { NextRequest, NextResponse } from "next/server"
 
+export function updateSession(_request: NextRequest) {
+  return NextResponse.next()
+}
