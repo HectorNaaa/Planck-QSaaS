@@ -102,13 +102,61 @@ export const Circuits = {
 
 // Execution operations
 export const Executions = {
-  create: (userId: string, circuitId: string | null, backend: string) => {
+  create: (data: {
+    user_id: string
+    circuit_id?: string | null
+    circuit_name?: string
+    algorithm?: string
+    execution_type?: string
+    backend: string
+    status?: string
+    success_rate?: number
+    runtime_ms?: number
+    qubits_used?: number
+    shots?: number
+    error_mitigation?: string
+    backend_selected?: string
+    backend_reason?: string
+    backend_hint?: string | null
+    backend_metadata?: string
+    backend_assigned_at?: string
+    circuit_data?: string
+    result?: string
+    error?: string
+  }) => {
     const id = crypto.getRandomValues(new Uint8Array(16)).toString()
-    const stmt = db.prepare(
-      'INSERT INTO executions (id, user_id, circuit_id, backend, status) VALUES (?, ?, ?, ?, ?)'
+    const stmt = db.prepare(`
+      INSERT INTO executions (
+        id, user_id, circuit_id, circuit_name, algorithm, execution_type,
+        backend, status, success_rate, runtime_ms, qubits_used, shots,
+        error_mitigation, backend_selected, backend_reason, backend_hint,
+        backend_metadata, backend_assigned_at, circuit_data, result, error
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    const result = stmt.run(
+      id,
+      data.user_id,
+      data.circuit_id || null,
+      data.circuit_name || null,
+      data.algorithm || null,
+      data.execution_type || 'manual',
+      data.backend,
+      data.status || 'pending',
+      data.success_rate || null,
+      data.runtime_ms || null,
+      data.qubits_used || null,
+      data.shots || null,
+      data.error_mitigation || null,
+      data.backend_selected || null,
+      data.backend_reason || null,
+      data.backend_hint || null,
+      data.backend_metadata || null,
+      data.backend_assigned_at || null,
+      data.circuit_data || null,
+      data.result || null,
+      data.error || null
     )
-    stmt.run(id, userId, circuitId, backend, 'pending')
-    return { id }
+    return { id, changes: result.changes }
   },
 
   findByUserId: (userId: string) => {

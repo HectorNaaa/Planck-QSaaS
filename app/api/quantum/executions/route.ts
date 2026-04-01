@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase/server"
+import { Executions } from "@/lib/db/client"
 import { authenticateRequest } from "@/lib/api-auth"
 import { createSafeErrorResponse, validateRequestHeaders } from "@/lib/security"
 
@@ -36,31 +36,22 @@ export async function GET(request: NextRequest) {
     const offset = Math.max(0, Number(searchParams.get("offset")) || 0)
     const statusFilter = searchParams.get("status")
 
-    const supabase = await createServerClient()
-
-    let query = supabase
-      .from("execution_logs")
-      .select(
-        "id, circuit_name, algorithm, backend, status, success_rate, runtime_ms, qubits_used, shots, error_mitigation, backend_selected, backend_reason, backend_hint, backend_metadata, backend_assigned_at, created_at, completed_at",
-        { count: "exact" }
-      )
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1)
-
-    if (statusFilter && ["completed", "failed", "running"].includes(statusFilter)) {
-      query = query.eq("status", statusFilter)
-    }
-
-    const { data, error, count } = await query
-
-    if (error) {
-      console.error("[API] Executions list error:", error.message)
-      return NextResponse.json(
-        { success: false, error: "Failed to fetch executions" },
-        { status: 500 }
-      )
-    }
+    // Use internal database to fetch executions
+    const allExecutions = Executions.findByUserId(userId)
+    
+    // Filter by status if provided
+    const filtered = statusFilter 
+      ? allExecutions.filter((e: { status: string }) => e.status === statusFilter)
+      : allExecutions
+    
+    // Sort by created_at descending
+    filtered.sort((a: { created_at: string }, b: { created_at: string }) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+    
+    // Apply pagination
+    const data = filtered.slice(offset, offset + limit)
+    const count = filtered.length
 
     return NextResponse.json({
       success: true,

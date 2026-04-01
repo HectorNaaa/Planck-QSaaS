@@ -23,7 +23,6 @@ import { BarChart3, Zap, TrendingUp, Clock, Radio } from "lucide-react"
 import Link from "next/link"
 import { PageHeader } from "@/components/page-header"
 import { useEffect, useState, useMemo } from "react"
-import { createBrowserClient } from "@/lib/supabase/client"
 import { DigitalTwinDashboard } from "@/components/dashboard/digital-twin-dashboard"
 import type { ExecutionRow } from "@/hooks/use-live-executions"
 

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Save, Sun, Moon, Check, LogOut, Trash2, Edit, Copy, RefreshCw } from "lucide-react"
 import { useTheme } from "next-themes"
 import { PageHeader } from "@/components/page-header"
-import { createClient, createBrowserClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { LanguageSelector } from "@/components/language-selector"
 import { deleteUserAccount, updateUserAccount, generateApiKey, getApiKey, revokeApiKey } from "./actions"
@@ -37,32 +36,39 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const loadUserData = async () => {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      try {
+        // Get user data from server (JWT-verified endpoint)
+        const response = await fetch("/api/request-utils", {
+          method: "GET",
+          credentials: "include",
+        })
 
-      if (user) {
-        setUserEmail(user.email || "")
-        setOriginalEmail(user.email || "")
+        if (!response.ok) {
+          router.push("/auth/login")
+          return
+        }
 
-        const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single()
-
-        if (profile) {
-          const fullName = profile.name || ""
-          const [first, ...rest] = fullName.split(" ")
+        const userData = await response.json()
+        if (userData && userData.user) {
+          const user = userData.user
+          const profile = userData.profile || {}
+          
+          setUserEmail(user.email || "")
+          setOriginalEmail(user.email || "")
+          setUserName(profile.full_name || "")
+          
+          const [first, ...rest] = (profile.full_name || "").split(" ")
           setUserFirstName(first || "")
           setUserLastName(rest.join(" ") || "")
-          setUserName(fullName)
-          setUserOrg(profile.org || "")
+          
+          setUserOrg(profile.organization || "")
           setUserCountry(profile.country || "")
-          setUserPhone(profile.phone_number || "")
-          setUserOccupation(profile.occupation || "")
+          setUserPhone(profile.phone || "")
           setStayLoggedIn(profile.stay_logged_in !== false)
           setDarkModeEnabled(profile.theme_preference === "dark")
-          setApiKey(profile.api_key || null)
-          setApiKeyCreatedAt(profile.api_key_created_at || null)
         }
+      } catch (error) {
+        console.error("Failed to load user data:", error)
       }
 
       const stayLoggedInPref = localStorage.getItem("planck_stay_logged_in")
@@ -70,7 +76,7 @@ export default function SettingsPage() {
     }
 
     loadUserData()
-  }, [])
+  }, [router])
 
   const handleDarkModeToggle = async () => {
     const newMode = !darkModeEnabled
@@ -78,16 +84,9 @@ export default function SettingsPage() {
     const newTheme = newMode ? "dark" : "light"
     setTheme(newTheme)
 
-    // Save theme preference to Supabase
+    // Save theme preference to database via API
     try {
-      const supabase = createBrowserClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (user) {
-        await supabase.from("profiles").update({ theme_preference: newTheme }).eq("id", user.id)
-      }
+      await updateUserAccount({ theme_preference: newTheme })
     } catch (error) {
       console.error("[v0] Failed to save theme preference:", error)
     }
@@ -103,20 +102,7 @@ export default function SettingsPage() {
     localStorage.setItem("planck_stay_logged_in", String(newValue))
 
     try {
-      const supabase = createBrowserClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (user) {
-        await supabase
-          .from("profiles")
-          .update({
-            stay_logged_in: newValue,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", user.id)
-      }
+      await updateUserAccount({ stay_logged_in: newValue })
     } catch (error) {
       console.error("[v0] Error saving stay logged in preference:", error)
     }
@@ -124,10 +110,14 @@ export default function SettingsPage() {
 
   const handleLogout = async () => {
     setIsLoggingOut(true)
-    const supabase = createClient()
 
     try {
-      await supabase.auth.signOut()
+      // Call logout endpoint to clear auth cookie
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      })
+      
       document.cookie = "planck_session=; max-age=0; path=/"
       localStorage.removeItem("planck_stay_logged_in")
       router.push("/auth/login")

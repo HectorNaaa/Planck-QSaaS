@@ -10,7 +10,6 @@ import { AutoParser } from "@/components/runner/autoparser"
 import { ExpectedResults } from "@/components/runner/expected-results"
 import { CircuitResults } from "@/components/runner/circuit-results"
 import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
 import { PageHeader } from "@/components/page-header"
 import type { BuiltCircuit } from "@/lib/circuit-builder"
 
@@ -79,18 +78,10 @@ export default function RunnerPage() {
   const [userApiKey, setUserApiKey] = useState<string | null>(null)
   const isGuest = useIsGuest()
 
-  // Fetch API key once on mount
+  // Fetch API key once on mount — TODO: Get from server-side endpoint
   useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.user.id) return
-      supabase
-        .from("profiles")
-        .select("api_key")
-        .eq("id", session.user.id)
-        .single()
-        .then(({ data }) => { if (data?.api_key) setUserApiKey(data.api_key) })
-    })
+    // API key can be fetched from authenticated endpoint when needed
+    // For now, using browser-based execution
   }, [])
 
   // Live SSE feed — active only when SDK mode is on

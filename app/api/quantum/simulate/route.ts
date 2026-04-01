@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@/lib/supabase/server"
-import { getAdminClient } from "@/lib/supabase/admin"
+import { Executions } from "@/lib/db/client"
 import { CppMLEngine } from "@/lib/ml/cpp-ml-engine"
 import { calculateFidelity } from "@/lib/backend-selector"
 import { selectBackend } from "@/lib/backend-policy"
@@ -93,11 +92,7 @@ export async function POST(request: NextRequest) {
     }
     const userId = auth.userId!
 
-    // Use admin client for SDK (api_key) requests to bypass RLS,
-    // session client for browser requests that already pass RLS.
-    const supabase = auth.method === "api_key"
-      ? getAdminClient()
-      : await createServerClient()
+    // Using internal database for execution logging (no Supabase needed)
 
     // Rate limiting: 1 request per 3 seconds per user
     const identifier = userId
@@ -186,69 +181,65 @@ export async function POST(request: NextRequest) {
 
     const actualFidelity = calculateFidelity(effectiveBackend, resolvedQubits, depth)
 
-    const { data: insertedLog, error: insertError } = await supabase
-      .from("execution_logs")
-      .insert({
-        user_id: userId,
-        circuit_name: circuitName,
-        algorithm: algorithm,
-        execution_type: executionType,
-        backend: effectiveBackend,
-        status: "completed",
-        success_rate: results.successRate,
-        runtime_ms: results.runtime,
-        qubits_used: resolvedQubits,
-        shots: effectiveShots,
-        error_mitigation: effectiveErrorMitigation,
-        // New backend-selection audit columns
-        backend_selected: effectiveBackend,
-        backend_reason: policyResult.reason,
-        backend_hint: backend === "auto" ? null : backend,
-        backend_metadata: policyResult.metadata,
-        backend_assigned_at: new Date().toISOString(),
-        circuit_data: {
-          source,
-          qasm_code: qasm,
-          input_data: inputData,
-          algorithm_params: {
-            algorithm,
-            qubits: resolvedQubits,
-            shots: effectiveShots,
-            backend: effectiveBackend,
-            backend_hint: backend,
-            error_mitigation: effectiveErrorMitigation,
-            error_mitigation_requested: errorMitigation,
-            depth,
-            gate_count: gateCount,
-            target_latency: targetLatency,
-          },
-          digital_twin_id: digitalTwinId,
-          results: {
-            counts: results.counts,
-            success_rate: results.successRate,
-            runtime_ms: results.runtime,
-            memory: results.memory,
-            fidelity: actualFidelity,
-          },
-          backend_config: {
-            backend: effectiveBackend,
-            shots: effectiveShots,
-            error_mitigation: effectiveErrorMitigation,
-          },
-          ml_recommendation: mlRecommendation ? {
-            shots: mlRecommendation.recommendedShots,
-            error_mitigation: mlRecommendation.recommendedErrorMitigation,
-            confidence: mlRecommendation.confidence,
-            based_on: mlRecommendation.basedOnExecutions,
-          } : null,
+    // Save execution to internal SQLite database
+    const insertedLog = Executions.create({
+      user_id: userId,
+      circuit_name: circuitName,
+      algorithm: algorithm,
+      execution_type: executionType,
+      backend: effectiveBackend,
+      status: "completed",
+      success_rate: results.successRate,
+      runtime_ms: results.runtime,
+      qubits_used: resolvedQubits,
+      shots: effectiveShots,
+      error_mitigation: effectiveErrorMitigation,
+      backend_selected: effectiveBackend,
+      backend_reason: policyResult.reason,
+      backend_hint: backend === "auto" ? null : backend,
+      backend_metadata: JSON.stringify(policyResult.metadata || {}),
+      backend_assigned_at: new Date().toISOString(),
+      circuit_data: JSON.stringify({
+        source,
+        qasm_code: qasm,
+        input_data: inputData,
+        algorithm_params: {
+          algorithm,
+          qubits: resolvedQubits,
+          shots: effectiveShots,
+          backend: effectiveBackend,
+          backend_hint: backend,
+          error_mitigation: effectiveErrorMitigation,
+          error_mitigation_requested: errorMitigation,
+          depth,
+          gate_count: gateCount,
+          target_latency: targetLatency,
         },
-        completed_at: new Date().toISOString(),
-      })
-      .select("id")
-      .single()
+        digital_twin_id: digitalTwinId,
+        results: {
+          counts: results.counts,
+          success_rate: results.successRate,
+          runtime_ms: results.runtime,
+          memory: results.memory,
+          fidelity: actualFidelity,
+        },
+        backend_config: {
+          backend: effectiveBackend,
+          shots: effectiveShots,
+          error_mitigation: effectiveErrorMitigation,
+        },
+        ml_recommendation: mlRecommendation ? {
+          shots: mlRecommendation.recommendedShots,
+          error_mitigation: mlRecommendation.recommendedErrorMitigation,
+          confidence: mlRecommendation.confidence,
+          based_on: mlRecommendation.basedOnExecutions,
+        } : null,
+      }),
+      completed_at: new Date().toISOString(),
+    })
 
-    if (insertError) {
-      console.error("[API] Failed to insert execution log:", insertError.message)
+    if (!insertedLog) {
+      console.error("[API] Failed to insert execution log")
     }
 
     if (insertedLog?.id) {

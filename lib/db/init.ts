@@ -63,14 +63,28 @@ export function initializeDatabase() {
     )
   `)
 
-  // Create executions table
+  // Create executions table with full circuit execution metadata
   db.exec(`
     CREATE TABLE IF NOT EXISTS executions (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,
       circuit_id TEXT,
+      circuit_name TEXT,
+      algorithm TEXT,
+      execution_type TEXT DEFAULT 'manual',
       backend TEXT NOT NULL,
       status TEXT DEFAULT 'pending',
+      success_rate REAL,
+      runtime_ms INTEGER,
+      qubits_used INTEGER,
+      shots INTEGER,
+      error_mitigation TEXT,
+      backend_selected TEXT,
+      backend_reason TEXT,
+      backend_hint TEXT,
+      backend_metadata TEXT,
+      backend_assigned_at DATETIME,
+      circuit_data TEXT,
       result TEXT,
       error TEXT,
       execution_time_ms INTEGER,

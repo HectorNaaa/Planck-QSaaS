@@ -12,7 +12,6 @@ import { LanguageSelector } from "@/components/language-selector"
 import { useLanguage } from "@/contexts/language-context"
 import React from "react"
 import { Footer } from "@/components/footer"
-import { createBrowserClient } from "@/lib/supabase/client"
 import { useTheme } from "next-themes"
 
 export default function LandingPage() {
@@ -26,38 +25,6 @@ export default function LandingPage() {
 
   React.useEffect(() => {
     setTheme("light")
-
-    const checkSession = async () => {
-      // Skip Supabase check in preview/development environments where it may not be available
-      if (typeof window !== "undefined" && window.location.hostname.includes("vusercontent.net")) {
-        console.log("[v0] Skipping Supabase in preview environment")
-        return
-      }
-
-      try {
-        const supabase = createBrowserClient()
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession()
-
-        if (error) {
-          console.log("[v0] Session check error (non-critical):", error.message)
-          return
-        }
-
-        if (session) {
-          sessionStorage.setItem("planck_user_id", session.user.id)
-          sessionStorage.setItem("planck_user_email", session.user.email || "")
-        }
-      } catch (error) {
-        // Silently handle any connection errors - not critical for landing page
-        console.log("[v0] Supabase connection unavailable (non-critical)")
-      }
-    }
-
-    checkSession()
-
     sessionStorage.setItem("planck_nav_source", "landing")
   }, [setTheme])
 
