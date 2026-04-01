@@ -2,7 +2,6 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
 import { LoadingSpinner } from "@/components/loading-spinner"
 
 export const dynamic = 'force-dynamic'
@@ -11,20 +10,8 @@ export default function OAuthCallbackPage() {
   const router = useRouter()
 
   useEffect(() => {
-    const handleCallback = async () => {
-      const supabase = createClient()
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-
-      if (session) {
-        router.push("/qsaas/dashboard")
-      } else {
-        router.push("/auth/login")
-      }
-    }
-
-    handleCallback()
+    // Supabase OAuth callback removed. Use internal auth or redirect logic here.
+    router.push("/auth/login")
   }, [router])
 
   return (

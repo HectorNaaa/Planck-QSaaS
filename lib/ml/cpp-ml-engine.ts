@@ -4,8 +4,6 @@
  * Provides network effect learning with vectorized features
  */
 
-import { createServerClient } from "@/lib/supabase/server"
-import { getAdminClient } from "@/lib/supabase/admin"
 
 interface CircuitFeatures {
   qubits: number

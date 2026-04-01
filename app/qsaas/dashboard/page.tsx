@@ -48,6 +48,7 @@ export default function DashboardPage() {
   const [twins, setTwins] = useState<DigitalTwin[]>([])
   const [activeTab, setActiveTab] = useState<"all" | string>("all")
   const [loading, setLoading] = useState(true)
+  const [liveEnabled, setLiveEnabled] = useState(false)
 
   // ── Load data ──────────────────────────────────────────────────────────────
   useEffect(() => { loadAll() }, [timeRange])

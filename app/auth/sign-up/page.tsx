@@ -16,33 +16,11 @@ import { LoadingSpinner } from "@/components/loading-spinner"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LanguageSelector } from "@/components/language-selector"
 import Image from "next/image"
-import { createClient } from "@/lib/supabase/client"
 import { useLanguage } from "@/contexts/language-context"
 import { Eye, EyeOff } from "lucide-react"
 
-/** Safely extract a human-readable message from any Supabase/network error */
-function getErrorMessage(err: unknown): string {
-  if (!err) return "An error occurred. Please try again."
-  if (typeof err === "string" && err && err !== "{}") return err
-  if (typeof err === "object") {
-    const obj = err as Record<string, unknown>
-    if (typeof obj.status === "number") {
-      if (obj.status === 503) return "Authentication service temporarily unavailable. Please try again in a moment."
-      if (obj.status === 429) return "Too many requests. Please wait a moment and try again."
-      if (obj.status === 400) return "Invalid details. Please check your information."
-      if (obj.status === 422) return "Email already registered or invalid format."
-      if (obj.status >= 500) return "Server error. Please try again shortly."
-    }
-    if (obj.__isAuthError) {
-      if (obj.name === "AuthRetryableFetchError") return "Cannot reach authentication server. Please check your connection."
-      if (typeof obj.message === "string" && obj.message && obj.message !== "{}") return obj.message
-    }
-    if (typeof obj.message === "string" && obj.message && obj.message !== "{}") return obj.message
-    if (typeof obj.error_description === "string" && obj.error_description) return obj.error_description
-  }
-  if (err instanceof Error && err.message && err.message !== "{}") return err.message
-  return "An error occurred. Please try again."
-}
+// Supabase client removed. Use internal auth endpoints for signup.
+// TODO: Refactor signup logic to use /api/auth/signup endpoint with fetch.
 
 const COUNTRY_CODES: { [key: string]: string } = {
   Argentina: "+54",

@@ -641,36 +641,7 @@ const adaptiveShots = calculateAdaptiveShots({
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
 
-    try {
-      const supabase = createClient()
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      if (!user) {
-        console.error("[v0] Cannot save circuit: User not authenticated")
-        return
-      }
-
-      const { error } = await supabase.from("execution_logs").insert({
-        name: executionName || null,
-        algorithm: circuitName,
-        execution_type: executionType,
-        backend,
-        status: "saved",
-        qubits_used: qubits,
-        shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
-        error_mitigation: errorMitigation,
-        circuit_data: circuitSnapshot,
-        digital_twin_id: selectedDigitalTwinId,
-      })
-
-      if (error) {
-        console.error("[v0] Error saving circuit to Supabase:", error)
-      }
-    } catch (error) {
-      console.error("[v0] Error saving circuit to Supabase:", error)
-    }
+    // TODO: Implement save to internal DB via /api/ endpoint. Supabase logic removed.
   }, [
     executionName,
     circuitName,

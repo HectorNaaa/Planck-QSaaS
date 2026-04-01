@@ -119,4 +119,13 @@ export function initializeDatabase() {
   `)
 }
 
+// Initialize database automatically on import
+try {
+  initializeDatabase()
+  console.log('[DB] Database initialized successfully at:', dbPath)
+} catch (error) {
+  console.error('[DB] Failed to initialize database:', error)
+  // Continue anyway - tables may already exist
+}
+
 export default db

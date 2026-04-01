@@ -1,6 +1,4 @@
 import type { NextRequest } from "next/server"
-import { createServerClient } from "@/lib/supabase/server"
-import { getAdminClient } from "@/lib/supabase/admin"
 import { validateApiKey } from "@/lib/security"
 
 /**
@@ -34,7 +32,7 @@ export interface AuthResult {
  *
  * Returns an {@link AuthResult} that the caller can inspect.
  */
-export async function authenticateRequest(request: NextRequest): Promise<AuthResult> {
+export async function authenticateRequest(request: NextRequest): Promise<AuthResult> {  
   const apiKey = request.headers.get("x-api-key")
 
   // ── Path 1: API-key authentication ─────────────────────────────
@@ -46,34 +44,15 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
     }
 
     try {
-      const admin = getAdminClient()
-      const { data: profile, error: dbError } = await admin
-        .from("profiles")
-        .select("id")
-        .eq("api_key", apiKey)
-        .single()
+    // TODO: Implement API key validation with internal DB.
+    return { ok: false, userId: null, method: "api_key", status: 501, error: "API key auth not implemented" }
 
       if (dbError) {
         console.warn("[Auth] DB lookup failed for key", maskKey(apiKey), "| error:", dbError.message)
-      }
-
-      if (dbError || !profile) {
+  // Session-cookie authentication is removed as well.
         return { ok: false, userId: null, method: "api_key", status: 401, error: "Invalid API key" }
-      }
 
-      console.log("[Auth] API-key authenticated, userId:", profile.id, "key:", maskKey(apiKey))
-      return { ok: true, userId: profile.id, method: "api_key", status: 200, error: "" }
-    } catch (err: any) {
-      console.error("[Auth] Unexpected error during API-key lookup:", err?.message)
-      return { ok: false, userId: null, method: "api_key", status: 500, error: "Authentication service error" }
-    }
-  }
-
-  // ── Path 2: Session-cookie authentication ──────────────────────
-  try {
-    const supabase = await createServerClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
+  // Additional session handling logic can be implemented here if needed.
     if (authError || !user) {
       return {
         ok: false,
