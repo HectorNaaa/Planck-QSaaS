@@ -23,6 +23,7 @@ import { BarChart3, Zap, TrendingUp, Clock, Radio } from "lucide-react"
 import Link from "next/link"
 import { PageHeader } from "@/components/page-header"
 import { useEffect, useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { DigitalTwinDashboard } from "@/components/dashboard/digital-twin-dashboard"
 import type { ExecutionRow } from "@/hooks/use-live-executions"
 
@@ -49,6 +50,7 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<"all" | string>("all")
   const [loading, setLoading] = useState(true)
   const [liveEnabled, setLiveEnabled] = useState(false)
+  const router = useRouter()
 
   // ── Load data ──────────────────────────────────────────────────────────────
   useEffect(() => { loadAll() }, [timeRange])
@@ -57,6 +59,10 @@ export default function DashboardPage() {
     setLoading(true)
     try {
       const res = await fetch(`/api/dashboard/data?timeRange=${timeRange}`)
+      if (res.status === 401) {
+        router.push('/auth/login')
+        return
+      }
       const data = await res.json()
       
       setAllRows(data.logs || [])

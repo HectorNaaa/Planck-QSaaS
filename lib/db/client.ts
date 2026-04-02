@@ -1,4 +1,5 @@
 import db, { initializeDatabase } from './init'
+import { randomUUID } from 'node:crypto'
 
 // Initialize database on first import
 initializeDatabase()
@@ -6,7 +7,7 @@ initializeDatabase()
 // User operations
 export const Users = {
   create: (email: string, passwordHash: string) => {
-    const id = crypto.getRandomValues(new Uint8Array(16)).toString()
+    const id = randomUUID()
     const stmt = db.prepare(
       'INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)'
     )
@@ -33,7 +34,7 @@ export const Users = {
 // Profile operations
 export const Profiles = {
   create: (userId: string, fullName?: string, organization?: string) => {
-    const id = crypto.getRandomValues(new Uint8Array(16)).toString()
+    const id = randomUUID()
     const stmt = db.prepare(
       'INSERT INTO profiles (id, user_id, full_name, organization) VALUES (?, ?, ?, ?)'
     )
@@ -63,7 +64,7 @@ export const Profiles = {
 // Circuit operations
 export const Circuits = {
   create: (userId: string, name: string, circuitData: string, qasm?: string) => {
-    const id = crypto.getRandomValues(new Uint8Array(16)).toString()
+    const id = randomUUID()
     const stmt = db.prepare(
       'INSERT INTO circuits (id, user_id, name, circuit_data, qasm) VALUES (?, ?, ?, ?, ?)'
     )
@@ -124,7 +125,7 @@ export const Executions = {
     result?: string
     error?: string
   }) => {
-    const id = crypto.getRandomValues(new Uint8Array(16)).toString()
+    const id = randomUUID()
     const stmt = db.prepare(`
       INSERT INTO executions (
         id, user_id, circuit_id, circuit_name, algorithm, execution_type,
@@ -180,7 +181,7 @@ export const Executions = {
 // API Key operations
 export const ApiKeys = {
   create: (userId: string, name: string, key: string) => {
-    const id = crypto.getRandomValues(new Uint8Array(16)).toString()
+    const id = randomUUID()
     const stmt = db.prepare(
       'INSERT INTO api_keys (id, user_id, key, name) VALUES (?, ?, ?, ?)'
     )

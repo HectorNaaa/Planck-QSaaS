@@ -21,6 +21,22 @@ import { Eye, EyeOff } from "lucide-react"
 
 // Uses internal auth endpoints for signup via /api/auth/signup.
 
+function getErrorMessage(err: unknown): string {
+  if (!err) return 'An error occurred. Please try again.'
+  if (typeof err === 'string' && err && err !== '{}') return err
+  if (typeof err === 'object') {
+    const obj = err as Record<string, unknown>
+    if (typeof obj.status === 'number') {
+      if (obj.status === 409) return 'This email is already registered. Please sign in.'
+      if (obj.status === 400) return 'Please check your inputs and try again.'
+      if (obj.status >= 500) return 'Server error. Please try again shortly.'
+    }
+    if (typeof obj.message === 'string' && obj.message && obj.message !== '{}') return obj.message
+  }
+  if (err instanceof Error && err.message && err.message !== '{}') return err.message
+  return 'An error occurred. Please try again.'
+}
+
 const COUNTRY_CODES: { [key: string]: string } = {
   Argentina: "+54",
   Australia: "+61",
@@ -112,7 +128,6 @@ export default function SignUpPage() {
   const termsRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [successEmail, setSuccessEmail] = useState<string | null>(null)
   const router = useRouter()
 
   const phonePrefix = country ? COUNTRY_CODES[country] : ""
@@ -194,40 +209,13 @@ export default function SignUpPage() {
         return
       }
 
-      // Show email confirmation info
-      setSuccessEmail(trimmedEmail)
+      // Signup succeeded — cookie already set by server, go to dashboard
+      router.push('/qsaas/dashboard')
     } catch (err) {
       setError(getErrorMessage(err))
     } finally {
       setIsLoading(false)
     }
-  }
-
-  // Show email confirmation success screen
-  if (successEmail) {
-    return (
-      <div className="w-full max-w-md px-4">
-        <Card className="border-border">
-          <CardHeader>
-            <CardTitle className="text-2xl">
-              {language === "es" ? "Revisa tu correo" : "Check your email"}
-            </CardTitle>
-            <CardDescription>
-              {language === "es"
-                ? `Hemos enviado un enlace de confirmación a ${successEmail}. Confírma tu cuenta para continuar.`
-                : `We sent a confirmation link to ${successEmail}. Confirm your account to continue.`}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Link href="/auth/login">
-              <Button variant="outline" className="w-full">
-                {language === "es" ? "Volver al inicio de sesión" : "Back to Sign In"}
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
-    )
   }
 
   return (
