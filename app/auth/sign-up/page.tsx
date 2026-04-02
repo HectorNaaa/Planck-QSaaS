@@ -19,8 +19,7 @@ import Image from "next/image"
 import { useLanguage } from "@/contexts/language-context"
 import { Eye, EyeOff } from "lucide-react"
 
-// Supabase client removed. Use internal auth endpoints for signup.
-// TODO: Refactor signup logic to use /api/auth/signup endpoint with fetch.
+// Uses internal auth endpoints for signup via /api/auth/signup.
 
 const COUNTRY_CODES: { [key: string]: string } = {
   Argentina: "+54",

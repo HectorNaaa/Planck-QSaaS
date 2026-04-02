@@ -641,7 +641,7 @@ const adaptiveShots = calculateAdaptiveShots({
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
 
-    // TODO: Implement save to internal DB via /api/ endpoint. Supabase logic removed.
+    // TODO: Implement save to internal DB via /api/ endpoint.
   }, [
     executionName,
     circuitName,

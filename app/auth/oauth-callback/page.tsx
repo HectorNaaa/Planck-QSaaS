@@ -10,7 +10,7 @@ export default function OAuthCallbackPage() {
   const router = useRouter()
 
   useEffect(() => {
-    // Supabase OAuth callback removed. Use internal auth or redirect logic here.
+    // Redirect to login — OAuth is handled via internal auth.
     router.push("/auth/login")
   }, [router])
 

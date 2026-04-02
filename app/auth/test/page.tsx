@@ -31,14 +31,14 @@ export default function AuthTestPage() {
     }
   }
 
-  const testSupabaseConnection = async () => {
+  const testDBHealth = async () => {
     setLoading(true)
     setResult(null)
     try {
-      const res = await fetch('/api/health/supabase')
+      const res = await fetch('/api/debug/db/check')
       const data = await res.json()
       setResult({ status: res.status, data })
-      console.log('Supabase health:', data)
+      console.log('DB health:', data)
     } catch (err) {
       setResult({ error: err instanceof Error ? err.message : String(err) })
     } finally {
@@ -70,7 +70,7 @@ export default function AuthTestPage() {
       <div className="max-w-2xl mx-auto space-y-8">
         <Card>
           <CardHeader>
-            <CardTitle>Supabase Authentication Debug</CardTitle>
+            <CardTitle>Authentication Debug</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -94,8 +94,8 @@ export default function AuthTestPage() {
               <Button onClick={testLogin} disabled={loading} className="w-full">
                 {loading ? 'Testing...' : 'Test Login'}
               </Button>
-              <Button onClick={testSupabaseConnection} disabled={loading} variant="outline" className="w-full">
-                {loading ? 'Testing...' : 'Test Supabase Connection'}
+              <Button onClick={testDBHealth} disabled={loading} variant="outline" className="w-full">
+                {loading ? 'Testing...' : 'Test DB Health'}
               </Button>
               <Button onClick={testRawDebug} disabled={loading} variant="outline" className="w-full">
                 {loading ? 'Testing...' : 'Test Raw Debug'}

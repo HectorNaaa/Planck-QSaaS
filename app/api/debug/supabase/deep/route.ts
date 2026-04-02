@@ -1,6 +1,6 @@
-// Deprecated: This endpoint is no longer available. Supabase diagnostics have been removed.
+// Deprecated: This endpoint has been removed.
 export async function GET() {
   return new Response(JSON.stringify({
-    error: 'This endpoint has been removed. Supabase diagnostics are no longer supported.'
+    error: 'This endpoint has been removed.'
   }), { status: 410, headers: { 'Content-Type': 'application/json' } });
 }

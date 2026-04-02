@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
     }
     const userId = auth.userId!
 
-    // Using internal database for execution logging (Supabase logic removed)
+    // Using internal database for execution logging
 
     // Rate limiting: 1 request per 3 seconds per user
     const identifier = userId

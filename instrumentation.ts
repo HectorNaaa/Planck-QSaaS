@@ -6,10 +6,10 @@
  */
 export function register() {
   const vars = [
-    "NEXT_PUBLIC_SUPABASE_URL",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-    "SUPABASE_SERVICE_ROLE_KEY",
-    "SUPABASE_JWT_SECRET",
+    "JWT_SECRET",
+    "OPENAI_API_KEY",
+    "NEXT_PUBLIC_APP_URL",
+    "DB_DIR",
   ] as const
 
   console.log("--- [Planck] Environment Check ---")

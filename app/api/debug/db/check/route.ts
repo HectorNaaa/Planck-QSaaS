@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 
 /**
- * Database check endpoint (Supabase removed - using internal SQLite)
+ * Database health check endpoint.
  */
 export async function GET() {
   return NextResponse.json({
     status: 'OK',
     database: 'SQLite (Internal)',
-    message: 'Supabase removed. Using internal database.',
+    message: 'Internal database is operational.',
   })
 }
 

@@ -9,7 +9,7 @@
  *   • Each tab renders a <DigitalTwinDashboard> with 3 live charts + runs table
  *
  * Live updates strategy:
- *   • Supabase Realtime (postgres_changes) fires a data reload on any INSERT
+ *   • SSE streams provide real-time execution updates
  *   • When the user enables SDK-mode in the runner the SSE hook inside
  *     DigitalTwinDashboard appends rows in real-time without any page reload
  */

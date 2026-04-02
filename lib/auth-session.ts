@@ -1,7 +1,7 @@
 "use client"
 
 // Simple session management for preview environment
-// In production, this would be replaced with actual Supabase auth
+// Uses JWT-based internal auth
 
 const SESSION_KEY = "planck_user_session"
 const SESSION_EXPIRY = 30 * 24 * 60 * 60 * 1000 // 30 days
