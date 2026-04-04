@@ -1,9 +1,9 @@
 "use client"
 
 import type { ReactNode } from "react"
-import Link from "next/link"
-import { ArrowRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { LoadingSpinner } from "@/components/loading-spinner"
 
 interface ProtectedRouteProps {
   children: ReactNode
@@ -11,24 +11,39 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, requireAuth = false }: ProtectedRouteProps) {
-  // In a real app, check authentication status here
-  const isAuthenticated = true
+  const [status, setStatus] = useState<"loading" | "ok" | "denied">("loading")
+  const router = useRouter()
 
-  if (requireAuth && !isAuthenticated) {
+  useEffect(() => {
+    if (!requireAuth) {
+      setStatus("ok")
+      return
+    }
+
+    fetch("/api/request-utils", { credentials: "include" })
+      .then((res) => {
+        if (res.ok) {
+          setStatus("ok")
+        } else {
+          setStatus("denied")
+          router.push("/auth/login")
+        }
+      })
+      .catch(() => {
+        setStatus("denied")
+        router.push("/auth/login")
+      })
+  }, [requireAuth, router])
+
+  if (status === "loading" && requireAuth) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <h1 className="text-4xl font-bold text-foreground mb-4">Access Required</h1>
-          <p className="text-muted-foreground mb-8">You need to be logged in to access this page.</p>
-          <Link href="/">
-            <Button className="bg-primary hover:bg-primary/90 inline-flex items-center gap-2">
-              Go to Home <ArrowRight size={18} />
-            </Button>
-          </Link>
-        </div>
+        <LoadingSpinner />
       </div>
     )
   }
+
+  if (status === "denied") return null
 
   return <>{children}</>
 }

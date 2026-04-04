@@ -18,12 +18,14 @@ async function getAuthenticatedUser() {
 
 export async function updateUserAccount(data: {
   email?: string
-  firstName: string
-  lastName: string
-  country: string
-  phone: string
-  occupation: string
-  org: string
+  firstName?: string
+  lastName?: string
+  country?: string
+  phone?: string
+  occupation?: string
+  org?: string
+  theme_preference?: string
+  stay_logged_in?: boolean
 }) {
   const user = await getAuthenticatedUser()
   if (!user) {
@@ -31,14 +33,19 @@ export async function updateUserAccount(data: {
   }
 
   try {
-    const fullName = `${data.firstName} ${data.lastName}`.trim()
-    
-    // Update profile
-    Profiles.update(user.id, {
-      full_name: fullName,
-      organization: data.org,
-      phone: data.phone,
-    })
+    const updates: Record<string, any> = {}
+
+    if (data.firstName !== undefined || data.lastName !== undefined) {
+      updates.full_name = `${data.firstName || ''} ${data.lastName || ''}`.trim()
+    }
+    if (data.org !== undefined) updates.organization = data.org
+    if (data.phone !== undefined) updates.phone = data.phone
+    if (data.theme_preference !== undefined) updates.theme_preference = data.theme_preference
+    if (data.stay_logged_in !== undefined) updates.stay_logged_in = data.stay_logged_in ? 1 : 0
+
+    if (Object.keys(updates).length > 0) {
+      Profiles.update(user.id, updates)
+    }
 
     return { success: true, message: "Account updated successfully" }
   } catch (error: any) {
@@ -99,14 +106,17 @@ export async function getApiKey() {
   }
 }
 
-export async function revokeApiKey(keyId: string) {
+export async function revokeApiKey() {
   const user = await getAuthenticatedUser()
   if (!user) {
     return { error: "Not authenticated" }
   }
 
   try {
-    ApiKeys.delete(keyId)
+    const keys = ApiKeys.findByUserId(user.id)
+    for (const key of keys) {
+      ApiKeys.delete(key.id)
+    }
     return { success: true }
   } catch (error: any) {
     console.error("Revoke API key error:", error)

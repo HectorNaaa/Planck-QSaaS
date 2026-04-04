@@ -1,6 +1,13 @@
 import crypto from 'crypto'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production'
+const JWT_SECRET = process.env.JWT_SECRET || ''
+
+if (!JWT_SECRET) {
+  console.error('[AUTH] CRITICAL: JWT_SECRET environment variable is not set. Authentication will not work securely.')
+}
+
+// Use a runtime-safe fallback only in development
+const EFFECTIVE_SECRET = JWT_SECRET || (process.env.NODE_ENV === 'development' ? 'dev-only-unsafe-secret' : '')
 
 interface JWTPayload {
   userId: string
@@ -40,7 +47,7 @@ export function generateJWT(userId: string, email: string, expiresIn: number = 7
   const payloadEncoded = base64UrlEncode(JSON.stringify(payload))
 
   const signature = crypto
-    .createHmac('sha256', JWT_SECRET)
+    .createHmac('sha256', EFFECTIVE_SECRET)
     .update(`${headerEncoded}.${payloadEncoded}`)
     .digest('base64url')
 
@@ -53,7 +60,7 @@ export function verifyJWT(token: string): JWTPayload | null {
 
     // Verify signature
     const signature = crypto
-      .createHmac('sha256', JWT_SECRET)
+      .createHmac('sha256', EFFECTIVE_SECRET)
       .update(`${headerEncoded}.${payloadEncoded}`)
       .digest('base64url')
 
@@ -78,7 +85,7 @@ export function verifyJWT(token: string): JWTPayload | null {
 export function hashPassword(password: string): string {
   return crypto
     .createHash('sha256')
-    .update(password + JWT_SECRET)
+    .update(password + EFFECTIVE_SECRET)
     .digest('hex')
 }
 

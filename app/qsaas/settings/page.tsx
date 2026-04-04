@@ -118,7 +118,8 @@ export default function SettingsPage() {
         credentials: "include",
       })
       
-      document.cookie = "planck_session=; max-age=0; path=/"
+      document.cookie = "planck_guest=; max-age=0; path=/"
+      sessionStorage.clear()
       localStorage.removeItem("planck_stay_logged_in")
       router.push("/auth/login")
     } catch (error) {

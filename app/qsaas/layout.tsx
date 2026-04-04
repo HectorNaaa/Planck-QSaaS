@@ -13,11 +13,6 @@ function hasGuestCookie(): boolean {
   return document.cookie.split(";").some((c) => c.trim().startsWith("planck_guest=true"))
 }
 
-function hasAuthToken(): boolean {
-  if (typeof document === "undefined") return false
-  return document.cookie.split(";").some((c) => c.trim().startsWith("auth-token="))
-}
-
 export default function QsaasLayout({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
@@ -33,36 +28,27 @@ export default function QsaasLayout({ children }: { children: React.ReactNode })
           return
         }
 
-        // Check for authentication token
-        if (!hasAuthToken()) {
-          router.push("/auth/login")
-          return
-        }
-
-        // Fetch user data from server endpoint that verifies JWT
+        // Verify session via server endpoint (reads httpOnly auth-token cookie)
         const response = await fetch("/api/request-utils", {
           method: "GET",
-          credentials: "include", // Include cookies
+          credentials: "include",
         }).catch(() => null)
 
         if (!response || !response.ok) {
-          // Auth token invalid or expired
           router.push("/auth/login")
           return
         }
 
         try {
-          const userData = await response.json()
+          const data = await response.json()
           
-          if (userData && userData.user) {
-            const user = userData.user
-            // Store user info in sessionStorage
+          if (data?.user) {
+            const user = data.user
             sessionStorage.setItem("planck_user_id", user.id || "")
             sessionStorage.setItem("planck_user_email", user.email || "")
             sessionStorage.setItem("planck_user_name", user.full_name || "")
             sessionStorage.setItem("planck_user_org", user.organization || "")
             
-            // Set theme if available
             if (user.theme_preference) {
               setTheme(user.theme_preference)
             }
@@ -75,7 +61,7 @@ export default function QsaasLayout({ children }: { children: React.ReactNode })
         setTimeout(() => setIsLoading(false), 1200)
       } catch (error) {
         console.error("Layout init error:", error)
-        setTimeout(() => setIsLoading(false), 1200)
+        router.push("/auth/login")
       }
     }
 
