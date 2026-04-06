@@ -17,7 +17,7 @@ export default function OAuthCallbackPage() {
   return (
     <div className="w-full h-screen flex items-center justify-center bg-background">
       <div className="text-center">
-        <LoadingSpinner size="lg" />
+        <LoadingSpinner />
         <p className="mt-4 text-muted-foreground">Completing sign in...</p>
       </div>
     </div>

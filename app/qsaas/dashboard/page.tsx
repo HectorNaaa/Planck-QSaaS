@@ -26,6 +26,7 @@ import { useEffect, useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { DigitalTwinDashboard } from "@/components/dashboard/digital-twin-dashboard"
 import type { ExecutionRow } from "@/hooks/use-live-executions"
+import { useIsGuest } from "@/components/guest-banner"
 
 type TimeRange = "24h" | "7d" | "30d"
 
@@ -51,13 +52,21 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [liveEnabled, setLiveEnabled] = useState(false)
   const router = useRouter()
+  const isGuest = useIsGuest()
 
   // ── Load data ──────────────────────────────────────────────────────────────
-  useEffect(() => { loadAll() }, [timeRange])
+  useEffect(() => { loadAll() }, [timeRange, isGuest])
 
   async function loadAll() {
     setLoading(true)
     try {
+      // Guests get empty dashboard — no API call needed
+      if (isGuest) {
+        setAllRows([])
+        setTwins([])
+        setLoading(false)
+        return
+      }
       const res = await fetch(`/api/dashboard/data?timeRange=${timeRange}`)
       if (res.status === 401) {
         router.push('/auth/login')
@@ -114,6 +123,7 @@ export default function DashboardPage() {
             role="switch"
             aria-checked={liveEnabled}
             onClick={() => {
+              if (isGuest) { alert("Sign in to enable live mode."); return }
               const next = !liveEnabled
               setLiveEnabled(next)
               sessionStorage.setItem("planck_sdk_mode", next ? "1" : "0")
@@ -200,7 +210,7 @@ export default function DashboardPage() {
           key={activeTab}
           initialRows={rowsForTab}
           liveEnabled={liveEnabled}
-          apiKey={userApiKey}
+          apiKey={null}
           digitalTwinId={activeTab === "all" ? null : activeTab}
           title={activeTab === "all" ? "All Digital Twins" : (activeTwin?.name ?? activeTab)}
           timeRange={timeRange}

@@ -49,7 +49,7 @@ export function ResultsPanel({ results }: ResultsPanelProps) {
   const [isExpanded, setIsExpanded] = useState(true)
 
   const aggregatedStats = (results || mockResults).reduce(
-    (acc, result) => ({
+    (acc: { totalExecutions: number; avgSuccessRate: number; avgRuntime: number; totalQubits: number }, result: any) => ({
       totalExecutions: acc.totalExecutions + 1,
       avgSuccessRate: acc.avgSuccessRate + result.successRate,
       avgRuntime: acc.avgRuntime + result.runtime,
@@ -92,7 +92,7 @@ export function ResultsPanel({ results }: ResultsPanelProps) {
           {/* Results History */}
           <div className="space-y-2">
             <p className="text-sm font-medium text-foreground mb-3">Recent Executions</p>
-            {(results || mockResults).map((result) => (
+            {(results || mockResults).map((result: any) => (
               <div
                 key={result.id}
                 onClick={() => setExpandedResult(expandedResult === result.id ? null : result.id)}

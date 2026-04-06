@@ -166,22 +166,16 @@ export function DigitalTwinPanel({
           value={successGaugeValue} 
           label="Success Rate" 
           size="md"
-          color={successGaugeValue > 80 ? "green" : successGaugeValue > 50 ? "yellow" : "red"}
-          showValue
         />
         <MetricGauge 
           value={runtimeGaugeValue} 
           label="Performance" 
           size="md"
-          color={runtimeGaugeValue > 70 ? "green" : runtimeGaugeValue > 40 ? "yellow" : "red"}
-          showValue
         />
         <MetricGauge 
           value={qubitUtilization} 
           label="Qubit Usage" 
           size="md"
-          color="blue"
-          showValue
         />
       </div>
 

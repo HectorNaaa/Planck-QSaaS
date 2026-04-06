@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { streamText } from "ai"
+import { openai } from "@ai-sdk/openai"
 import { authenticateRequest } from "@/lib/api-auth"
 import { Executions } from "@/lib/db/client"
 import {
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     // Sanitize messages
     const sanitizedMessages = messages.map((msg: any) => ({
-      role: msg.role === "assistant" ? "assistant" : "user",
+      role: (msg.role === "assistant" ? "assistant" : "user") as "user" | "assistant",
       content: sanitizeString(msg.content, 5000),
     }))
 
@@ -87,10 +88,10 @@ Important guidelines:
 
     // Use streaming response
     const result = streamText({
-      model: "openai/gpt-4o-mini",
+      model: openai("gpt-4o-mini"),
       system: systemPrompt,
       messages: sanitizedMessages,
-      maxTokens: 500,
+      maxOutputTokens: 500,
     })
 
     return result.toTextStreamResponse()

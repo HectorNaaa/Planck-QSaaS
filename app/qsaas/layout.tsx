@@ -8,11 +8,6 @@ import { QuantumLoadingScreen } from "@/components/quantum-loading-screen"
 import { GuestBanner } from "@/components/guest-banner"
 import { useTheme } from "next-themes"
 
-function hasGuestCookie(): boolean {
-  if (typeof document === "undefined") return false
-  return document.cookie.split(";").some((c) => c.trim().startsWith("planck_guest=true"))
-}
-
 export default function QsaasLayout({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
@@ -22,13 +17,8 @@ export default function QsaasLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     const init = async () => {
       try {
-        // Guest bypass — skip all auth checks
-        if (hasGuestCookie()) {
-          setTimeout(() => setIsLoading(false), 1200)
-          return
-        }
-
-        // Verify session via server endpoint (reads httpOnly auth-token cookie)
+        // Verify session via server endpoint.
+        // For guests, the API returns a guest stub so we never 401.
         const response = await fetch("/api/request-utils", {
           method: "GET",
           credentials: "include",

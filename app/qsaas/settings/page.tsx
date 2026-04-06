@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/page-header"
 import { useRouter } from "next/navigation"
 import { LanguageSelector } from "@/components/language-selector"
 import { deleteUserAccount, updateUserAccount, generateApiKey, getApiKey, revokeApiKey } from "./actions"
+import { useIsGuest } from "@/components/guest-banner"
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
@@ -33,6 +34,7 @@ export default function SettingsPage() {
   const [isGeneratingKey, setIsGeneratingKey] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const isGuest = useIsGuest()
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -131,6 +133,7 @@ export default function SettingsPage() {
   }
 
   const handleDeleteAccount = async () => {
+    if (isGuest) { alert("Sign in to manage your account."); return }
     setIsDeleting(true)
 
     try {
@@ -154,6 +157,7 @@ export default function SettingsPage() {
   }
 
   const handleSaveAccount = async () => {
+    if (isGuest) { alert("Sign in to save account settings."); return }
     setIsSavingAccount(true)
     try {
       const result = await updateUserAccount({
@@ -191,6 +195,7 @@ export default function SettingsPage() {
   }
 
   const handleGenerateApiKey = async () => {
+    if (isGuest) { alert("Sign in to manage API keys."); return }
     if (apiKey) {
       const confirmed = confirm("This will revoke your existing API key. Are you sure?")
       if (!confirmed) return

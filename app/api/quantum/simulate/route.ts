@@ -235,7 +235,6 @@ export async function POST(request: NextRequest) {
           based_on: mlRecommendation.basedOnExecutions,
         } : null,
       }),
-      completed_at: new Date().toISOString(),
     })
 
     if (!insertedLog) {

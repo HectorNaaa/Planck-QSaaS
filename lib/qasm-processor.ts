@@ -75,8 +75,9 @@ export async function transpileWithCpp(
       input: qasm,
       timeout: 5_000,
       maxBuffer: 1024 * 1024,
+      encoding: 'utf8',
     } as any)
-    return { qasm: stdout.trim(), used: true }
+    return { qasm: String(stdout).trim(), used: true }
   } catch {
     return { qasm, used: false }
   }

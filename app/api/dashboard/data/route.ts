@@ -2,8 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/request-utils'
 import { Executions } from '@/lib/db/client'
 
+function isGuest(request: NextRequest): boolean {
+  return request.cookies.get('planck_guest')?.value === 'true'
+}
+
 export async function GET(request: NextRequest) {
   try {
+    // Guests get empty stats — no DB query needed
+    if (isGuest(request)) {
+      return NextResponse.json({
+        logs: [],
+        twins: [],
+        stats: { totalExecutions: 0, successfulExecutions: 0, averageRuntime: 0, successRate: 0, timeRange: '7d' },
+      })
+    }
+
     // Check authentication
     const user = await getUserFromRequest(request)
     if (!user) {

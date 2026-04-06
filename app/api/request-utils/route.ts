@@ -4,6 +4,22 @@ import { Users, Profiles } from '@/lib/db/client'
 
 export async function GET(request: NextRequest) {
   try {
+    // Guest bypass — return a stub user so the layout doesn't redirect
+    const guestCookie = request.cookies.get('planck_guest')?.value
+    if (guestCookie === 'true') {
+      return NextResponse.json({
+        user: {
+          id: 'guest',
+          email: 'guest@planck',
+          full_name: 'Guest',
+          organization: '',
+          theme_preference: 'dark',
+        },
+        profile: null,
+        guest: true,
+      })
+    }
+
     const token = request.cookies.get('auth-token')?.value
     if (!token) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

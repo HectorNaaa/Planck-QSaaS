@@ -15,7 +15,15 @@ import type { BuiltCircuit } from "@/lib/circuit-builder"
 
 // CircuitData extends BuiltCircuit with a gates array for backwards-compat
 // (BuiltCircuit stores only gateCount; CircuitData keeps the full gate list)
-type CircuitData = BuiltCircuit & { gates: string[] }
+interface CircuitData {
+  qubits: number
+  depth: number
+  gates: string[]
+  qasm?: string
+  gateCount?: number
+  algorithm?: string
+  paramSummary?: string
+}
 import { selectOptimalBackend, calculateFidelity, estimateRuntime } from "@/lib/backend-selector"
 import { DigitalTwinPanel } from "@/components/runner/digital-twin-panel"
 import { DigitalTwinSelector } from "@/components/runner/digital-twin-selector"
@@ -26,7 +34,7 @@ import { useIsGuest } from "@/components/guest-banner"
 /** Convert a manual-run results object into the ExecutionRow shape the DT dashboard expects. */
 function resultToRow(
   r: any,
-  ctx: { circuitName: string; shots: number; qubits: number; backend: string; errorMitigation: string },
+  ctx: { circuitName: string; shots: number | null; qubits: number; backend: string; errorMitigation: string },
 ) {
   return {
     id: r._liveJobId ?? "manual-run",
@@ -34,12 +42,13 @@ function resultToRow(
     circuit_name: r.circuit_name ?? ctx.circuitName,
     algorithm: r.algorithm ?? ctx.circuitName,
     status: "completed" as const,
-    shots: r.total_shots ?? ctx.shots,
+    shots: r.total_shots ?? ctx.shots ?? 1024,
     qubits_used: r.qubits_used ?? ctx.qubits,
     runtime_ms: r.runtime_ms ?? 0,
     success_rate: r.success_rate ?? 0,
     backend_selected: r.backend_selected ?? ctx.backend,
     error_mitigation: r.error_mitigation ?? ctx.errorMitigation,
+    digital_twin_id: null,
     circuit_data: { fidelity: r.fidelity, counts: r.counts },
   }
 }
@@ -363,7 +372,6 @@ const adaptiveShots = calculateAdaptiveShots({
               qubits: data.qubits,
               depth: data.depth,
               gateCount: data.gates.length,
-              targetLatency,
             })
             setBackend(optimal)
           }
@@ -827,7 +835,7 @@ const adaptiveShots = calculateAdaptiveShots({
             setCircuitName(algorithm)
           }}
         />
-        <AutoParser onParsed={handleAutoParse} inputData={uploadedData} algorithm={selectedAlgorithm} />
+        <AutoParser onParsed={handleAutoParse} inputData={uploadedData} algorithm={selectedAlgorithm ?? undefined} />
         <CircuitSettings
           onExecutionTypeChange={setExecutionType}
           onQubitsChange={setQubits}
@@ -1133,7 +1141,7 @@ const adaptiveShots = calculateAdaptiveShots({
               setCircuitName(algorithm)
             }}
           />
-          <AutoParser onParsed={handleAutoParse} inputData={uploadedData} algorithm={selectedAlgorithm} />
+          <AutoParser onParsed={handleAutoParse} inputData={uploadedData} algorithm={selectedAlgorithm ?? undefined} />
           <CircuitSettings
             onExecutionTypeChange={setExecutionType}
             onQubitsChange={setQubits}
