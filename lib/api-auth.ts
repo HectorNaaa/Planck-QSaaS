@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server"
 import { validateApiKey } from "@/lib/security"
 import { verifyJWT } from "@/lib/auth-utils"
-import { ApiKeys, Users } from "@/lib/db/client"
+import { ApiKeys } from "@/lib/db/client"
 
 /**
  * Mask an API key for safe logging (first 6 chars + ... + last 4 chars).
@@ -66,10 +66,7 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
     return { ok: false, userId: null, method: "session", status: 401, error: "Invalid session" }
   }
 
-  const user = Users.findById(payload.userId)
-  if (!user?.id) {
-    return { ok: false, userId: null, method: "session", status: 401, error: "Invalid session" }
-  }
-
-  return { ok: true, userId: user.id, method: "session", status: 200, error: "" }
+  // JWT is the source of truth — no DB roundtrip needed.
+  // DB may be empty on serverless/Vercel; the signed token already proves identity.
+  return { ok: true, userId: payload.userId, method: "session", status: 200, error: "" }
 }

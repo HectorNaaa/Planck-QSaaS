@@ -1,10 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyJWT } from '@/lib/auth-utils'
-import { Users, Profiles } from '@/lib/db/client'
 
 export async function GET(request: NextRequest) {
   try {
-    // Guest bypass — return a stub user so the layout doesn't redirect
+    // ── Authenticated path: JWT takes strict priority over any guest cookie ──
+    const token = request.cookies.get('auth-token')?.value
+    if (token) {
+      const payload = verifyJWT(token)
+      if (payload?.userId) {
+        return NextResponse.json({
+          user: {
+            id: payload.userId,
+            email: payload.email,
+            full_name: payload.fullName || '',
+            organization: payload.organization || '',
+            theme_preference: payload.themePreference || 'dark',
+          },
+          guest: false,
+        })
+      }
+    }
+
+    // ── No valid auth-token — check guest cookie ──────────────────────────────
     const guestCookie = request.cookies.get('planck_guest')?.value
     if (guestCookie === 'true') {
       return NextResponse.json({
@@ -20,40 +37,10 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    const token = request.cookies.get('auth-token')?.value
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const payload = verifyJWT(token)
-    if (!payload?.userId) {
-      return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
-    }
-
-    const user = Users.findById(payload.userId)
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 401 })
-    }
-
-    let profile = null
-    try {
-      profile = Profiles.findByUserId(user.id)
-    } catch {
-      // Non-fatal: profile may not exist yet
-    }
-
-    return NextResponse.json({
-      user: {
-        id: user.id,
-        email: user.email,
-        full_name: profile?.full_name || '',
-        organization: profile?.organization || '',
-        theme_preference: profile?.theme_preference || 'dark',
-      },
-      profile: profile || null,
-    })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   } catch (error) {
     console.error('[REQUEST-UTILS] Error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
+

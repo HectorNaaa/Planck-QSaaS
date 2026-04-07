@@ -2,24 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserFromRequest } from '@/lib/request-utils'
 import { Executions } from '@/lib/db/client'
 
-function isGuest(request: NextRequest): boolean {
-  return request.cookies.get('planck_guest')?.value === 'true'
-}
-
 export async function GET(request: NextRequest) {
   try {
-    // Guests get empty stats — no DB query needed
-    if (isGuest(request)) {
-      return NextResponse.json({
-        logs: [],
-        twins: [],
-        stats: { totalExecutions: 0, successfulExecutions: 0, averageRuntime: 0, successRate: 0, timeRange: '7d' },
-      })
-    }
-
-    // Check authentication
+    // Authenticated users are resolved first — JWT takes priority over guest cookie.
     const user = await getUserFromRequest(request)
+
     if (!user) {
+      // No valid session: check guest cookie and return empty stats.
+      const guestCookie = request.cookies.get('planck_guest')?.value
+      if (guestCookie === 'true') {
+        return NextResponse.json({
+          logs: [],
+          twins: [],
+          stats: { totalExecutions: 0, successfulExecutions: 0, averageRuntime: 0, successRate: 0, timeRange: '7d' },
+        })
+      }
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

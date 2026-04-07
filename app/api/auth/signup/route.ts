@@ -79,9 +79,9 @@ export async function POST(request: NextRequest) {
       // Non-fatal: user record exists, profile can be created later
     }
 
-    // Generate JWT and set cookie
+    // Generate JWT with embedded profile data and set cookie
     const fullName = `${firstName} ${lastName}`.trim()
-    const token = generateJWT(user.id, user.email)
+    const token = generateJWT(user.id, user.email, { fullName, organization: organization || '' })
 
     const response = NextResponse.json({
       success: true,
@@ -95,6 +95,10 @@ export async function POST(request: NextRequest) {
       path: '/',
       maxAge: 7 * 24 * 60 * 60, // 7 days
     })
+
+    // Ensure any lingering guest cookie is cleared so the app does not fall
+    // back to guest mode immediately after a successful signup.
+    response.cookies.delete('planck_guest')
 
     console.log('[SIGNUP] Success for:', trimmedEmail)
     return response

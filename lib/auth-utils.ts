@@ -9,9 +9,12 @@ if (!JWT_SECRET) {
 // Use a runtime-safe fallback only in development
 const EFFECTIVE_SECRET = JWT_SECRET || (process.env.NODE_ENV === 'development' ? 'dev-only-unsafe-secret' : '')
 
-interface JWTPayload {
+export interface JWTPayload {
   userId: string
   email: string
+  fullName?: string
+  organization?: string
+  themePreference?: string
   iat: number
   exp: number
 }
@@ -29,7 +32,17 @@ function base64UrlDecode(str: string): string {
   return Buffer.from(str.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString()
 }
 
-export function generateJWT(userId: string, email: string, expiresIn: number = 7 * 24 * 60 * 60 * 1000): string {
+export function generateJWT(
+  userId: string,
+  email: string,
+  options: {
+    fullName?: string
+    organization?: string
+    themePreference?: string
+    expiresIn?: number
+  } = {}
+): string {
+  const { fullName, organization, themePreference, expiresIn = 7 * 24 * 60 * 60 * 1000 } = options
   const header = {
     alg: 'HS256',
     typ: 'JWT'
@@ -40,7 +53,10 @@ export function generateJWT(userId: string, email: string, expiresIn: number = 7
     userId,
     email,
     iat: now,
-    exp: now + Math.floor(expiresIn / 1000)
+    exp: now + Math.floor(expiresIn / 1000),
+    ...(fullName !== undefined && { fullName }),
+    ...(organization !== undefined && { organization }),
+    ...(themePreference !== undefined && { themePreference }),
   }
 
   const headerEncoded = base64UrlEncode(JSON.stringify(header))

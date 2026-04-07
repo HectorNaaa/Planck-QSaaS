@@ -55,8 +55,12 @@ export async function POST(request: NextRequest) {
       console.warn('[LOGIN] Could not load profile (non-fatal):', profileErr)
     }
 
-    // Generate JWT
-    const token = generateJWT(user.id, user.email)
+    // Generate JWT with embedded profile data
+    const token = generateJWT(user.id, user.email, {
+      fullName: profile?.full_name || '',
+      organization: profile?.organization || '',
+      themePreference: profile?.theme_preference || 'dark',
+    })
 
     const response = NextResponse.json({
       success: true,
@@ -74,6 +78,9 @@ export async function POST(request: NextRequest) {
       path: '/',
       maxAge: 7 * 24 * 60 * 60, // 7 days
     })
+
+    // Clear any lingering guest cookie so authenticated mode takes effect immediately.
+    response.cookies.delete('planck_guest')
 
     console.log('[LOGIN] Success for user:', user.id)
     return response
