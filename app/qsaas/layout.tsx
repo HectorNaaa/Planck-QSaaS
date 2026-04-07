@@ -38,6 +38,10 @@ export default function QsaasLayout({ children }: { children: React.ReactNode })
             sessionStorage.setItem("planck_user_email", user.email || "")
             sessionStorage.setItem("planck_user_name", user.full_name || "")
             sessionStorage.setItem("planck_user_org", user.organization || "")
+            sessionStorage.setItem("planck_user_phone", user.phone || "")
+            sessionStorage.setItem("planck_user_country", user.country || "")
+            sessionStorage.setItem("planck_user_occupation", user.occupation || "")
+            sessionStorage.setItem("planck_is_guest", String(!!data.guest))
             
             if (user.theme_preference) {
               setTheme(user.theme_preference)

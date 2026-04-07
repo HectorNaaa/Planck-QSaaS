@@ -39,6 +39,8 @@ export function initializeDatabase() {
       theme_preference TEXT DEFAULT 'dark',
       language TEXT DEFAULT 'en',
       phone TEXT,
+      country TEXT,
+      occupation TEXT,
       verified BOOLEAN DEFAULT 0,
       stay_logged_in BOOLEAN DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -117,6 +119,16 @@ export function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_api_keys_user_id ON api_keys(user_id);
     CREATE INDEX IF NOT EXISTS idx_api_keys_key ON api_keys(key);
   `)
+
+  // ── Migrations: add columns that may be missing on older DBs ──
+  const profileCols = db.pragma('table_info(profiles)') as { name: string }[]
+  const colNames = new Set(profileCols.map((c) => c.name))
+  if (!colNames.has('country')) {
+    db.exec("ALTER TABLE profiles ADD COLUMN country TEXT DEFAULT ''")
+  }
+  if (!colNames.has('occupation')) {
+    db.exec("ALTER TABLE profiles ADD COLUMN occupation TEXT DEFAULT ''")
+  }
 }
 
 // Initialize database automatically on import

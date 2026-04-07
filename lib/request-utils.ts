@@ -16,6 +16,10 @@ export async function getUserFromRequest(request: NextRequest) {
       full_name: payload.fullName || '',
       organization: payload.organization || '',
       theme_preference: payload.themePreference || 'dark',
+      phone: payload.phone || '',
+      country: payload.country || '',
+      occupation: payload.occupation || '',
+      stay_logged_in: payload.stayLoggedIn ?? true,
     }
   } catch {
     return null

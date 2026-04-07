@@ -14,12 +14,29 @@ async function getJWTPayload() {
 }
 
 // Re-issue the auth-token cookie with updated profile claims.
+// Carries forward ALL existing JWT claims so nothing is lost on partial updates.
 async function reissueToken(
-  userId: string,
-  email: string,
-  opts: { fullName?: string; organization?: string; themePreference?: string }
+  payload: import("@/lib/auth-utils").JWTPayload,
+  overrides: {
+    fullName?: string
+    organization?: string
+    themePreference?: string
+    phone?: string
+    country?: string
+    occupation?: string
+    stayLoggedIn?: boolean
+  }
 ) {
-  const token = generateJWT(userId, email, opts)
+  const token = generateJWT(payload.userId, payload.email, {
+    fullName: overrides.fullName ?? payload.fullName,
+    organization: overrides.organization ?? payload.organization,
+    themePreference: overrides.themePreference ?? payload.themePreference,
+    phone: overrides.phone ?? payload.phone,
+    country: overrides.country ?? payload.country,
+    occupation: overrides.occupation ?? payload.occupation,
+    stayLoggedIn: overrides.stayLoggedIn ?? payload.stayLoggedIn,
+    passwordHash: payload.ph, // preserve password hash for self-healing
+  })
   const cookieStore = await cookies()
   cookieStore.set("auth-token", token, {
     httpOnly: true,
@@ -49,10 +66,14 @@ export async function updateUserAccount(data: {
   const newFullName =
     data.firstName !== undefined || data.lastName !== undefined
       ? `${data.firstName || ""} ${data.lastName || ""}`.trim()
-      : payload.fullName
+      : undefined
 
-  const newOrg = data.org !== undefined ? data.org : payload.organization
-  const newTheme = data.theme_preference !== undefined ? data.theme_preference : payload.themePreference
+  const newOrg = data.org !== undefined ? data.org : undefined
+  const newTheme = data.theme_preference !== undefined ? data.theme_preference : undefined
+  const newPhone = data.phone !== undefined ? data.phone : undefined
+  const newCountry = data.country !== undefined ? data.country : undefined
+  const newOccupation = data.occupation !== undefined ? data.occupation : undefined
+  const newStayLoggedIn = data.stay_logged_in !== undefined ? data.stay_logged_in : undefined
 
   // Persist to DB if available (local dev). Non-fatal on Vercel where SQLite is ephemeral.
   try {
@@ -60,8 +81,10 @@ export async function updateUserAccount(data: {
     if (newFullName !== undefined) dbUpdates.full_name = newFullName
     if (newOrg !== undefined) dbUpdates.organization = newOrg
     if (newTheme !== undefined) dbUpdates.theme_preference = newTheme
-    if (data.phone !== undefined) dbUpdates.phone = data.phone
-    if (data.stay_logged_in !== undefined) dbUpdates.stay_logged_in = data.stay_logged_in ? 1 : 0
+    if (newPhone !== undefined) dbUpdates.phone = newPhone
+    if (newCountry !== undefined) dbUpdates.country = newCountry
+    if (newOccupation !== undefined) dbUpdates.occupation = newOccupation
+    if (newStayLoggedIn !== undefined) dbUpdates.stay_logged_in = newStayLoggedIn ? 1 : 0
 
     if (Object.keys(dbUpdates).length > 0) {
       Profiles.update(payload.userId, dbUpdates)
@@ -71,10 +94,14 @@ export async function updateUserAccount(data: {
   }
 
   // Re-issue JWT so the updated claims are reflected in the current session.
-  await reissueToken(payload.userId, payload.email, {
+  await reissueToken(payload, {
     fullName: newFullName,
     organization: newOrg,
     themePreference: newTheme,
+    phone: newPhone,
+    country: newCountry,
+    occupation: newOccupation,
+    stayLoggedIn: newStayLoggedIn,
   })
 
   return { success: true, message: "Account updated successfully" }

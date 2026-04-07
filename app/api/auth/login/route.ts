@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Users, Profiles } from '@/lib/db/client'
-import { verifyPassword, generateJWT } from '@/lib/auth-utils'
+import { Users, Profiles, selfHealFromJWT } from '@/lib/db/client'
+import { verifyPassword, generateJWT, verifyJWT } from '@/lib/auth-utils'
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +22,17 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('[LOGIN] Attempt for email:', email)
+
+    // ── Self-heal: if a valid JWT exists (e.g. from another tab), ensure
+    // the user row is in SQLite so password verification can succeed even
+    // after a Vercel cold start that wiped /tmp.
+    try {
+      const existingToken = request.cookies.get('auth-token')?.value
+      if (existingToken) {
+        const prev = verifyJWT(existingToken)
+        if (prev) selfHealFromJWT(prev)
+      }
+    } catch { /* best-effort */ }
 
     // Find user by email
     let user: any
@@ -55,11 +66,16 @@ export async function POST(request: NextRequest) {
       console.warn('[LOGIN] Could not load profile (non-fatal):', profileErr)
     }
 
-    // Generate JWT with embedded profile data
+    // Generate JWT with ALL profile data
     const token = generateJWT(user.id, user.email, {
       fullName: profile?.full_name || '',
       organization: profile?.organization || '',
       themePreference: profile?.theme_preference || 'dark',
+      phone: profile?.phone || '',
+      country: profile?.country || '',
+      occupation: profile?.occupation || '',
+      stayLoggedIn: !!profile?.stay_logged_in,
+      passwordHash: user.password_hash,
     })
 
     const response = NextResponse.json({

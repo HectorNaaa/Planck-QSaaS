@@ -53,24 +53,37 @@ export default function SettingsPage() {
         const userData = await response.json()
         if (userData && userData.user) {
           const user = userData.user
-          const profile = userData.profile || {}
           
           setUserEmail(user.email || "")
           setOriginalEmail(user.email || "")
-          setUserName(profile.full_name || "")
+          setUserName(user.full_name || "")
           
-          const [first, ...rest] = (profile.full_name || "").split(" ")
-          setUserFirstName(first || "")
-          setUserLastName(rest.join(" ") || "")
+          setUserFirstName(user.first_name || "")
+          setUserLastName(user.last_name || "")
           
-          setUserOrg(profile.organization || "")
-          setUserCountry(profile.country || "")
-          setUserPhone(profile.phone || "")
-          setStayLoggedIn(profile.stay_logged_in !== false)
-          setDarkModeEnabled(profile.theme_preference === "dark")
+          setUserOrg(user.organization || "")
+          setUserCountry(user.country || "")
+          setUserPhone(user.phone || "")
+          setUserOccupation(user.occupation || "")
+          setStayLoggedIn(user.stay_logged_in !== false)
+          setDarkModeEnabled(user.theme_preference === "dark")
         }
       } catch (error) {
         console.error("Failed to load user data:", error)
+      }
+
+      // ── Load existing API key ──
+      if (!isGuest) {
+        try {
+          const keyResult = await getApiKey()
+          if (keyResult.keys && keyResult.keys.length > 0) {
+            // Show masked key indicator (actual key is never stored after creation)
+            setApiKey("pk_••••••••••••")
+            setApiKeyCreatedAt(keyResult.keys[0].created_at)
+          }
+        } catch (err) {
+          console.warn("Failed to load API keys:", err)
+        }
       }
 
       const stayLoggedInPref = localStorage.getItem("planck_stay_logged_in")

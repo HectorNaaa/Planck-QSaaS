@@ -73,15 +73,31 @@ export async function POST(request: NextRequest) {
     try {
       const fullName = `${firstName} ${lastName}`.trim()
       Profiles.create(user.id, fullName, organization || '')
+      // Persist extra profile fields
+      const extraFields: Record<string, any> = {}
+      if (country) extraFields.country = country
+      if (phone) extraFields.phone = phone
+      if (occupation) extraFields.occupation = occupation
+      if (Object.keys(extraFields).length > 0) {
+        Profiles.update(user.id, extraFields)
+      }
       console.log('[SIGNUP] Profile created for user:', user.id)
     } catch (profileErr) {
       console.error('[SIGNUP] Failed to create profile (non-fatal):', profileErr)
       // Non-fatal: user record exists, profile can be created later
     }
 
-    // Generate JWT with embedded profile data and set cookie
+    // Generate JWT with ALL profile data and set cookie
     const fullName = `${firstName} ${lastName}`.trim()
-    const token = generateJWT(user.id, user.email, { fullName, organization: organization || '' })
+    const passwordHash = hashPassword(password)
+    const token = generateJWT(user.id, user.email, {
+      fullName,
+      organization: organization || '',
+      phone: phone || '',
+      country: country || '',
+      occupation: occupation || '',
+      passwordHash,
+    })
 
     const response = NextResponse.json({
       success: true,

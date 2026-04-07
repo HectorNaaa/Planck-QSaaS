@@ -15,6 +15,12 @@ export interface JWTPayload {
   fullName?: string
   organization?: string
   themePreference?: string
+  phone?: string
+  country?: string
+  occupation?: string
+  stayLoggedIn?: boolean
+  /** SHA-256 hash of password — stored in JWT for self-healing after ephemeral DB loss */
+  ph?: string
   iat: number
   exp: number
 }
@@ -39,10 +45,19 @@ export function generateJWT(
     fullName?: string
     organization?: string
     themePreference?: string
+    phone?: string
+    country?: string
+    occupation?: string
+    stayLoggedIn?: boolean
+    passwordHash?: string
     expiresIn?: number
   } = {}
 ): string {
-  const { fullName, organization, themePreference, expiresIn = 7 * 24 * 60 * 60 * 1000 } = options
+  const {
+    fullName, organization, themePreference,
+    phone, country, occupation, stayLoggedIn, passwordHash,
+    expiresIn = 7 * 24 * 60 * 60 * 1000,
+  } = options
   const header = {
     alg: 'HS256',
     typ: 'JWT'
@@ -57,6 +72,11 @@ export function generateJWT(
     ...(fullName !== undefined && { fullName }),
     ...(organization !== undefined && { organization }),
     ...(themePreference !== undefined && { themePreference }),
+    ...(phone !== undefined && { phone }),
+    ...(country !== undefined && { country }),
+    ...(occupation !== undefined && { occupation }),
+    ...(stayLoggedIn !== undefined && { stayLoggedIn }),
+    ...(passwordHash !== undefined && { ph: passwordHash }),
   }
 
   const headerEncoded = base64UrlEncode(JSON.stringify(header))

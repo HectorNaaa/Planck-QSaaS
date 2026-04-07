@@ -10,11 +10,19 @@ function getGuestCookie(): boolean {
   return document.cookie.split(";").some((c) => c.trim().startsWith("planck_guest=true"))
 }
 
-/** Hook — returns true when the current visitor is a guest (no auth session) */
+/** Hook — returns true when the current visitor is a guest (no auth session).
+ *  Checks both the cookie AND the sessionStorage flag set by QsaasLayout. */
 export function useIsGuest(): boolean {
   const [isGuest, setIsGuest] = useState(false)
 
   useEffect(() => {
+    // Primary: check the server-verified flag stored by QsaasLayout
+    const serverFlag = sessionStorage.getItem("planck_is_guest")
+    if (serverFlag !== null) {
+      setIsGuest(serverFlag === "true")
+      return
+    }
+    // Fallback: check the cookie directly
     setIsGuest(getGuestCookie())
   }, [])
 

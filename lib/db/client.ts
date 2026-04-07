@@ -1,5 +1,6 @@
 import db, { initializeDatabase } from './init'
 import { randomUUID } from 'node:crypto'
+import type { JWTPayload } from '@/lib/auth-utils'
 
 // Initialize database on first import
 initializeDatabase()
@@ -207,6 +208,46 @@ export const ApiKeys = {
   delete: (id: string) => {
     const stmt = db.prepare('DELETE FROM api_keys WHERE id = ?')
     return stmt.run(id)
+  }
+}
+
+// ── Self-healing ──────────────────────────────────────────────────────────────
+// Reconstruct user + profile rows from a verified JWT payload.
+// On Vercel the /tmp SQLite is wiped on cold starts; this ensures the DB
+// is repopulated transparently whenever a valid session visits.
+
+export function selfHealFromJWT(payload: JWTPayload): void {
+  try {
+    const existing = Users.findById(payload.userId)
+    if (!existing) {
+      // Re-create user row — password hash comes from the JWT `ph` claim
+      const ph = payload.ph || ''
+      db.prepare(
+        'INSERT OR IGNORE INTO users (id, email, password_hash) VALUES (?, ?, ?)'
+      ).run(payload.userId, payload.email, ph)
+    }
+
+    const profile = Profiles.findByUserId(payload.userId)
+    if (!profile) {
+      const id = randomUUID()
+      db.prepare(
+        `INSERT OR IGNORE INTO profiles
+           (id, user_id, full_name, organization, theme_preference, phone, country, occupation, stay_logged_in)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        id,
+        payload.userId,
+        payload.fullName || '',
+        payload.organization || '',
+        payload.themePreference || 'dark',
+        payload.phone || '',
+        payload.country || '',
+        payload.occupation || '',
+        payload.stayLoggedIn ? 1 : 0,
+      )
+    }
+  } catch (err) {
+    console.warn('[DB] Self-heal failed (non-fatal):', err)
   }
 }
 
