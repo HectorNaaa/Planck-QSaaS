@@ -38,6 +38,8 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const loadUserData = async () => {
+      let isAuthenticated = false
+
       try {
         // Get user data from server (JWT-verified endpoint)
         const response = await fetch("/api/request-utils", {
@@ -53,6 +55,7 @@ export default function SettingsPage() {
         const userData = await response.json()
         if (userData && userData.user) {
           const user = userData.user
+          isAuthenticated = !userData.guest
           
           setUserEmail(user.email || "")
           setOriginalEmail(user.email || "")
@@ -72,8 +75,8 @@ export default function SettingsPage() {
         console.error("Failed to load user data:", error)
       }
 
-      // ── Load existing API key ──
-      if (!isGuest) {
+      // ── Load existing API key (only for authenticated users) ──
+      if (isAuthenticated) {
         try {
           const keyResult = await getApiKey()
           if (keyResult.keys && keyResult.keys.length > 0) {

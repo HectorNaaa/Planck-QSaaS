@@ -21,6 +21,8 @@ export interface JWTPayload {
   stayLoggedIn?: boolean
   /** SHA-256 hash of password — stored in JWT for self-healing after ephemeral DB loss */
   ph?: string
+  /** Active API key — stored in JWT so it survives ephemeral DB wipes on Vercel */
+  ak?: string
   iat: number
   exp: number
 }
@@ -50,12 +52,13 @@ export function generateJWT(
     occupation?: string
     stayLoggedIn?: boolean
     passwordHash?: string
+    apiKey?: string
     expiresIn?: number
   } = {}
 ): string {
   const {
     fullName, organization, themePreference,
-    phone, country, occupation, stayLoggedIn, passwordHash,
+    phone, country, occupation, stayLoggedIn, passwordHash, apiKey,
     expiresIn = 7 * 24 * 60 * 60 * 1000,
   } = options
   const header = {
@@ -77,6 +80,7 @@ export function generateJWT(
     ...(occupation !== undefined && { occupation }),
     ...(stayLoggedIn !== undefined && { stayLoggedIn }),
     ...(passwordHash !== undefined && { ph: passwordHash }),
+    ...(apiKey !== undefined && { ak: apiKey }),
   }
 
   const headerEncoded = base64UrlEncode(JSON.stringify(header))

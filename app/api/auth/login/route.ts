@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Users, Profiles } from '@/lib/db/client'
+import { Users, Profiles, ApiKeys } from '@/lib/db/client'
 import { verifyPassword, generateJWT, verifyJWT } from '@/lib/auth-utils'
 import { ensureDbUser } from '@/lib/db/ensure-user'
 
@@ -68,6 +68,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate JWT with ALL profile data
+    // Include API key from DB so it survives in the token across cold starts.
+    let existingApiKey = ''
+    try {
+      existingApiKey = ApiKeys.findKeyValueByUserId(user.id) || ''
+    } catch { /* non-fatal — key will be re-generated on demand */ }
+
+    // Also carry forward ak from previous JWT if DB had no key (cold start scenario)
+    if (!existingApiKey) {
+      try {
+        const existingToken = request.cookies.get('auth-token')?.value
+        if (existingToken) {
+          const prev = verifyJWT(existingToken)
+          if (prev?.ak) existingApiKey = prev.ak
+        }
+      } catch { /* best-effort */ }
+    }
+
     const token = generateJWT(user.id, user.email, {
       fullName: profile?.full_name || '',
       organization: profile?.organization || '',
@@ -77,6 +94,7 @@ export async function POST(request: NextRequest) {
       occupation: profile?.occupation || '',
       stayLoggedIn: !!profile?.stay_logged_in,
       passwordHash: user.password_hash,
+      apiKey: existingApiKey || undefined,
     })
 
     const response = NextResponse.json({

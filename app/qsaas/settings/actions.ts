@@ -26,6 +26,7 @@ async function reissueToken(
     country?: string
     occupation?: string
     stayLoggedIn?: boolean
+    apiKey?: string
   }
 ) {
   const token = generateJWT(payload.userId, payload.email, {
@@ -37,6 +38,7 @@ async function reissueToken(
     occupation: overrides.occupation ?? payload.occupation,
     stayLoggedIn: overrides.stayLoggedIn ?? payload.stayLoggedIn,
     passwordHash: payload.ph, // preserve password hash for self-healing
+    apiKey: overrides.apiKey !== undefined ? overrides.apiKey : payload.ak, // preserve API key
   })
   const cookieStore = await cookies()
   cookieStore.set("auth-token", token, {
@@ -149,6 +151,10 @@ export async function generateApiKey() {
     const key = genApiKey()
     ApiKeys.create(payload.userId, "Default Key", key)
     console.log('[SETTINGS] API key generated for user', payload.userId)
+
+    // Embed the key in the JWT so it survives Vercel cold-starts
+    await reissueToken(payload, { apiKey: key })
+
     return { success: true, apiKey: key }
   } catch (error: any) {
     console.error("[SETTINGS] Generate API key error:", error)
@@ -180,13 +186,18 @@ export async function revokeApiKey() {
   }
 
   try {
+    ensureDbUser(payload)
     const keys = ApiKeys.findByUserId(payload.userId)
     for (const key of keys) {
       ApiKeys.delete(key.id)
     }
+
+    // Remove the key from the JWT
+    await reissueToken(payload, { apiKey: '' })
+
     return { success: true }
   } catch (error: any) {
-    console.error("Revoke API key error:", error)
+    console.error("[SETTINGS] Revoke API key error:", error)
     return { error: error.message || "Failed to revoke API key" }
   }
 }

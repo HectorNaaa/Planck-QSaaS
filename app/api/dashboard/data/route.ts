@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
 
     // Fetch execution logs from SQLite
     const allLogs = Executions.findByUserId(userId)
+    console.log(`[DASHBOARD] Found ${allLogs.length} total executions for user ${userId} (timeRange=${timeRange})`)
     
     // Filter by date range
     const logs = allLogs.filter(log => {

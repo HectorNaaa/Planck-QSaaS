@@ -58,5 +58,22 @@ export function ensureDbUser(payload: JWTPayload): string {
     )
   }
 
+  // ── 3. api_keys row (from JWT `ak` claim) ────────────────────
+  // When the user generates an API key we embed it in the JWT so it
+  // survives Vercel cold-starts that wipe /tmp SQLite.
+  if (payload.ak) {
+    const existingKey = db
+      .prepare('SELECT id FROM api_keys WHERE user_id = ? AND key = ?')
+      .get(userId, payload.ak) as { id: string } | undefined
+
+    if (!existingKey) {
+      const id = randomUUID()
+      console.log('[ensureDbUser] Recreating api_keys row for', userId)
+      db.prepare(
+        'INSERT OR IGNORE INTO api_keys (id, user_id, key, name) VALUES (?, ?, ?, ?)'
+      ).run(id, userId, payload.ak, 'Default Key')
+    }
+  }
+
   return userId
 }
