@@ -1,7 +1,8 @@
 import type { NextRequest } from "next/server"
 import { validateApiKey } from "@/lib/security"
 import { verifyJWT } from "@/lib/auth-utils"
-import { ApiKeys, selfHealFromJWT } from "@/lib/db/client"
+import { ApiKeys } from "@/lib/db/client"
+import { ensureDbUser } from "@/lib/db/ensure-user"
 
 /**
  * Mask an API key for safe logging (first 6 chars + ... + last 4 chars).
@@ -66,8 +67,12 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
     return { ok: false, userId: null, method: "session", status: 401, error: "Invalid session" }
   }
 
-  // Self-heal: ensure user row exists in SQLite (survives cold starts)
-  try { selfHealFromJWT(payload) } catch { /* best-effort */ }
+  // Ensure DB rows exist for this user (survives cold starts / DB wipes)
+  try {
+    ensureDbUser(payload)
+  } catch (healErr) {
+    console.error('[AUTH] ensureDbUser failed — DB writes for this user will likely fail:', healErr)
+  }
 
   // JWT is the source of truth — no DB roundtrip needed.
   // DB may be empty on serverless/Vercel; the signed token already proves identity.

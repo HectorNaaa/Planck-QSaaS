@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyJWT } from '@/lib/auth-utils'
-import { selfHealFromJWT } from '@/lib/db/client'
+import { ensureDbUser } from '@/lib/db/ensure-user'
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,8 +9,8 @@ export async function GET(request: NextRequest) {
     if (token) {
       const payload = verifyJWT(token)
       if (payload?.userId) {
-        // Self-heal: ensure user/profile rows exist in SQLite (survives cold starts)
-        try { selfHealFromJWT(payload) } catch { /* best-effort */ }
+        // Ensure user/profile rows exist in SQLite (survives cold starts)
+        try { ensureDbUser(payload) } catch (e) { console.warn('[request-utils] ensureDbUser failed:', e) }
 
         // Split fullName into first/last for the settings form
         const parts = (payload.fullName || '').split(' ')

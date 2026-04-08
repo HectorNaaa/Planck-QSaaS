@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Users, Profiles, selfHealFromJWT } from '@/lib/db/client'
+import { Users, Profiles } from '@/lib/db/client'
 import { verifyPassword, generateJWT, verifyJWT } from '@/lib/auth-utils'
+import { ensureDbUser } from '@/lib/db/ensure-user'
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
       const existingToken = request.cookies.get('auth-token')?.value
       if (existingToken) {
         const prev = verifyJWT(existingToken)
-        if (prev) selfHealFromJWT(prev)
+        if (prev) ensureDbUser(prev)
       }
     } catch { /* best-effort */ }
 

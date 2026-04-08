@@ -182,7 +182,9 @@ export async function POST(request: NextRequest) {
     const actualFidelity = calculateFidelity(effectiveBackend, resolvedQubits, depth)
 
     // Save execution to internal SQLite database
-    const insertedLog = Executions.create({
+    let insertedLog: { id: string; changes: number } | null = null
+    try {
+      insertedLog = Executions.create({
       user_id: userId,
       circuit_name: circuitName,
       algorithm: algorithm,
@@ -236,9 +238,12 @@ export async function POST(request: NextRequest) {
         } : null,
       }),
     })
+    } catch (dbErr) {
+      console.error("[API] Execution insert failed (FK or DB error) — execution result will still be returned but not persisted:", dbErr)
+    }
 
     if (!insertedLog) {
-      console.error("[API] Failed to insert execution log")
+      console.error("[API] Failed to insert execution log — result not persisted for user", userId)
     }
 
     if (insertedLog?.id) {

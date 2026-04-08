@@ -3,6 +3,7 @@
 import { cookies } from "next/headers"
 import { Users, Profiles, ApiKeys } from "@/lib/db/client"
 import { verifyJWT, generateJWT, generateApiKey as genApiKey } from "@/lib/auth-utils"
+import { ensureDbUser } from "@/lib/db/ensure-user"
 
 // ── Auth helper ───────────────────────────────────────────────────────────────
 // Identity is derived from the signed JWT — no DB roundtrip required.
@@ -77,6 +78,9 @@ export async function updateUserAccount(data: {
 
   // Persist to DB if available (local dev). Non-fatal on Vercel where SQLite is ephemeral.
   try {
+    // Ensure user row exists before writing profile updates
+    ensureDbUser(payload)
+
     const dbUpdates: Record<string, any> = {}
     if (newFullName !== undefined) dbUpdates.full_name = newFullName
     if (newOrg !== undefined) dbUpdates.organization = newOrg
@@ -133,11 +137,21 @@ export async function generateApiKey() {
   }
 
   try {
+    // Ensure user row exists in DB before FK-dependent insert
+    ensureDbUser(payload)
+
+    // Revoke existing keys before creating a new one
+    const existingKeys = ApiKeys.findByUserId(payload.userId)
+    for (const k of existingKeys) {
+      ApiKeys.delete(k.id)
+    }
+
     const key = genApiKey()
     ApiKeys.create(payload.userId, "Default Key", key)
+    console.log('[SETTINGS] API key generated for user', payload.userId)
     return { success: true, apiKey: key }
   } catch (error: any) {
-    console.error("Generate API key error:", error)
+    console.error("[SETTINGS] Generate API key error:", error)
     return { error: error.message || "Failed to generate API key" }
   }
 }
@@ -149,10 +163,12 @@ export async function getApiKey() {
   }
 
   try {
+    // Ensure user exists so subsequent writes in the same session won't fail
+    ensureDbUser(payload)
     const keys = ApiKeys.findByUserId(payload.userId)
     return { success: true, keys }
   } catch (error: any) {
-    console.error("Get API key error:", error)
+    console.error("[SETTINGS] Get API key error:", error)
     return { error: error.message || "Failed to get API keys" }
   }
 }

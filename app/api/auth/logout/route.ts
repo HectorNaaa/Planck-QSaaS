@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyJWT } from '@/lib/auth-utils'
-import { selfHealFromJWT } from '@/lib/db/client'
+import { ensureDbUser } from '@/lib/db/ensure-user'
 
 export async function POST(request: NextRequest) {
   // Self-heal before clearing the cookie so the user/profile rows survive
@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const token = request.cookies.get('auth-token')?.value
     if (token) {
       const payload = verifyJWT(token)
-      if (payload) selfHealFromJWT(payload)
+      if (payload) ensureDbUser(payload)
     }
   } catch { /* best-effort */ }
 

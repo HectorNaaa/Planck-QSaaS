@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getUserFromRequest } from '@/lib/request-utils'
+import { authenticateRequest } from '@/lib/api-auth'
 import { Executions } from '@/lib/db/client'
 
 export async function GET(request: NextRequest) {
   try {
-    // Authenticated users are resolved first — JWT takes priority over guest cookie.
-    const user = await getUserFromRequest(request)
+    // Use the canonical authenticateRequest helper — this self-heals the user
+    // row so that the dashboard query always uses the same userId that
+    // execution writes use.
+    const auth = await authenticateRequest(request)
 
-    if (!user) {
-      // No valid session: check guest cookie and return empty stats.
+    if (!auth.ok) {
+      // Check guest cookie and return empty stats
       const guestCookie = request.cookies.get('planck_guest')?.value
       if (guestCookie === 'true') {
         return NextResponse.json({
@@ -19,6 +21,8 @@ export async function GET(request: NextRequest) {
       }
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const userId = auth.userId!
 
     // Get time range from query
     const timeRange = request.nextUrl.searchParams.get('timeRange') || '7d'
@@ -42,7 +46,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch execution logs from SQLite
-    const allLogs = Executions.findByUserId(user.id)
+    const allLogs = Executions.findByUserId(userId)
     
     // Filter by date range
     const logs = allLogs.filter(log => {
