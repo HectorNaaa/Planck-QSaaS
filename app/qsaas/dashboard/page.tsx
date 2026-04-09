@@ -22,11 +22,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BarChart3, Zap, TrendingUp, Clock, Radio } from "lucide-react"
 import Link from "next/link"
 import { PageHeader } from "@/components/page-header"
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { DigitalTwinDashboard } from "@/components/dashboard/digital-twin-dashboard"
 import type { ExecutionRow } from "@/hooks/use-live-executions"
 import { useIsGuest } from "@/components/guest-banner"
+import { useLiveMode, LIVE_CHANNEL } from "@/hooks/use-live-mode"
 
 type TimeRange = "24h" | "7d" | "30d"
 
@@ -83,9 +84,39 @@ export default function DashboardPage() {
   const [twins, setTwins] = useState<DigitalTwin[]>([])
   const [activeTab, setActiveTab] = useState<"all" | string>("all")
   const [loading, setLoading] = useState(true)
-  const [liveEnabled, setLiveEnabled] = useState(false)
   const router = useRouter()
   const isGuest = useIsGuest()
+  // Shared live mode — synced with runner via sessionStorage + BroadcastChannel
+  const [liveEnabled, setLiveEnabled] = useLiveMode(isGuest)
+
+  // Append a single execution row to allRows + cache without a full refetch.
+  // Used by the BroadcastChannel listener so UI runs from runner appear instantly.
+  const appendExecRow = useCallback((row: ExecutionRow) => {
+    setAllRows((prev) => {
+      if (prev.some((r) => r.id === row.id)) return prev
+      const next = [row, ...prev]
+      next.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      // Also update localStorage cache
+      writeExecCache(next)
+      return next
+    })
+  }, [])
+
+  // Listen for execution_completed broadcasts from runner (instant, no SSE delay)
+  useEffect(() => {
+    if (isGuest || typeof BroadcastChannel === "undefined") return
+    const ch = new BroadcastChannel(LIVE_CHANNEL)
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === "execution_completed") {
+        appendExecRow(event.data.row as ExecutionRow)
+      }
+    }
+    ch.addEventListener("message", handler)
+    return () => {
+      ch.removeEventListener("message", handler)
+      ch.close()
+    }
+  }, [isGuest, appendExecRow])
 
   // ── Load data ──────────────────────────────────────────────────────────────
   useEffect(() => { loadAll() }, [timeRange, isGuest])
@@ -169,12 +200,7 @@ export default function DashboardPage() {
           <button
             role="switch"
             aria-checked={liveEnabled}
-            onClick={() => {
-              if (isGuest) { alert("Sign in to enable live mode."); return }
-              const next = !liveEnabled
-              setLiveEnabled(next)
-              sessionStorage.setItem("planck_sdk_mode", next ? "1" : "0")
-            }}
+            onClick={() => setLiveEnabled(!liveEnabled)}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors ${
               liveEnabled
                 ? "border-primary bg-primary/10 text-primary"

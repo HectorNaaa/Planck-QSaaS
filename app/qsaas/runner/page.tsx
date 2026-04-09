@@ -29,6 +29,7 @@ import { DigitalTwinPanel } from "@/components/runner/digital-twin-panel"
 import { DigitalTwinSelector } from "@/components/runner/digital-twin-selector"
 import { DigitalTwinDashboard } from "@/components/dashboard/digital-twin-dashboard"
 import { useLiveExecutions } from "@/hooks/use-live-executions"
+import { useLiveMode, broadcastExecution } from "@/hooks/use-live-mode"
 import { useIsGuest } from "@/components/guest-banner"
 
 /** Convert a manual-run results object into the ExecutionRow shape the DT dashboard expects. */
@@ -82,22 +83,17 @@ export default function RunnerPage() {
   const [showCodeEditor, setShowCodeEditor] = useState(false)
   const [showDominantStates, setShowDominantStates] = useState(false)
   const [selectedDigitalTwinId, setSelectedDigitalTwinId] = useState<string | null>(null)
-  const [sdkMode, setSdkMode] = useState(false)
-  // User API key — needed for browser EventSource auth (can't send custom headers)
-  const [userApiKey, setUserApiKey] = useState<string | null>(null)
   const isGuest = useIsGuest()
+  // Shared live mode — synced with dashboard via sessionStorage + BroadcastChannel
+  const [sdkMode, setLiveEnabled] = useLiveMode(isGuest)
 
-  // Fetch API key once on mount — TODO: Get from server-side endpoint
-  useEffect(() => {
-    // API key can be fetched from authenticated endpoint when needed
-    // For now, using browser-based execution
-  }, [])
-
-  // Live SSE feed — active only when SDK mode is on
+  // Live SSE feed — active only when live mode is on.
+  // Browser EventSource sends session cookies automatically (same-origin), so
+  // no API key is needed for in-browser live mode.
   const { rows: liveRows, connected: liveConnected } = useLiveExecutions({
     enabled: sdkMode,
     digitalTwinId: selectedDigitalTwinId,
-    apiKey: userApiKey,
+    apiKey: null, // session cookie handles auth for browser EventSource
   })
 
   // When a new live row arrives, update results + circuit display from the latest job
@@ -522,6 +518,8 @@ const adaptiveShots = calculateAdaptiveShots({
         const existing: any[] = raw ? JSON.parse(raw) : []
         const updated = [execRow, ...existing.filter((r: any) => r.id !== execRow.id)].slice(0, 100)
         localStorage.setItem("planck_exec_cache", JSON.stringify(updated))
+        // Broadcast to dashboard and any other open pages for instant update
+        broadcastExecution(execRow)
       } catch {
         // localStorage unavailable — fail silently; server DB is the primary store
       }
@@ -741,11 +739,7 @@ const adaptiveShots = calculateAdaptiveShots({
         <button
           role="switch"
           aria-checked={sdkMode}
-          onClick={() => {
-            const next = !sdkMode
-            setSdkMode(next)
-            sessionStorage.setItem("planck_sdk_mode", next ? "1" : "0")
-          }}
+          onClick={() => setLiveEnabled(!sdkMode)}
           className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
             sdkMode ? "bg-primary" : "bg-muted"
           }`}

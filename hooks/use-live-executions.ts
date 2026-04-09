@@ -15,6 +15,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
+import { LIVE_CHANNEL } from "@/hooks/use-live-mode"
 
 export interface ExecutionRow {
   id: string
@@ -66,13 +67,45 @@ export function useLiveExecutions({
   }, [])
 
   useEffect(() => {
-    // Sync initialRows when they change externally
-    setRows(initialRows)
+    // Merge initialRows into existing rows (don't replace — SSE-received rows must survive).
+    // Only runs when the server provides more rows than before.
+    setRows((prev) => {
+      const prevIds = new Set(prev.map((r) => r.id))
+      const fresh = initialRows.filter((r) => !prevIds.has(r.id))
+      if (fresh.length === 0) return prev
+      const merged = [...prev, ...fresh]
+      merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      return merged.slice(-500)
+    })
     if (initialRows.length > 0) {
       sinceRef.current = initialRows[initialRows.length - 1].created_at
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialRows.length])
+
+  // BroadcastChannel listener — always active regardless of `enabled`.
+  // Runner broadcasts each completed execution so the dashboard (and any other
+  // open panel) reflects it instantly without waiting for the 3-second SSE poll.
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return
+    const ch = new BroadcastChannel(LIVE_CHANNEL)
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type !== "execution_completed") return
+      const row = event.data.row as ExecutionRow
+      setRows((prev) => {
+        if (prev.some((r) => r.id === row.id)) return prev
+        const next = [row, ...prev].slice(0, 500)
+        // advance sinceRef so SSE doesn't re-deliver this row
+        if (row.created_at > sinceRef.current) sinceRef.current = row.created_at
+        return next
+      })
+    }
+    ch.addEventListener("message", handler)
+    return () => {
+      ch.removeEventListener("message", handler)
+      ch.close()
+    }
+  }, [])
 
   useEffect(() => {
     if (!enabled) {
