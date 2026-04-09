@@ -44,6 +44,39 @@ interface DashboardStats {
   avgQubits: number
 }
 
+// ── Execution cache helpers ────────────────────────────────────────────────
+// SQLite on Vercel is stored in /tmp (set via vercel.json DB_DIR), which is
+// ephemeral: it's wiped on every cold start.  These helpers use localStorage
+// as a persistent fallback so authenticated users keep their history across
+// server restarts without requiring an external database.
+const EXEC_CACHE_KEY = "planck_exec_cache"
+
+function readExecCache(): ExecutionRow[] {
+  try {
+    const raw = localStorage.getItem(EXEC_CACHE_KEY)
+    if (!raw) return []
+    return JSON.parse(raw) as ExecutionRow[]
+  } catch {
+    return []
+  }
+}
+
+function writeExecCache(rows: ExecutionRow[]) {
+  try {
+    localStorage.setItem(EXEC_CACHE_KEY, JSON.stringify(rows.slice(0, 100)))
+  } catch {
+    // localStorage full or unavailable — fail silently
+  }
+}
+
+function mergeExecRows(serverRows: ExecutionRow[], cachedRows: ExecutionRow[]): ExecutionRow[] {
+  const serverIds = new Set(serverRows.map((r) => r.id))
+  const extra = cachedRows.filter((r) => !serverIds.has(r.id))
+  const merged = [...serverRows, ...extra]
+  merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  return merged
+}
+
 export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("7d")
   const [allRows, setAllRows] = useState<ExecutionRow[]>([])
@@ -73,11 +106,25 @@ export default function DashboardPage() {
         return
       }
       const data = await res.json()
-      
-      setAllRows(data.logs || [])
+      const serverRows: ExecutionRow[] = data.logs || []
+
+      // Merge with localStorage cache to survive Vercel cold-start DB wipes.
+      // Server rows take priority for IDs that exist in both; cache fills in
+      // rows that the server lost after a cold start.
+      const cachedRows = readExecCache()
+      const merged = mergeExecRows(serverRows, cachedRows)
+      writeExecCache(merged)
+
+      setAllRows(merged)
       setTwins(data.twins || [])
     } catch (error) {
-      console.error('Error loading dashboard data:', error)
+      console.error('[DASHBOARD] Error loading dashboard data:', error)
+      // Show cached data when server fetch fails
+      const cachedRows = readExecCache()
+      if (cachedRows.length > 0) {
+        console.log('[DASHBOARD] Showing', cachedRows.length, 'cached executions after fetch error')
+        setAllRows(cachedRows)
+      }
     } finally {
       setLoading(false)
     }

@@ -79,8 +79,12 @@ export default function SettingsPage() {
       if (isAuthenticated) {
         try {
           const keyResult = await getApiKey()
-          if (keyResult.keys && keyResult.keys.length > 0) {
-            // Show masked key indicator (actual key is never stored after creation)
+          if (keyResult.activeKey) {
+            // Real key recovered from JWT — usable for copy/paste in SDK
+            setApiKey(keyResult.activeKey)
+            setApiKeyCreatedAt(keyResult.keys?.[0]?.created_at || new Date().toISOString())
+          } else if (keyResult.keys && keyResult.keys.length > 0) {
+            // Key metadata in DB but JWT claim absent (should not happen normally)
             setApiKey("pk_••••••••••••")
             setApiKeyCreatedAt(keyResult.keys[0].created_at)
           }
@@ -139,6 +143,7 @@ export default function SettingsPage() {
       document.cookie = "planck_guest=; max-age=0; path=/"
       sessionStorage.clear()
       localStorage.removeItem("planck_stay_logged_in")
+      localStorage.removeItem("planck_exec_cache")
       router.push("/auth/login")
     } catch (error) {
       console.error("Logout error:", error)
@@ -225,7 +230,7 @@ export default function SettingsPage() {
       }
       setApiKey(result.apiKey!)
       setApiKeyCreatedAt(new Date().toISOString())
-      alert("API key generated successfully! Make sure to copy it now - you won't be able to see it again.")
+      alert("API key generated successfully! Copy it and use it with the Planck SDK.")
     } catch (error: any) {
       console.error("Error generating API key:", error)
       alert(`Error generating API key: ${error.message}`)

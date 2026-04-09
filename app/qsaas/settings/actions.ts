@@ -168,14 +168,19 @@ export async function getApiKey() {
     return { error: "Not authenticated" }
   }
 
+  // The active key is embedded in the JWT (ak claim) for cold-start recovery.
+  // Return it so the client can display and copy the real value after page reload.
+  const activeKey = payload.ak || null
+
   try {
     // Ensure user exists so subsequent writes in the same session won't fail
     ensureDbUser(payload)
     const keys = ApiKeys.findByUserId(payload.userId)
-    return { success: true, keys }
+    return { success: true, keys, activeKey }
   } catch (error: any) {
     console.error("[SETTINGS] Get API key error:", error)
-    return { error: error.message || "Failed to get API keys" }
+    // JWT is the canonical source of truth — return it even if DB is unavailable
+    return { success: true, keys: [], activeKey }
   }
 }
 

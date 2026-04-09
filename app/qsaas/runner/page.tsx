@@ -504,6 +504,27 @@ const adaptiveShots = calculateAdaptiveShots({
       }
 
       setResults(baseResults)
+
+      // Persist this execution to localStorage so the dashboard shows it after
+      // a server cold-start (Vercel ephemeral /tmp SQLite is wiped between instances).
+      try {
+        const execRow = resultToRow(
+          { ...baseResults, _liveJobId: simulateData.execution_id || `manual-${Date.now()}` },
+          {
+            circuitName: executionName || `${circuitName} Execution`,
+            shots: baseResults.total_shots,
+            qubits,
+            backend: simulateData.backend || backend,
+            errorMitigation: simulateData.error_mitigation || errorMitigation,
+          },
+        )
+        const raw = localStorage.getItem("planck_exec_cache")
+        const existing: any[] = raw ? JSON.parse(raw) : []
+        const updated = [execRow, ...existing.filter((r: any) => r.id !== execRow.id)].slice(0, 100)
+        localStorage.setItem("planck_exec_cache", JSON.stringify(updated))
+      } catch {
+        // localStorage unavailable — fail silently; server DB is the primary store
+      }
     } catch (error) {
       alert(`Error: ${error instanceof Error ? error.message : "Unknown error"}`)
     } finally {

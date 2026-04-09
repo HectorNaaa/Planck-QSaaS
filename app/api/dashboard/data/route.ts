@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
           logs: [],
           twins: [],
           stats: { totalExecutions: 0, successfulExecutions: 0, averageRuntime: 0, successRate: 0, timeRange: '7d' },
+          userId: null,
         })
       }
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
       : 0
 
     return NextResponse.json({
-      logs: logs.slice(0, 20), // Return last 20 logs
+      logs: logs.slice(0, 50), // Return last 50 logs
       twins: [], // TODO: Implement digital twins tracking
       stats: {
         totalExecutions,
@@ -74,7 +75,8 @@ export async function GET(request: NextRequest) {
         averageRuntime,
         successRate,
         timeRange
-      }
+      },
+      userId,
     })
   } catch (error) {
     console.error('Dashboard data error:', error)
