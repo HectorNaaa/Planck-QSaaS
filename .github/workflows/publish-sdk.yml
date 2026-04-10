@@ -1,0 +1,68 @@
+# .github/workflows/publish-sdk.yml
+# ────────────────────────────────────────────────────────────────────────────
+# Publishes planck_sdk to PyPI using Trusted Publishing (OIDC).
+# No API token secrets are required — configure the trusted publisher once at:
+#   https://pypi.org/manage/project/planck_sdk/settings/publishing/
+#
+# Trigger: push a version tag (e.g. sdk/v1.0.1) or run manually.
+# ────────────────────────────────────────────────────────────────────────────
+
+name: Publish planck_sdk to PyPI
+
+on:
+  push:
+    tags:
+      - "sdk/v*"          # e.g. sdk/v1.0.1
+  workflow_dispatch:      # manual trigger for testing
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: pip install build
+
+      - name: Build sdist and wheel
+        working-directory: sdk/python
+        run: python -m build
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: planck-sdk-dist
+          path: sdk/python/dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/planck_sdk/
+
+    # Trusted Publishing — grants id-token so PyPI accepts the OIDC mint.
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: planck-sdk-dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No api_token needed — Trusted Publishing handles auth via OIDC.

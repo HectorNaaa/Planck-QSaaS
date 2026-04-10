@@ -997,9 +997,10 @@ const adaptiveShots = calculateAdaptiveShots({
             <div className="space-y-6">
               <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} isLive={sdkMode} />
 
-              {/* Digital Twin Dashboard — always shown after a run; live-driven in SDK mode */}
+              {/* Digital Twin Dashboard — live-driven in SDK mode via its own SSE connection,
+                  pre-seeded with liveRows so it immediately shows existing rows. */}
               <DigitalTwinDashboard
-                liveEnabled={false}
+                liveEnabled={sdkMode}
                 apiKey={null}
                 digitalTwinId={selectedDigitalTwinId}
                 initialRows={sdkMode ? liveRows : results ? [resultToRow(results, { circuitName, shots, qubits, backend, errorMitigation })] : []}

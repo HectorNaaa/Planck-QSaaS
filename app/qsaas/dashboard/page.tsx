@@ -25,7 +25,7 @@ import { PageHeader } from "@/components/page-header"
 import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { DigitalTwinDashboard } from "@/components/dashboard/digital-twin-dashboard"
-import type { ExecutionRow } from "@/hooks/use-live-executions"
+import { useLiveExecutions, type ExecutionRow } from "@/hooks/use-live-executions"
 import { useIsGuest } from "@/components/guest-banner"
 import { useLiveMode, LIVE_CHANNEL } from "@/hooks/use-live-mode"
 
@@ -89,6 +89,12 @@ export default function DashboardPage() {
   // Shared live mode — synced with runner via sessionStorage + BroadcastChannel
   const [liveEnabled, setLiveEnabled] = useLiveMode(isGuest)
 
+  // Page-level SSE feed — drives stat cards and tab counts in real time.
+  // The embedded <DigitalTwinDashboard> uses liveEnabled=false and receives
+  // real-time rows via the initialRows prop (rowsForTab) instead, keeping
+  // only one SSE connection open per page.
+  const { rows: sseRows } = useLiveExecutions({ enabled: liveEnabled && !isGuest })
+
   // Append a single execution row to allRows + cache without a full refetch.
   // Used by the BroadcastChannel listener so UI runs from runner appear instantly.
   const appendExecRow = useCallback((row: ExecutionRow) => {
@@ -101,6 +107,13 @@ export default function DashboardPage() {
       return next
     })
   }, [])
+
+  // Sync SSE rows (from page-level hook) into allRows so stat cards and tab
+  // counts stay up-to-date. appendExecRow deduplicates by ID.
+  useEffect(() => {
+    sseRows.forEach((row) => appendExecRow(row))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sseRows.length])
 
   // Listen for execution_completed broadcasts from runner (instant, no SSE delay)
   useEffect(() => {
@@ -282,7 +295,7 @@ export default function DashboardPage() {
         <DigitalTwinDashboard
           key={activeTab}
           initialRows={rowsForTab}
-          liveEnabled={liveEnabled}
+          liveEnabled={false}
           apiKey={null}
           digitalTwinId={activeTab === "all" ? null : activeTab}
           title={activeTab === "all" ? "All Digital Twins" : (activeTwin?.name ?? activeTab)}
