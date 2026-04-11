@@ -8,7 +8,7 @@ version = "1.0.0"
 description = "Lightweight Python SDK for Planck Quantum Digital Twins Platform"
 readme = "README.md"
 requires-python = ">=3.8"
-license = {file = "LICENSE"}
+license = "MIT"
 authors = [
     {name = "Planck Technologies", email = "hello@plancktechnologies.xyz"}
 ]
@@ -17,7 +17,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",

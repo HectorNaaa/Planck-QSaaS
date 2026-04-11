@@ -83,6 +83,9 @@ export default function RunnerPage() {
   const [showCodeEditor, setShowCodeEditor] = useState(false)
   const [showDominantStates, setShowDominantStates] = useState(false)
   const [selectedDigitalTwinId, setSelectedDigitalTwinId] = useState<string | null>(null)
+  // Increments on every new live execution — used as key on CircuitResults so
+  // gauges and count-up animations replay on each incoming SDK job.
+  const [liveRevision, setLiveRevision] = useState(0)
   const isGuest = useIsGuest()
   // Shared live mode — synced with dashboard via sessionStorage + BroadcastChannel
   const [sdkMode, setLiveEnabled] = useLiveMode(isGuest)
@@ -123,6 +126,8 @@ export default function RunnerPage() {
     if (latest.qubits_used) setQubits(latest.qubits_used)
     if (latest.algorithm)   setCircuitName(latest.algorithm)
     if (latest.backend_selected) setBackend(latest.backend_selected as any)
+    // Bump revision so CircuitResults remounts and all animations replay
+    setLiveRevision((r) => r + 1)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveRows, sdkMode])
 
@@ -995,7 +1000,9 @@ const adaptiveShots = calculateAdaptiveShots({
           {/* Results — always shown in SDK mode; shown after a manual run otherwise */}
           {(results || sdkMode) ? (
             <div className="space-y-6">
-              <CircuitResults backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} isLive={sdkMode} />
+              {/* key includes liveRevision so the component remounts on every new live
+                  execution — this replays all gauge sweeps and count-up animations */}
+              <CircuitResults key={sdkMode ? `cr-${liveRevision}` : "static"} backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} isLive={sdkMode} />
 
               {/* Digital Twin Dashboard — live-driven in SDK mode via its own SSE connection,
                   pre-seeded with liveRows so it immediately shows existing rows. */}

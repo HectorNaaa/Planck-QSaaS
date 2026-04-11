@@ -83,6 +83,9 @@ export default function DashboardPage() {
   const [allRows, setAllRows] = useState<ExecutionRow[]>([])
   const [twins, setTwins] = useState<DigitalTwin[]>([])
   const [activeTab, setActiveTab] = useState<"all" | string>("all")
+  // Bumped on every new live execution so DigitalTwinDashboard remounts and
+  // replays chart entrance animations without a full page refresh.
+  const [liveRevision, setLiveRevision] = useState(0)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const isGuest = useIsGuest()
@@ -112,6 +115,7 @@ export default function DashboardPage() {
   // counts stay up-to-date. appendExecRow deduplicates by ID.
   useEffect(() => {
     sseRows.forEach((row) => appendExecRow(row))
+    if (sseRows.length > 0) setLiveRevision((r) => r + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sseRows.length])
 
@@ -122,6 +126,7 @@ export default function DashboardPage() {
     const handler = (event: MessageEvent) => {
       if (event.data?.type === "execution_completed") {
         appendExecRow(event.data.row as ExecutionRow)
+        setLiveRevision((r) => r + 1)
       }
     }
     ch.addEventListener("message", handler)
@@ -293,7 +298,7 @@ export default function DashboardPage() {
         <p className="text-muted-foreground text-sm py-12 text-center">Loading…</p>
       ) : (
         <DigitalTwinDashboard
-          key={activeTab}
+          key={liveEnabled ? `${activeTab}-${liveRevision}` : activeTab}
           initialRows={rowsForTab}
           liveEnabled={false}
           apiKey={null}
