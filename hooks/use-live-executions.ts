@@ -68,7 +68,6 @@ export function useLiveExecutions({
 
   useEffect(() => {
     // Merge initialRows into existing rows (don't replace — SSE-received rows must survive).
-    // Only runs when the server provides more rows than before.
     setRows((prev) => {
       const prevIds = new Set(prev.map((r) => r.id))
       const fresh = initialRows.filter((r) => !prevIds.has(r.id))
@@ -80,8 +79,9 @@ export function useLiveExecutions({
     if (initialRows.length > 0) {
       sinceRef.current = initialRows[initialRows.length - 1].created_at
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialRows.length])
+    // Dependency is the array reference so re-merges fire even when the
+    // row count stays the same (e.g. 500-cap rotation).
+  }, [initialRows])
 
   // BroadcastChannel listener — always active regardless of `enabled`.
   // Runner broadcasts each completed execution so the dashboard (and any other
@@ -154,7 +154,9 @@ export function useLiveExecutions({
                 const ids = new Set(prev.map((r) => r.id))
                 const fresh = newRows.filter((r) => !ids.has(r.id))
                 if (fresh.length === 0) return prev
-                return [...prev, ...fresh].slice(-500)
+                const merged = [...prev, ...fresh]
+                merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+                return merged.slice(-500)
               })
             }
           } else if (msg.type === "error") {

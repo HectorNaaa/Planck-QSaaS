@@ -27,7 +27,7 @@ import { useRouter } from "next/navigation"
 import { DigitalTwinDashboard } from "@/components/dashboard/digital-twin-dashboard"
 import { useLiveExecutions, type ExecutionRow } from "@/hooks/use-live-executions"
 import { useIsGuest } from "@/components/guest-banner"
-import { useLiveMode, LIVE_CHANNEL } from "@/hooks/use-live-mode"
+import { useLiveMode } from "@/hooks/use-live-mode"
 
 type TimeRange = "24h" | "7d" | "30d"
 
@@ -112,24 +112,12 @@ export default function DashboardPage() {
   // counts stay up-to-date. appendExecRow deduplicates by ID.
   useEffect(() => {
     sseRows.forEach((row) => appendExecRow(row))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sseRows.length])
+  }, [sseRows, appendExecRow])
 
-  // Listen for execution_completed broadcasts from runner (instant, no SSE delay)
-  useEffect(() => {
-    if (isGuest || typeof BroadcastChannel === "undefined") return
-    const ch = new BroadcastChannel(LIVE_CHANNEL)
-    const handler = (event: MessageEvent) => {
-      if (event.data?.type === "execution_completed") {
-        appendExecRow(event.data.row as ExecutionRow)
-      }
-    }
-    ch.addEventListener("message", handler)
-    return () => {
-      ch.removeEventListener("message", handler)
-      ch.close()
-    }
-  }, [isGuest, appendExecRow])
+  // BroadcastChannel listener removed — the useLiveExecutions hook's own
+  // always-active BC listener already captures execution_completed broadcasts
+  // into sseRows, which the sync effect above feeds into allRows.
+
   useEffect(() => { loadAll() }, [timeRange, isGuest])
 
   async function loadAll() {
