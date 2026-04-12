@@ -94,10 +94,15 @@ export function useLiveExecutions({
       const row = event.data.row as ExecutionRow
       setRows((prev) => {
         if (prev.some((r) => r.id === row.id)) return prev
-        const next = [row, ...prev].slice(0, 500)
+        // Append then sort oldest→newest so the array stays consistent with
+        // the SSE path ("[...prev, ...fresh]").  Charts use .slice(-80) and
+        // the runner reads liveRows[liveRows.length - 1]; both need the
+        // newest row at the END of the array.
+        const next = [...prev, row]
+        next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
         // advance sinceRef so SSE doesn't re-deliver this row
         if (row.created_at > sinceRef.current) sinceRef.current = row.created_at
-        return next
+        return next.slice(-500)
       })
     }
     ch.addEventListener("message", handler)

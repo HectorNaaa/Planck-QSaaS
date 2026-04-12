@@ -35,7 +35,7 @@ import { useIsGuest } from "@/components/guest-banner"
 /** Convert a manual-run results object into the ExecutionRow shape the DT dashboard expects. */
 function resultToRow(
   r: any,
-  ctx: { circuitName: string; shots: number | null; qubits: number; backend: string; errorMitigation: string },
+  ctx: { circuitName: string; shots: number | null; qubits: number; backend: string; errorMitigation: string; digitalTwinId?: string | null },
 ) {
   return {
     id: r._liveJobId ?? "manual-run",
@@ -49,7 +49,7 @@ function resultToRow(
     success_rate: r.success_rate ?? 0,
     backend_selected: r.backend_selected ?? ctx.backend,
     error_mitigation: r.error_mitigation ?? ctx.errorMitigation,
-    digital_twin_id: null,
+    digital_twin_id: ctx.digitalTwinId ?? null,
     circuit_data: { fidelity: r.fidelity, counts: r.counts },
   }
 }
@@ -517,6 +517,7 @@ const adaptiveShots = calculateAdaptiveShots({
             qubits,
             backend: simulateData.backend || backend,
             errorMitigation: simulateData.error_mitigation || errorMitigation,
+            digitalTwinId: selectedDigitalTwinId,
           },
         )
         const raw = localStorage.getItem("planck_exec_cache")
@@ -1010,7 +1011,7 @@ const adaptiveShots = calculateAdaptiveShots({
                 liveEnabled={sdkMode}
                 apiKey={null}
                 digitalTwinId={selectedDigitalTwinId}
-                initialRows={sdkMode ? liveRows : results ? [resultToRow(results, { circuitName, shots, qubits, backend, errorMitigation })] : []}
+                initialRows={sdkMode ? liveRows : results ? [resultToRow(results, { circuitName, shots, qubits, backend, errorMitigation, digitalTwinId: selectedDigitalTwinId })] : []}
                 title={selectedDigitalTwinId ? "Selected Digital Twin" : "All Digital Twins"}
               />
 

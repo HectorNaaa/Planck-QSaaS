@@ -50,6 +50,35 @@ export async function GET(req: NextRequest) {
 
   const encoder = new TextEncoder()
 
+  /**
+   * Transform a raw SQLite execution row into the ExecutionRow shape the client
+   * expects.  The DB stores circuit_data as a JSON text blob; the client type
+   * expects a parsed object with top-level digital_twin_id, fidelity, and counts.
+   */
+  function toClientRow(r: any) {
+    let parsed: any = null
+    try { parsed = r.circuit_data ? JSON.parse(r.circuit_data) : null } catch { /* keep null */ }
+    return {
+      id:               r.id,
+      circuit_name:     r.circuit_name   ?? "",
+      algorithm:        r.algorithm      ?? "",
+      status:           r.status         ?? "pending",
+      qubits_used:      r.qubits_used    ?? 0,
+      runtime_ms:       r.runtime_ms     ?? 0,
+      success_rate:     r.success_rate   ?? 0,
+      backend_selected: r.backend_selected ?? null,
+      created_at:       r.created_at     ?? new Date().toISOString(),
+      digital_twin_id:  parsed?.digital_twin_id ?? null,
+      shots:            r.shots          ?? 0,
+      error_mitigation: r.error_mitigation ?? null,
+      circuit_data: parsed ? {
+        source:  parsed.source,
+        fidelity: parsed.results?.fidelity ?? null,
+        counts:   parsed.results?.counts   ?? null,
+      } : null,
+    }
+  }
+
   const stream = new ReadableStream({
     async start(controller) {
       const send = (data: object) => {
@@ -75,11 +104,12 @@ export async function GET(req: NextRequest) {
         if (!open) { clearInterval(pollInterval); return }
         try {
           const allRows = Executions.findByUserId(userId!)
-          const rows = allRows
+          const rawRows = allRows
             .filter((r: any) => new Date(r.created_at).toISOString() > since)
             .filter((r: any) => {
               if (!digitalTwinId) return true
               try {
+                // digital_twin_id lives inside the circuit_data JSON blob
                 const payload = r.circuit_data ? JSON.parse(r.circuit_data) : null
                 return payload?.digital_twin_id === digitalTwinId
               } catch {
@@ -89,9 +119,10 @@ export async function GET(req: NextRequest) {
             .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
             .slice(0, 50)
 
-          if (rows && rows.length > 0) {
-            since = rows[rows.length - 1].created_at
-            send({ type: "executions", rows })
+          if (rawRows && rawRows.length > 0) {
+            since = rawRows[rawRows.length - 1].created_at
+            // Transform to the ExecutionRow shape the client expects before sending
+            send({ type: "executions", rows: rawRows.map(toClientRow) })
           }
         } catch (err: any) {
           send({ type: "error", message: err?.message ?? "Poll failed" })
