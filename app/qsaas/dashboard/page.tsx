@@ -64,7 +64,7 @@ function readExecCache(): ExecutionRow[] {
 
 function writeExecCache(rows: ExecutionRow[]) {
   try {
-    localStorage.setItem(EXEC_CACHE_KEY, JSON.stringify(rows.slice(0, 100)))
+    localStorage.setItem(EXEC_CACHE_KEY, JSON.stringify(rows.slice(0, 500)))
   } catch {
     // localStorage full or unavailable — fail silently
   }

@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       : 0
 
     return NextResponse.json({
-      logs: logs.slice(0, 50), // Return last 50 logs
+      logs,
       twins: [], // TODO: Implement digital twins tracking
       stats: {
         totalExecutions,

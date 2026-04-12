@@ -517,7 +517,7 @@ const adaptiveShots = calculateAdaptiveShots({
         )
         const raw = localStorage.getItem("planck_exec_cache")
         const existing: any[] = raw ? JSON.parse(raw) : []
-        const updated = [execRow, ...existing.filter((r: any) => r.id !== execRow.id)].slice(0, 100)
+        const updated = [execRow, ...existing.filter((r: any) => r.id !== execRow.id)].slice(0, 500)
         localStorage.setItem("planck_exec_cache", JSON.stringify(updated))
         // Broadcast to dashboard and any other open pages for instant update
         broadcastExecution(execRow)
