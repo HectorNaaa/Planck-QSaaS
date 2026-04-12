@@ -67,7 +67,9 @@ export async function GET(req: NextRequest) {
       runtime_ms:       r.runtime_ms     ?? 0,
       success_rate:     r.success_rate   ?? 0,
       backend_selected: r.backend_selected ?? null,
-      created_at:       r.created_at     ?? new Date().toISOString(),
+      // Normalize to ISO-8601 so the client sinceRef is always ISO, preventing
+      // cursor format-mismatch on reconnect (SQLite stores "YYYY-MM-DD HH:MM:SS").
+      created_at:       new Date(r.created_at ?? Date.now()).toISOString(),
       digital_twin_id:  parsed?.digital_twin_id ?? null,
       shots:            r.shots          ?? 0,
       error_mitigation: r.error_mitigation ?? null,
@@ -99,13 +101,25 @@ export async function GET(req: NextRequest) {
         try { controller.enqueue(encoder.encode(": ping\n\n")) } catch { /* closed */ }
       }, 15_000)
 
+      // Track IDs already sent at the current `since` second so that multiple
+      // rows sharing the same 1-second SQLite timestamp are not dropped or
+      // re-delivered across consecutive polls.
+      const sentIds = new Set<number | string>()
+
       // Poll every 3 s
       const pollInterval = setInterval(async () => {
         if (!open) { clearInterval(pollInterval); return }
         try {
           const allRows = Executions.findByUserId(userId!)
           const rawRows = allRows
-            .filter((r: any) => new Date(r.created_at).toISOString() > since)
+            .filter((r: any) => {
+              // Convert the SQLite "YYYY-MM-DD HH:MM:SS" format to ISO-8601 so
+              // string comparison is always consistent.
+              const rowIso = new Date(r.created_at).toISOString()
+              if (rowIso > since) return true        // strictly newer — include
+              if (rowIso === since) return !sentIds.has(r.id) // same second, not yet sent
+              return false                           // older — skip
+            })
             .filter((r: any) => {
               if (!digitalTwinId) return true
               try {
@@ -120,7 +134,17 @@ export async function GET(req: NextRequest) {
             .slice(0, 50)
 
           if (rawRows && rawRows.length > 0) {
-            since = rawRows[rawRows.length - 1].created_at
+            // Advance the cursor to ISO-8601 so it always matches the filter
+            // format on the next poll.  Using raw SQLite format caused a
+            // mismatch where ISO strings ("T"=84) always sort after SQLite
+            // format (" "=32), re-delivering all rows every poll indefinitely.
+            const newSince = new Date(rawRows[rawRows.length - 1].created_at).toISOString()
+            if (newSince > since) {
+              // Moved to a new second — clear the set; old IDs are now < since
+              sentIds.clear()
+            }
+            rawRows.forEach((r: any) => sentIds.add(r.id))
+            since = newSince
             // Transform to the ExecutionRow shape the client expects before sending
             send({ type: "executions", rows: rawRows.map(toClientRow) })
           }

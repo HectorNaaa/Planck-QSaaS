@@ -293,7 +293,7 @@ export default function DashboardPage() {
       <DigitalTwinDashboard
           key={activeTab}
           initialRows={rowsForTab}
-          liveEnabled={liveEnabled && !isGuest}
+          liveEnabled={false}
           apiKey={null}
           digitalTwinId={activeTab === "all" ? null : activeTab}
           title={activeTab === "all" ? "All Digital Twins" : (activeTwin?.name ?? activeTab)}

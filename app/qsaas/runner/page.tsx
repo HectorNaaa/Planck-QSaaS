@@ -1008,7 +1008,7 @@ const adaptiveShots = calculateAdaptiveShots({
               {/* Digital Twin Dashboard — live-driven in SDK mode via its own SSE connection,
                   pre-seeded with liveRows so it immediately shows existing rows. */}
               <DigitalTwinDashboard
-                liveEnabled={sdkMode}
+                liveEnabled={false}
                 apiKey={null}
                 digitalTwinId={selectedDigitalTwinId}
                 initialRows={sdkMode ? liveRows : results ? [resultToRow(results, { circuitName, shots, qubits, backend, errorMitigation, digitalTwinId: selectedDigitalTwinId })] : []}
