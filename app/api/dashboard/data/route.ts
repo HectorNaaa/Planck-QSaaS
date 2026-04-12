@@ -2,6 +2,34 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authenticateRequest } from '@/lib/api-auth'
 import { Executions } from '@/lib/db/client'
 
+/**
+ * Normalise a raw SQLite execution row into the ExecutionRow shape the client
+ * expects.  Mirrors the toClientRow() function in the SSE stream route.
+ */
+function toClientRow(r: any) {
+  let parsed: any = null
+  try { parsed = r.circuit_data ? JSON.parse(r.circuit_data) : null } catch { /* keep null */ }
+  return {
+    id:               r.id,
+    circuit_name:     r.circuit_name   ?? '',
+    algorithm:        r.algorithm      ?? '',
+    status:           r.status         ?? 'pending',
+    qubits_used:      r.qubits_used    ?? 0,
+    runtime_ms:       r.runtime_ms     ?? 0,
+    success_rate:     r.success_rate   ?? 0,
+    backend_selected: r.backend_selected ?? null,
+    created_at:       new Date(r.created_at ?? Date.now()).toISOString(),
+    digital_twin_id:  parsed?.digital_twin_id ?? null,
+    shots:            r.shots          ?? 0,
+    error_mitigation: r.error_mitigation ?? null,
+    circuit_data: parsed ? {
+      source:  parsed.source,
+      fidelity: parsed.results?.fidelity ?? null,
+      counts:   parsed.results?.counts   ?? null,
+    } : null,
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     // Use the canonical authenticateRequest helper — this self-heals the user
@@ -67,7 +95,7 @@ export async function GET(request: NextRequest) {
       : 0
 
     return NextResponse.json({
-      logs,
+      logs: logs.map(toClientRow),
       twins: [], // TODO: Implement digital twins tracking
       stats: {
         totalExecutions,

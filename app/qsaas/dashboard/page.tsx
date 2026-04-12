@@ -28,6 +28,7 @@ import { DigitalTwinDashboard } from "@/components/dashboard/digital-twin-dashbo
 import { useLiveExecutions, type ExecutionRow } from "@/hooks/use-live-executions"
 import { useIsGuest } from "@/components/guest-banner"
 import { useLiveMode } from "@/hooks/use-live-mode"
+import { useRef } from "react"
 
 type TimeRange = "24h" | "7d" | "30d"
 
@@ -118,7 +119,28 @@ export default function DashboardPage() {
   // always-active BC listener already captures execution_completed broadcasts
   // into sseRows, which the sync effect above feeds into allRows.
 
+  const loadAllRef = useRef<() => void>(() => {})
+
   useEffect(() => { loadAll() }, [timeRange, isGuest])
+
+  // Re-fetch when the browser tab becomes visible again (user switches back)
+  // or when liveEnabled is toggled — ensures stat cards are always fresh.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === "visible") loadAllRef.current() }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => document.removeEventListener("visibilitychange", onVisible)
+  }, [])
+
+  useEffect(() => { if (liveEnabled && !isGuest) loadAllRef.current() }, [liveEnabled, isGuest])
+
+  // Periodic fallback re-fetch every 15 s while live mode is on.
+  // Covers the case where SSE is connected to a different Vercel function
+  // instance than the one handling SDK writes.
+  useEffect(() => {
+    if (!liveEnabled || isGuest) return
+    const id = setInterval(() => loadAllRef.current(), 15_000)
+    return () => clearInterval(id)
+  }, [liveEnabled, isGuest])
 
   async function loadAll() {
     setLoading(true)
@@ -145,7 +167,16 @@ export default function DashboardPage() {
       const merged = mergeExecRows(serverRows, cachedRows)
       writeExecCache(merged)
 
-      setAllRows(merged)
+      // Use a functional updater so we never blow away SSE rows that arrived
+      // between the fetch start and its resolution.
+      setAllRows((prev) => {
+        const ids = new Set(merged.map((r) => r.id))
+        const extra = prev.filter((r) => !ids.has(r.id))
+        if (extra.length === 0) return merged
+        const combined = [...merged, ...extra]
+        combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        return combined
+      })
       setTwins(data.twins || [])
     } catch (error) {
       console.error('[DASHBOARD] Error loading dashboard data:', error)
@@ -159,6 +190,8 @@ export default function DashboardPage() {
       setLoading(false)
     }
   }
+  // Keep ref in sync so visibility/periodic callbacks call the latest closure.
+  loadAllRef.current = loadAll
 
   // ── Stats ──────────────────────────────────────────────────────────────────
   const stats = useMemo<DashboardStats>(() => {

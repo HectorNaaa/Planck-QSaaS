@@ -106,9 +106,10 @@ export async function GET(req: NextRequest) {
       // re-delivered across consecutive polls.
       const sentIds = new Set<number | string>()
 
-      // Poll every 3 s
-      const pollInterval = setInterval(async () => {
-        if (!open) { clearInterval(pollInterval); return }
+      // Extracted poll logic so the first poll runs immediately — setInterval
+      // alone would wait 3 s before the first callback.
+      const poll = async () => {
+        if (!open) return
         try {
           const allRows = Executions.findByUserId(userId!)
           const rawRows = allRows
@@ -151,7 +152,11 @@ export async function GET(req: NextRequest) {
         } catch (err: any) {
           send({ type: "error", message: err?.message ?? "Poll failed" })
         }
-      }, 3_000)
+      }
+
+      // Immediate first poll then every 3 s
+      poll()
+      const pollInterval = setInterval(poll, 3_000)
 
       // Auto-close before hard Vercel timeout
       setTimeout(() => {
