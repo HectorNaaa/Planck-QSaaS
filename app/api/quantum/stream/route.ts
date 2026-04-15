@@ -32,14 +32,8 @@ export async function GET(req: NextRequest) {
   let userId: string | null = null
 
   if (queryApiKey && validateApiKey(queryApiKey)) {
-    // Resolve user from query-param API key
-    // const admin = getAdminClient() // Removed Supabase usage
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("id")
-      .eq("api_key", queryApiKey)
-      .single()
-    userId = profile?.id ?? null
+    // API key lookup disabled (no Supabase server client).
+    // Fall through to session auth below.
   }
 
   if (!userId) {
@@ -80,27 +74,8 @@ export async function GET(req: NextRequest) {
       // Poll every 3 s
       const pollInterval = setInterval(async () => {
         if (!open) { clearInterval(pollInterval); return }
-        try {
-          // let query = supabase // Removed Supabase usage
-            .from("execution_logs")
-            .select("id,circuit_name,algorithm,status,qubits_used,runtime_ms,success_rate,backend_selected,created_at,digital_twin_id,shots,error_mitigation,circuit_data")
-            .eq("user_id", userId!)
-            .gt("created_at", since)
-            .order("created_at", { ascending: true })
-            .limit(50)
-
-          if (digitalTwinId) query = query.eq("digital_twin_id", digitalTwinId)
-
-          const { data: rows, error } = await query
-          if (error) { send({ type: "error", message: error.message }); return }
-
-          if (rows && rows.length > 0) {
-            since = rows[rows.length - 1].created_at
-            send({ type: "executions", rows })
-          }
-        } catch (err: any) {
-          send({ type: "error", message: err?.message ?? "Poll failed" })
-        }
+        // Execution log polling disabled (no Supabase server client).
+        // Live updates are delivered via BroadcastChannel from the runner.
       }, 3_000)
 
       // Auto-close before hard Vercel timeout

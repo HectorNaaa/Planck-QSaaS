@@ -183,104 +183,11 @@ export async function POST(request: NextRequest) {
 
     const actualFidelity = calculateFidelity(effectiveBackend, resolvedQubits, depth)
 
-    // const { data: insertedLog, error: insertError } = await supabase // Removed Supabase usage
-      .from("execution_logs")
-      .insert({
-        user_id: userId,
-        circuit_name: circuitName,
-        algorithm: algorithm,
-        execution_type: executionType,
-        backend: effectiveBackend,
-        status: "completed",
-        success_rate: results.successRate,
-        runtime_ms: results.runtime,
-        qubits_used: resolvedQubits,
-        shots: effectiveShots,
-        error_mitigation: effectiveErrorMitigation,
-        // New backend-selection audit columns
-        backend_selected: effectiveBackend,
-        backend_reason: policyResult.reason,
-        backend_hint: backend === "auto" ? null : backend,
-        backend_metadata: policyResult.metadata,
-        backend_assigned_at: new Date().toISOString(),
-        circuit_data: {
-          source,
-          qasm_code: qasm,
-          input_data: inputData,
-          algorithm_params: {
-            algorithm,
-            qubits: resolvedQubits,
-            shots: effectiveShots,
-            backend: effectiveBackend,
-            backend_hint: backend,
-            error_mitigation: effectiveErrorMitigation,
-            error_mitigation_requested: errorMitigation,
-            depth,
-            gate_count: gateCount,
-            target_latency: targetLatency,
-          },
-          digital_twin_id: digitalTwinId,
-          results: {
-            counts: results.counts,
-            success_rate: results.successRate,
-            runtime_ms: results.runtime,
-            memory: results.memory,
-            fidelity: actualFidelity,
-          },
-          backend_config: {
-            backend: effectiveBackend,
-            shots: effectiveShots,
-            error_mitigation: effectiveErrorMitigation,
-          },
-          ml_recommendation: mlRecommendation ? {
-            shots: mlRecommendation.recommendedShots,
-            error_mitigation: mlRecommendation.recommendedErrorMitigation,
-            confidence: mlRecommendation.confidence,
-            based_on: mlRecommendation.basedOnExecutions,
-          } : null,
-        },
-        completed_at: new Date().toISOString(),
-      })
-      .select("id")
-      .single()
+    // Execution log insert disabled (no Supabase server client).
+    // The runner caches the result in localStorage and broadcasts it via BroadcastChannel.
+    const executionId = `${userId}-${Date.now()}`
 
-    if (insertError) {
-      console.error("[API] Failed to insert execution log:", insertError.message)
-    }
-
-    if (insertedLog?.id) {
-      try {
-        await CppMLEngine.recordExecution(
-          {
-            qubits: resolvedQubits,
-            depth: resolvedDepth,
-            gateCount: resolvedGateCount,
-            algorithm,
-            dataSize,
-            dataComplexity: 0.5,
-            targetLatency: targetLatency || 0,
-            errorMitigation: effectiveErrorMitigation,
-            userHistoricalAccuracy: 0.5,
-          },
-          insertedLog.id,
-          userId,
-          {
-            actualShots: effectiveShots,
-            actualBackend: effectiveBackend,
-            actualRuntime: results.runtime,
-            actualSuccessRate: results.successRate,
-            actualFidelity,
-            predictedShots: predictedShots || effectiveShots,
-            predictedBackend: predictedBackend || effectiveBackend,
-            predictedRuntime: results.runtime,
-            predictedFidelity: predictedFidelity || actualFidelity,
-          },
-        )
-      } catch (mlError) {
-        // ML recording is non-critical, log but don't fail
-        console.error("[API] ML recording failed:", mlError)
-      }
-    }
+    // ML recording disabled (no Supabase). Non-critical, skip.
 
     return NextResponse.json({
       success: true,
@@ -291,7 +198,7 @@ export async function POST(request: NextRequest) {
       total_shots: effectiveShots,
       error_mitigation: effectiveErrorMitigation,
       error_mitigation_requested: errorMitigation,
-      execution_id: insertedLog?.id,
+      execution_id: executionId,
       fidelity: actualFidelity,
       backend: effectiveBackend,
       backendReason: policyResult.reason,
