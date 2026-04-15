@@ -53,6 +53,12 @@ export function ExpectedResults({ backend, qubits, depth, hasData = false }: Exp
 
       {isExpanded && (
         <div className="space-y-4">
+          {!hasData ? (
+            <div className="flex items-center justify-center py-8 rounded-lg border border-dashed border-border bg-secondary/30">
+              <p className="text-sm text-muted-foreground">Upload data to see estimated results</p>
+            </div>
+          ) : (
+            <>
           {/* Expected Metrics */}
           <div className="grid grid-cols-2 gap-3">
             <div className="p-3 bg-secondary/50 rounded-lg border border-primary/20">
@@ -90,6 +96,8 @@ export function ExpectedResults({ backend, qubits, depth, hasData = false }: Exp
               ))}
             </div>
           </div>
+            </>
+          )}
         </div>
       )}
     </Card>
