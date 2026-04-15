@@ -16,9 +16,9 @@
  */
 
 import { type NextRequest } from "next/server"
+// Removed Supabase admin client import
 import { authenticateRequest } from "@/lib/api-auth"
 import { validateApiKey } from "@/lib/security"
-import { ApiKeys, Executions } from "@/lib/db/client"
 
 export const dynamic = "force-dynamic"
 export const maxDuration = 300
@@ -32,8 +32,14 @@ export async function GET(req: NextRequest) {
   let userId: string | null = null
 
   if (queryApiKey && validateApiKey(queryApiKey)) {
-    const key = ApiKeys.findByKey(queryApiKey)
-    userId = key?.user_id ?? null
+    // Resolve user from query-param API key
+    // const admin = getAdminClient() // Removed Supabase usage
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("api_key", queryApiKey)
+      .single()
+    userId = profile?.id ?? null
   }
 
   if (!userId) {
@@ -48,38 +54,8 @@ export async function GET(req: NextRequest) {
   const digitalTwinId = searchParams.get("digital_twin_id") ?? null
   let since = searchParams.get("since") ?? new Date(0).toISOString()
 
+  // const supabase = getAdminClient() // Removed Supabase usage
   const encoder = new TextEncoder()
-
-  /**
-   * Transform a raw SQLite execution row into the ExecutionRow shape the client
-   * expects.  The DB stores circuit_data as a JSON text blob; the client type
-   * expects a parsed object with top-level digital_twin_id, fidelity, and counts.
-   */
-  function toClientRow(r: any) {
-    let parsed: any = null
-    try { parsed = r.circuit_data ? JSON.parse(r.circuit_data) : null } catch { /* keep null */ }
-    return {
-      id:               r.id,
-      circuit_name:     r.circuit_name   ?? "",
-      algorithm:        r.algorithm      ?? "",
-      status:           r.status         ?? "pending",
-      qubits_used:      r.qubits_used    ?? 0,
-      runtime_ms:       r.runtime_ms     ?? 0,
-      success_rate:     r.success_rate   ?? 0,
-      backend_selected: r.backend_selected ?? null,
-      // Normalize to ISO-8601 so the client sinceRef is always ISO, preventing
-      // cursor format-mismatch on reconnect (SQLite stores "YYYY-MM-DD HH:MM:SS").
-      created_at:       new Date(r.created_at ?? Date.now()).toISOString(),
-      digital_twin_id:  parsed?.digital_twin_id ?? null,
-      shots:            r.shots          ?? 0,
-      error_mitigation: r.error_mitigation ?? null,
-      circuit_data: parsed ? {
-        source:  parsed.source,
-        fidelity: parsed.results?.fidelity ?? null,
-        counts:   parsed.results?.counts   ?? null,
-      } : null,
-    }
-  }
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -101,62 +77,31 @@ export async function GET(req: NextRequest) {
         try { controller.enqueue(encoder.encode(": ping\n\n")) } catch { /* closed */ }
       }, 15_000)
 
-      // Track IDs already sent at the current `since` second so that multiple
-      // rows sharing the same 1-second SQLite timestamp are not dropped or
-      // re-delivered across consecutive polls.
-      const sentIds = new Set<number | string>()
-
-      // Extracted poll logic so the first poll runs immediately — setInterval
-      // alone would wait 3 s before the first callback.
-      const poll = async () => {
-        if (!open) return
+      // Poll every 3 s
+      const pollInterval = setInterval(async () => {
+        if (!open) { clearInterval(pollInterval); return }
         try {
-          const allRows = Executions.findByUserId(userId!)
-          const rawRows = allRows
-            .filter((r: any) => {
-              // Convert the SQLite "YYYY-MM-DD HH:MM:SS" format to ISO-8601 so
-              // string comparison is always consistent.
-              const rowIso = new Date(r.created_at).toISOString()
-              if (rowIso > since) return true        // strictly newer — include
-              if (rowIso === since) return !sentIds.has(r.id) // same second, not yet sent
-              return false                           // older — skip
-            })
-            .filter((r: any) => {
-              if (!digitalTwinId) return true
-              try {
-                // digital_twin_id lives inside the circuit_data JSON blob
-                const payload = r.circuit_data ? JSON.parse(r.circuit_data) : null
-                return payload?.digital_twin_id === digitalTwinId
-              } catch {
-                return false
-              }
-            })
-            .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-            .slice(0, 50)
+          // let query = supabase // Removed Supabase usage
+            .from("execution_logs")
+            .select("id,circuit_name,algorithm,status,qubits_used,runtime_ms,success_rate,backend_selected,created_at,digital_twin_id,shots,error_mitigation,circuit_data")
+            .eq("user_id", userId!)
+            .gt("created_at", since)
+            .order("created_at", { ascending: true })
+            .limit(50)
 
-          if (rawRows && rawRows.length > 0) {
-            // Advance the cursor to ISO-8601 so it always matches the filter
-            // format on the next poll.  Using raw SQLite format caused a
-            // mismatch where ISO strings ("T"=84) always sort after SQLite
-            // format (" "=32), re-delivering all rows every poll indefinitely.
-            const newSince = new Date(rawRows[rawRows.length - 1].created_at).toISOString()
-            if (newSince > since) {
-              // Moved to a new second — clear the set; old IDs are now < since
-              sentIds.clear()
-            }
-            rawRows.forEach((r: any) => sentIds.add(r.id))
-            since = newSince
-            // Transform to the ExecutionRow shape the client expects before sending
-            send({ type: "executions", rows: rawRows.map(toClientRow) })
+          if (digitalTwinId) query = query.eq("digital_twin_id", digitalTwinId)
+
+          const { data: rows, error } = await query
+          if (error) { send({ type: "error", message: error.message }); return }
+
+          if (rows && rows.length > 0) {
+            since = rows[rows.length - 1].created_at
+            send({ type: "executions", rows })
           }
         } catch (err: any) {
           send({ type: "error", message: err?.message ?? "Poll failed" })
         }
-      }
-
-      // Immediate first poll then every 3 s
-      poll()
-      const pollInterval = setInterval(poll, 3_000)
+      }, 3_000)
 
       // Auto-close before hard Vercel timeout
       setTimeout(() => {

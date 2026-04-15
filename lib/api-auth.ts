@@ -1,8 +1,6 @@
 import type { NextRequest } from "next/server"
+// Removed Supabase imports
 import { validateApiKey } from "@/lib/security"
-import { verifyJWT } from "@/lib/auth-utils"
-import { ApiKeys } from "@/lib/db/client"
-import { ensureDbUser } from "@/lib/db/ensure-user"
 
 /**
  * Mask an API key for safe logging (first 6 chars + ... + last 4 chars).
@@ -40,41 +38,53 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthRes
 
   // ── Path 1: API-key authentication ─────────────────────────────
   if (apiKey) {
+    // Format validation
     if (!validateApiKey(apiKey)) {
+      console.warn("[Auth] Invalid API key format, masked:", maskKey(apiKey))
       return { ok: false, userId: null, method: "api_key", status: 401, error: "Invalid API key format" }
     }
 
     try {
-      const key = ApiKeys.findByKey(apiKey)
-      if (!key?.user_id) {
+      const admin = getAdminClient()
+      const { data: profile, error: dbError } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("api_key", apiKey)
+        .single()
+
+      if (dbError) {
+        console.warn("[Auth] DB lookup failed for key", maskKey(apiKey), "| error:", dbError.message)
+      }
+
+      if (dbError || !profile) {
         return { ok: false, userId: null, method: "api_key", status: 401, error: "Invalid API key" }
       }
 
-      ApiKeys.updateLastUsed(apiKey)
-      return { ok: true, userId: key.user_id, method: "api_key", status: 200, error: "" }
-    } catch {
+      console.log("[Auth] API-key authenticated, userId:", profile.id, "key:", maskKey(apiKey))
+      return { ok: true, userId: profile.id, method: "api_key", status: 200, error: "" }
+    } catch (err: any) {
+      console.error("[Auth] Unexpected error during API-key lookup:", err?.message)
       return { ok: false, userId: null, method: "api_key", status: 500, error: "Authentication service error" }
     }
   }
 
-  const token = request.cookies.get("auth-token")?.value
-  if (!token) {
-    return { ok: false, userId: null, method: "session", status: 401, error: "Unauthorized" }
-  }
-
-  const payload = verifyJWT(token)
-  if (!payload?.userId) {
-    return { ok: false, userId: null, method: "session", status: 401, error: "Invalid session" }
-  }
-
-  // Ensure DB rows exist for this user (survives cold starts / DB wipes)
+  // ── Path 2: Session-cookie authentication ──────────────────────
   try {
-    ensureDbUser(payload)
-  } catch (healErr) {
-    console.error('[AUTH] ensureDbUser failed — DB writes for this user will likely fail:', healErr)
-  }
+    // Supabase logic removed; use internal DB logic here
 
-  // JWT is the source of truth — no DB roundtrip needed.
-  // DB may be empty on serverless/Vercel; the signed token already proves identity.
-  return { ok: true, userId: payload.userId, method: "session", status: 200, error: "" }
+    if (authError || !user) {
+      return {
+        ok: false,
+        userId: null,
+        method: "session",
+        status: 401,
+        error: "Unauthorized. Provide an API key via the x-api-key header or authenticate via session.",
+      }
+    }
+
+    return { ok: true, userId: user.id, method: "session", status: 200, error: "" }
+  } catch (err: any) {
+    console.error("[Auth] Session auth error:", err?.message)
+    return { ok: false, userId: null, method: "session", status: 500, error: "Authentication service error" }
+  }
 }

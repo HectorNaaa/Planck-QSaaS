@@ -9,7 +9,7 @@ import { DatabaseUploader } from "@/components/runner/database-uploader"
 import { AutoParser } from "@/components/runner/autoparser"
 import { ExpectedResults } from "@/components/runner/expected-results"
 import { CircuitResults } from "@/components/runner/circuit-results"
-import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff } from "lucide-react"
+import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff, Trash2 } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import type { BuiltCircuit } from "@/lib/circuit-builder"
 
@@ -90,7 +90,7 @@ export default function RunnerPage() {
   // Live SSE feed — active only when live mode is on.
   // Browser EventSource sends session cookies automatically (same-origin), so
   // no API key is needed for in-browser live mode.
-  const { rows: liveRows, connected: liveConnected } = useLiveExecutions({
+  const { rows: liveRows, connected: liveConnected, clear: clearLiveRows } = useLiveExecutions({
     enabled: sdkMode,
     digitalTwinId: selectedDigitalTwinId,
     apiKey: null, // session cookie handles auth for browser EventSource
@@ -685,6 +685,11 @@ const adaptiveShots = calculateAdaptiveShots({
     targetLatency,
   ])
 
+  const handleClearResults = useCallback(() => {
+    setResults(null)
+    clearLiveRows()
+  }, [clearLiveRows])
+
   const handleReset = useCallback(() => {
     setExecutionName("")
     setCircuitName("")
@@ -871,6 +876,12 @@ const adaptiveShots = calculateAdaptiveShots({
             <RotateCcw size={18} />
             Reset
           </Button>
+          {(results || liveRows.length > 0) && (
+            <Button onClick={handleClearResults} variant="outline" className="flex items-center gap-2 bg-secondary text-muted-foreground hover:text-destructive hover:border-destructive/50">
+              <Trash2 size={18} />
+              Clear Results
+            </Button>
+          )}
           <Button onClick={handleSaveCircuit} variant="outline" className="flex items-center gap-2 bg-secondary">
             <Save size={18} />
             Save
@@ -996,6 +1007,18 @@ const adaptiveShots = calculateAdaptiveShots({
           {/* Results — always shown in SDK mode; shown after a manual run otherwise */}
           {(results || sdkMode) ? (
             <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">{sdkMode ? `${liveRows.length} job${liveRows.length !== 1 ? 's' : ''} received` : 'Execution results'}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearResults}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive hover:border-destructive/50 bg-secondary"
+                >
+                  <Trash2 size={13} />
+                  Clear Results
+                </Button>
+              </div>
               {/* Stable key so useAnimatedValue smoothly counts between values
                   instead of replaying from zero on every live row. The isLive
                   prop already enables animated transitions + flash rings. */}
@@ -1199,6 +1222,12 @@ const adaptiveShots = calculateAdaptiveShots({
           <RotateCcw size={18} />
           Reset
         </Button>
+        {(results || liveRows.length > 0) && (
+          <Button onClick={handleClearResults} variant="outline" className="flex items-center gap-2 bg-secondary text-muted-foreground hover:text-destructive hover:border-destructive/50">
+            <Trash2 size={18} />
+            Clear Results
+          </Button>
+        )}
         <Button onClick={handleSaveCircuit} variant="outline" className="flex items-center gap-2 bg-secondary">
           <Save size={18} />
           Save
