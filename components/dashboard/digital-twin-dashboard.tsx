@@ -149,8 +149,8 @@ export function DigitalTwinDashboard({
         yAxisID: "y", pointRadius: 2, borderWidth: 2,
       },
       {
-        label: "Shots",
-        data: chartRows.map((r) => Math.round((r.shots || 0) / 100)),
+        label: "Qubits",
+        data: chartRows.map((r) => r.qubits_used || 0),
         borderColor: GRAY, backgroundColor: "transparent", tension: 0.4, fill: false,
         pointRadius: 2, yAxisID: "y1", borderWidth: 1.5,
       },
@@ -168,7 +168,7 @@ export function DigitalTwinDashboard({
               const r = chartRows[ctx.dataIndex]
               return `${r?.circuit_name ?? ""} — ${backendLabel(r?.backend_selected ?? null)}`
             }
-            return `Shots ×100: ${ctx.parsed.y}`
+            return `Qubits: ${ctx.parsed.y}`
           },
         },
       },
