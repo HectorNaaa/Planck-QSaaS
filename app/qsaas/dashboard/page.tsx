@@ -90,6 +90,10 @@ export default function DashboardPage() {
   // Shared live mode — synced with runner via sessionStorage + BroadcastChannel
   const [liveEnabled, setLiveEnabled] = useLiveMode(isGuest)
 
+  // Flash animation for stat cards when values change
+  const [flashStats, setFlashStats] = useState(false)
+  const prevStatsRef = useRef<DashboardStats | null>(null)
+
   // Page-level SSE feed — drives stat cards and tab counts in real time.
   // The embedded <DigitalTwinDashboard> uses liveEnabled=false and receives
   // real-time rows via the initialRows prop (rowsForTab) instead, keeping
@@ -207,6 +211,24 @@ export default function DashboardPage() {
     }
   }, [allRows])
 
+  // Trigger flash animation when stat values actually change
+  useEffect(() => {
+    if (loading) return
+    const prev = prevStatsRef.current
+    prevStatsRef.current = stats
+    if (
+      prev !== null &&
+      (prev.totalRuns !== stats.totalRuns ||
+        prev.avgSuccessRate !== stats.avgSuccessRate ||
+        prev.avgRuntime !== stats.avgRuntime ||
+        prev.avgQubits !== stats.avgQubits)
+    ) {
+      setFlashStats(true)
+      const t = setTimeout(() => setFlashStats(false), 700)
+      return () => clearTimeout(t)
+    }
+  }, [stats, loading])
+
   // ── Per-DT rows ────────────────────────────────────────────────────────────
   const rowsForTab = useMemo<ExecutionRow[]>(() => {
     if (activeTab === "all") return allRows
@@ -263,7 +285,7 @@ export default function DashboardPage() {
               <p className="text-muted-foreground text-sm font-medium">{label}</p>
               <Icon className="text-primary" size={22} />
             </div>
-            <p className="text-3xl font-bold text-foreground">{value}</p>
+            <p className={`text-3xl font-bold text-foreground ${flashStats ? "stat-value-flash" : ""}`}>{value}</p>
             <p className="text-xs text-primary mt-1">Last {timeRange}</p>
           </Card>
         ))}

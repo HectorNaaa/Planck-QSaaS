@@ -1070,7 +1070,7 @@ const adaptiveShots = calculateAdaptiveShots({
               {/* Stable key so useAnimatedValue smoothly counts between values
                   instead of replaying from zero on every live row. The isLive
                   prop already enables animated transitions + flash rings. */}
-              <CircuitResults key={sdkMode ? "cr-live" : "static"} backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} isLive={sdkMode} />
+              <CircuitResults key={sdkMode ? "cr-live" : "static"} backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} isLive={true} />
 
               {/* Digital Twin Dashboard — live-driven in SDK mode via its own SSE connection,
                   pre-seeded with liveRows so it immediately shows existing rows. */}
