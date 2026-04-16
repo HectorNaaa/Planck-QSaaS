@@ -1,6 +1,6 @@
 "use server"
 
-// Removed Supabase client import
+import { Executions } from "@/lib/db/client"
 
 export interface ExecutionLog {
   circuit_name?: string
@@ -15,111 +15,56 @@ export interface ExecutionLog {
   error?: string
 }
 
-export async function logExecution(log: ExecutionLog) {
+export async function logExecution(userId: string, log: ExecutionLog) {
   try {
-    // const supabase = await createClient() // Removed Supabase usage
-
-    const {
-      data: { user },
-    // } = await supabase.auth.getUser() // Removed Supabase usage
-    if (!user) {
-      console.error("[v0] User not authenticated for logging")
+    if (!userId) {
+      console.error("[logging] No userId provided")
       return null
     }
 
-    // const { data, error } = await supabase // Removed Supabase usage
-      .from("execution_logs")
-      .insert({
-        user_id: user.id,
-        circuit_name: log.circuit_name || null,
-        execution_type: log.execution_type,
-        backend: log.backend,
-        status: log.status,
-        success_rate: log.success_rate || null,
-        runtime_ms: log.runtime_ms || null,
-        qubits_used: log.qubits_used || null,
-        shots: log.shots || null,
-        error_mitigation: log.error_mitigation || null,
-        completed_at: log.status === "completed" || log.status === "failed" ? new Date().toISOString() : null,
-      })
-      .select()
+    const result = Executions.create({
+      user_id: userId,
+      circuit_name: log.circuit_name,
+      execution_type: log.execution_type,
+      backend: log.backend,
+      status: log.status,
+      success_rate: log.success_rate,
+      runtime_ms: log.runtime_ms,
+      qubits_used: log.qubits_used,
+      shots: log.shots,
+      error_mitigation: log.error_mitigation,
+      error: log.error,
+    })
 
-    if (error) {
-      console.error("[v0] Logging error:", error)
-      return null
-    }
-
-    console.log("[v0] Execution logged:", data)
-    return data
-  } catch (error) {
-    console.error("[v0] Logging exception:", error)
+    console.log("[logging] Execution logged:", result.id)
+    return result
+  } catch (err) {
+    console.error("[logging] logExecution exception:", err)
     return null
   }
 }
 
-export async function getExecutionHistory(limit = 10) {
+export async function getExecutionHistory(userId: string, limit = 10) {
   try {
-    // const supabase = await createClient() // Removed Supabase usage
+    if (!userId) return []
 
-    const {
-      data: { user },
-    // } = await supabase.auth.getUser() // Removed Supabase usage
-    if (!user) return []
-
-    // const { data, error } = await supabase // Removed Supabase usage
-      .from("execution_logs")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(limit)
-
-    if (error) {
-      console.error("[v0] Error fetching history:", error)
-      return []
-    }
-
-    return data || []
-  } catch (error) {
-    console.error("[v0] Exception fetching history:", error)
+    const rows = Executions.findByUserId(userId)
+    return rows.slice(0, limit)
+  } catch (err) {
+    console.error("[logging] getExecutionHistory exception:", err)
     return []
   }
 }
 
 export async function saveCircuitTemplate(
-  name: string,
-  description: string,
-  qasmCode: string,
-  qubits: number,
-  gates: number,
-) {
-  try {
-    const supabase = await createClient()
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return null
-
-    const { data, error } = await supabase
-      .from("circuit_templates")
-      .insert({
-        user_id: user.id,
-        name,
-        description,
-        qasm_code: qasmCode,
-        qubits,
-        gates,
-      })
-      .select()
-
-    if (error) {
-      console.error("[v0] Error saving template:", error)
-      return null
-    }
-
-    return data
-  } catch (error) {
-    console.error("[v0] Exception saving template:", error)
-    return null
-  }
+  _userId: string,
+  _name: string,
+  _description: string,
+  _qasmCode: string,
+  _qubits: number,
+  _gates: number,
+): Promise<null> {
+  // circuit_templates table not yet implemented in internal DB
+  console.warn("[logging] saveCircuitTemplate: not implemented")
+  return null
 }
