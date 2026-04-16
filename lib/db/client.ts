@@ -165,6 +165,23 @@ export const Executions = {
     return stmt.all(userId) as any[]
   },
 
+  /** Return rows newer than `since` (ISO timestamp), ordered oldest→newest. */
+  findByUserIdSince: (userId: string, since: string, digitalTwinId?: string | null) => {
+    if (digitalTwinId) {
+      const stmt = db.prepare(
+        `SELECT * FROM executions
+         WHERE user_id = ? AND created_at > ?
+               AND json_extract(circuit_data, '$.digital_twin_id') = ?
+         ORDER BY created_at ASC`
+      )
+      return stmt.all(userId, since, digitalTwinId) as any[]
+    }
+    const stmt = db.prepare(
+      'SELECT * FROM executions WHERE user_id = ? AND created_at > ? ORDER BY created_at ASC'
+    )
+    return stmt.all(userId, since) as any[]
+  },
+
   findById: (id: string) => {
     const stmt = db.prepare('SELECT * FROM executions WHERE id = ?')
     return stmt.get(id) as any

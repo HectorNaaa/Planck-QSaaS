@@ -1,10 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
-// Removed Supabase imports
 import { CppMLEngine } from "@/lib/ml/cpp-ml-engine"
 import { calculateFidelity } from "@/lib/backend-selector"
 import { selectBackend } from "@/lib/backend-policy"
 import { checkRateLimit, getRetryAfter, validatePayloadSize } from "@/lib/rate-limiter"
 import { authenticateRequest } from "@/lib/api-auth"
+import { Executions } from "@/lib/db/client"
 import { extractQubitCount, calculateAdaptiveShots, selectAutoErrorMitigation } from "@/lib/circuit-utils"
 import {
   validateAlgorithm,
@@ -183,9 +183,30 @@ export async function POST(request: NextRequest) {
 
     const actualFidelity = calculateFidelity(effectiveBackend, resolvedQubits, depth)
 
-    // Execution log insert disabled (no Supabase server client).
-    // The runner caches the result in localStorage and broadcasts it via BroadcastChannel.
-    const executionId = `${userId}-${Date.now()}`
+    // Save execution to internal SQLite DB
+    const circuitDataJson = JSON.stringify({
+      source,
+      digital_twin_id: digitalTwinId,
+      results: { fidelity: actualFidelity, counts: results.counts },
+    })
+    const { id: executionId } = Executions.create({
+      user_id: userId,
+      circuit_name: circuitName || `${algorithm} Execution`,
+      algorithm,
+      execution_type: executionType,
+      backend: effectiveBackend,
+      status: "completed",
+      success_rate: results.successRate,
+      runtime_ms: Math.round(results.runtime),
+      qubits_used: resolvedQubits,
+      shots: effectiveShots,
+      error_mitigation: effectiveErrorMitigation,
+      backend_selected: effectiveBackend,
+      backend_reason: policyResult.reason,
+      backend_hint: backend === "auto" ? null : backend,
+      circuit_data: circuitDataJson,
+      result: JSON.stringify(results.counts),
+    })
 
     // ML recording disabled (no Supabase). Non-critical, skip.
 

@@ -16,8 +16,8 @@
  */
 
 import { type NextRequest } from "next/server"
-// Removed Supabase admin client import
 import { authenticateRequest } from "@/lib/api-auth"
+import { ApiKeys, Executions } from "@/lib/db/client"
 import { validateApiKey } from "@/lib/security"
 
 export const dynamic = "force-dynamic"
@@ -32,8 +32,8 @@ export async function GET(req: NextRequest) {
   let userId: string | null = null
 
   if (queryApiKey && validateApiKey(queryApiKey)) {
-    // API key lookup disabled (no Supabase server client).
-    // Fall through to session auth below.
+    const keyRow = ApiKeys.findByKey(queryApiKey)
+    if (keyRow) userId = keyRow.user_id
   }
 
   if (!userId) {
@@ -48,8 +48,32 @@ export async function GET(req: NextRequest) {
   const digitalTwinId = searchParams.get("digital_twin_id") ?? null
   let since = searchParams.get("since") ?? new Date(0).toISOString()
 
-  // const supabase = getAdminClient() // Removed Supabase usage
   const encoder = new TextEncoder()
+
+  /** Convert a raw SQLite row to the client ExecutionRow shape. */
+  function toClientRow(r: any) {
+    let parsed: any = null
+    try { parsed = r.circuit_data ? JSON.parse(r.circuit_data) : null } catch { /* keep null */ }
+    return {
+      id:               r.id,
+      circuit_name:     r.circuit_name   ?? '',
+      algorithm:        r.algorithm      ?? '',
+      status:           r.status         ?? 'pending',
+      qubits_used:      r.qubits_used    ?? 0,
+      runtime_ms:       r.runtime_ms     ?? 0,
+      success_rate:     r.success_rate   ?? 0,
+      backend_selected: r.backend_selected ?? null,
+      created_at:       new Date(r.created_at ?? Date.now()).toISOString(),
+      digital_twin_id:  parsed?.digital_twin_id ?? null,
+      shots:            r.shots          ?? 0,
+      error_mitigation: r.error_mitigation ?? null,
+      circuit_data: parsed ? {
+        source:  parsed.source,
+        fidelity: parsed.results?.fidelity ?? null,
+        counts:   parsed.results?.counts   ?? null,
+      } : null,
+    }
+  }
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -74,8 +98,16 @@ export async function GET(req: NextRequest) {
       // Poll every 3 s
       const pollInterval = setInterval(async () => {
         if (!open) { clearInterval(pollInterval); return }
-        // Execution log polling disabled (no Supabase server client).
-        // Live updates are delivered via BroadcastChannel from the runner.
+        try {
+          const raw = Executions.findByUserIdSince(userId!, since, digitalTwinId)
+          if (raw.length > 0) {
+            const rows = raw.map(toClientRow)
+            since = rows[rows.length - 1].created_at
+            send({ type: "executions", rows })
+          }
+        } catch (e) {
+          // DB errors are non-fatal — retry on next tick
+        }
       }, 3_000)
 
       // Auto-close before hard Vercel timeout
