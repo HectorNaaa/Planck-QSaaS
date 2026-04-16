@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CircuitSettings } from "@/components/runner/circuit-settings"
@@ -9,7 +9,7 @@ import { DatabaseUploader } from "@/components/runner/database-uploader"
 import { AutoParser } from "@/components/runner/autoparser"
 import { ExpectedResults } from "@/components/runner/expected-results"
 import { CircuitResults } from "@/components/runner/circuit-results"
-import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff } from "lucide-react"
+import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff, Trash2 } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import type { BuiltCircuit } from "@/lib/circuit-builder"
 
@@ -28,7 +28,7 @@ import { selectOptimalBackend, calculateFidelity, estimateRuntime } from "@/lib/
 import { DigitalTwinPanel } from "@/components/runner/digital-twin-panel"
 import { DigitalTwinSelector } from "@/components/runner/digital-twin-selector"
 import { DigitalTwinDashboard } from "@/components/dashboard/digital-twin-dashboard"
-import { useLiveExecutions } from "@/hooks/use-live-executions"
+import { useLiveExecutions, type ExecutionRow } from "@/hooks/use-live-executions"
 import { useLiveMode, broadcastExecution } from "@/hooks/use-live-mode"
 import { useIsGuest } from "@/components/guest-banner"
 
@@ -51,6 +51,17 @@ function resultToRow(
     error_mitigation: r.error_mitigation ?? ctx.errorMitigation,
     digital_twin_id: ctx.digitalTwinId ?? null,
     circuit_data: { fidelity: r.fidelity, counts: r.counts },
+  }
+}
+
+/** Read planck_exec_cache from localStorage (same cache the dashboard uses). */
+function readExecCache(): ExecutionRow[] {
+  try {
+    const raw = localStorage.getItem("planck_exec_cache")
+    if (!raw) return []
+    return JSON.parse(raw) as ExecutionRow[]
+  } catch {
+    return []
   }
 }
 
@@ -87,6 +98,43 @@ export default function RunnerPage() {
   // Shared live mode — synced with dashboard via sessionStorage + BroadcastChannel
   const [sdkMode, setLiveEnabled] = useLiveMode(isGuest)
 
+  // ── Pre-seed live hook with cached + server data so SDK mode shows history ──
+  const [initialLiveRows, setInitialLiveRows] = useState<ExecutionRow[]>([])
+
+  useEffect(() => {
+    if (!sdkMode || isGuest) {
+      setInitialLiveRows([])
+      return
+    }
+    // 1. Immediately show localStorage cache
+    const cached = readExecCache()
+    if (cached.length > 0) {
+      // Sort oldest→newest to match useLiveExecutions internal ordering
+      const sorted = [...cached].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      )
+      setInitialLiveRows(sorted)
+    }
+    // 2. Fetch from server to pick up any rows not in cache
+    fetch("/api/dashboard/data?timeRange=30d")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data?.logs?.length) return
+        const serverRows: ExecutionRow[] = data.logs
+        setInitialLiveRows((prev) => {
+          const ids = new Set(prev.map((r) => r.id))
+          const fresh = serverRows.filter((r) => !ids.has(r.id))
+          if (fresh.length === 0) return prev
+          const merged = [...prev, ...fresh]
+          merged.sort(
+            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+          )
+          return merged.slice(-500)
+        })
+      })
+      .catch(() => {}) // cache-only fallback is fine
+  }, [sdkMode, isGuest])
+
   // Live SSE feed — active only when live mode is on.
   // Browser EventSource sends session cookies automatically (same-origin), so
   // no API key is needed for in-browser live mode.
@@ -94,6 +142,7 @@ export default function RunnerPage() {
     enabled: sdkMode,
     digitalTwinId: selectedDigitalTwinId,
     apiKey: null, // session cookie handles auth for browser EventSource
+    initialRows: initialLiveRows,
   })
 
   // When a new live row arrives, update results + circuit display from the latest job
@@ -709,6 +758,12 @@ const adaptiveShots = calculateAdaptiveShots({
     sessionStorage.removeItem("selectedAlgorithm")
   }, [clearLiveRows])
 
+  const handleClearResults = useCallback(() => {
+    setResults(null)
+    clearLiveRows()
+    setInitialLiveRows([])
+  }, [clearLiveRows])
+
   return (
     <div className="p-8 space-y-8 px-0">
       <PageHeader title="Runner" description="Configure and execute your quantum circuits" />
@@ -997,6 +1052,21 @@ const adaptiveShots = calculateAdaptiveShots({
           {/* Results — always shown in SDK mode; shown after a manual run otherwise */}
           {(results || sdkMode) ? (
             <div className="space-y-6">
+              {/* Clear Previous Results button */}
+              {results && (
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleClearResults}
+                    variant="outline"
+                    size="sm"
+                    className="flex items-center gap-2 text-muted-foreground hover:text-destructive hover:border-destructive/40"
+                  >
+                    <Trash2 size={14} />
+                    Clear previous results
+                  </Button>
+                </div>
+              )}
+
               {/* Stable key so useAnimatedValue smoothly counts between values
                   instead of replaying from zero on every live row. The isLive
                   prop already enables animated transitions + flash rings. */}
