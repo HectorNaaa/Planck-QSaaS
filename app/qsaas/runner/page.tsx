@@ -967,7 +967,7 @@ const adaptiveShots = calculateAdaptiveShots({
             ) : (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-500 text-white font-bold">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full text-white font-bold" style={{ backgroundColor: "#7ab5ac" }}>
                     1
                   </div>
                   <div className="flex-1">
@@ -979,7 +979,7 @@ const adaptiveShots = calculateAdaptiveShots({
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-500 text-white font-bold">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full text-white font-bold" style={{ backgroundColor: "#7ab5ac" }}>
                     2
                   </div>
                   <div className="flex-1">
@@ -991,7 +991,7 @@ const adaptiveShots = calculateAdaptiveShots({
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full ${results ? 'bg-green-500' : 'bg-gray-300'} text-white font-bold`}>
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full text-white font-bold" style={{ backgroundColor: results ? '#7ab5ac' : '#d1d5db' }}>
                     3
                   </div>
                   <div className="flex-1">
@@ -1005,12 +1005,12 @@ const adaptiveShots = calculateAdaptiveShots({
                             <p>
                               <span className="text-foreground font-medium">Shots: </span>
                               {mlRecommendation.shots}
-                              <span className="ml-1 text-green-400">(RL — {Math.round(mlRecommendation.confidence * 100)}% confidence)</span>
+                              <span className="ml-1" style={{ color: '#7ab5ac' }}>(RL — {Math.round(mlRecommendation.confidence * 100)}% confidence)</span>
                             </p>
                             <p>
                               <span className="text-foreground font-medium">Mitigation: </span>
                               <span className="capitalize">{mlRecommendation.errorMitigation}</span>
-                              <span className="ml-1 text-green-400">(auto)</span>
+                              <span className="ml-1" style={{ color: '#7ab5ac' }}>(auto)</span>
                             </p>
                           </>
                         ) : (
@@ -1034,7 +1034,7 @@ const adaptiveShots = calculateAdaptiveShots({
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-full ${results ? 'bg-green-500' : 'bg-gray-300'} text-white font-bold`}>
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full text-white font-bold" style={{ backgroundColor: results ? '#7ab5ac' : '#d1d5db' }}>
                     4
                   </div>
                   <div className="flex-1">
