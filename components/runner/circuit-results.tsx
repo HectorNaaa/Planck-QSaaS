@@ -312,7 +312,7 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
                         ].map((m) => (
                           <div key={m.label} className="text-center p-2 bg-secondary/50 rounded">
                             <div className="text-[10px] text-muted-foreground">{m.label}</div>
-                            <div className="text-xs font-bold capitalize" style={{ color: "#4ade80" }}>{m.value}</div>
+                            <div className="text-xs font-bold capitalize" style={{ color: "#7ab5ac" }}>{m.value}</div>
                           </div>
                         ))}
                       </div>
@@ -359,10 +359,10 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
                     <div className="w-24 sm:w-32 bg-secondary rounded-full h-1.5">
                       <div
                         className="h-1.5 rounded-full transition-all"
-                        style={{ width: `${item.probability * 100}%`, backgroundColor: "#22c55e" }}
+                        style={{ width: `${item.probability * 100}%`, backgroundColor: "#7ab5ac" }}
                       />
                     </div>
-                    <span className="text-xs font-medium w-10 text-right" style={{ color: "#4ade80" }}>
+                    <span className="text-xs font-medium w-10 text-right" style={{ color: "#7ab5ac" }}>
                       {Math.round(item.probability * 100)}%
                     </span>
                   </div>
