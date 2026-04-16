@@ -2,6 +2,9 @@
   "buildCommand": "pnpm run build",
   "installCommand": "pnpm install",
   "framework": "nextjs",
+  "git": {
+    "deploymentEnabled": false
+  },
   "env": {
     "NEXT_TELEMETRY_DISABLED": "1",
     "DB_DIR": "/tmp"
