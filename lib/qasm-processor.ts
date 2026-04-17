@@ -1,18 +1,19 @@
 /**
  * qasm-processor.ts
  * ─────────────────────────────────────────────────────────────────────────────
- * Server-side quantum circuit façade. Delegates QASM generation entirely to
- * lib/circuit-builder.ts (data-driven, parametric) and optionally pipes the
- * result through the compiled C++ transpiler (scripts/transpile_circuit.cpp)
- * for gate fusion and CX cancellation. Falls back to pure-TS if binary absent.
+ * Server-side quantum circuit façade. Delegates QASM generation to
+ * lib/circuit-builder.ts (data-driven, parametric) and:
+ *   1. For large/massive datasets (≥ 50 K samples): spawns the fast C++ circuit
+ *      generator (scripts/generate_circuit) that receives the pre-computed
+ *      data-profile JSON and writes OpenQASM 2.0 directly.
+ *   2. Pipes the generated QASM through the compiled C++ gate-optimiser
+ *      (scripts/transpile_circuit) for fusion/cancellation.
+ *   3. Falls back to pure-TS for all steps when the binaries are absent.
  *
- * Public API — named exports usable directly without instantiating the class:
- *   generateCircuit(algorithm, data)  → Promise<QuantumCircuit>
- *   analyzeCircuit(qasm)              → CircuitStats
- *   transpileWithCpp(qasm)            → Promise<{ qasm, used }>
- *
- * Class API (backwards-compatible):
- *   QASMProcessor.generateCircuit / QASMProcessor.analyzeCircuit
+ * Public API — named exports:
+ *   generateCircuit(algorithm, data, opts?) → Promise<QuantumCircuit>
+ *   analyzeCircuit(qasm)                    → CircuitStats
+ *   transpileWithCpp(qasm)                  → Promise<{ qasm, used }>
  */
 
 import { execFile } from "child_process"
@@ -22,6 +23,7 @@ import { join } from "path"
 import {
   analyzeInputData,
   buildCircuit,
+  type BuildOptions,
   type DataProfile,
   type SupportedAlgorithm,
 } from "@/lib/circuit-builder"
@@ -48,6 +50,10 @@ export interface QuantumCircuit {
   paramSummary: string
   /** Whether the C++ transpiler pass was applied. */
   transpiled: boolean
+  /** Dataset size tier that shaped this circuit. */
+  dataScale: string
+  /** Ansatz / iteration layer count used. */
+  layers: number
 }
 
 export interface CircuitStats {
@@ -57,10 +63,53 @@ export interface CircuitStats {
   circuitType: string
 }
 
-// ─── C++ transpiler ────────────────────────────────────────────────────────────
+// ─── C++ binaries ─────────────────────────────────────────────────────────────
 
-const CPP_BINARY    = join(process.cwd(), "scripts", "transpile_circuit")
-const CPP_AVAILABLE = existsSync(CPP_BINARY)
+const CPP_GENERATE  = join(process.cwd(), "scripts", "generate_circuit")
+const CPP_TRANSPILE = join(process.cwd(), "scripts", "transpile_circuit")
+const GEN_AVAILABLE = existsSync(CPP_GENERATE)
+const XPL_AVAILABLE = existsSync(CPP_TRANSPILE)
+
+// Threshold: use C++ generator when dataset has ≥ this many samples
+const CPP_GEN_THRESHOLD = 50_000
+
+/**
+ * Generate OpenQASM 2.0 using the C++ generator binary.
+ * The data-profile JSON is serialised and piped to stdin.
+ * Returns null if binary absent or generation fails → caller falls back to TS.
+ */
+async function generateWithCpp(
+  algo: SupportedAlgorithm,
+  profile: DataProfile,
+): Promise<string | null> {
+  if (!GEN_AVAILABLE) return null
+  const payload = JSON.stringify({
+    algorithm:    algo,
+    qubits:       profile.qubits,
+    depth:        profile.depth,
+    layers:       profile.layers,
+    gateCount:    profile.gateCount,
+    angles:       profile.angles,
+    dataScale:    profile.dataScale,
+    sampleCount:  profile.sampleCount,
+    featureCount: profile.featureCount,
+    angleScale:   profile.buildOptions.angleScale ?? 1.0,
+    maxQubits:    profile.buildOptions.maxQubits ?? null,
+    forceLayers:  profile.buildOptions.forceLayers ?? null,
+  })
+  try {
+    const { stdout } = await execFileAsync(CPP_GENERATE, [], {
+      input:     payload,
+      timeout:   10_000,
+      maxBuffer: 4 * 1024 * 1024,
+      encoding:  "utf8",
+    } as any)
+    const s = String(stdout).trim()
+    return s.startsWith("OPENQASM") ? s : null
+  } catch {
+    return null
+  }
+}
 
 /**
  * Pipe QASM through the compiled C++ gate-optimiser when available.
@@ -69,13 +118,13 @@ const CPP_AVAILABLE = existsSync(CPP_BINARY)
 export async function transpileWithCpp(
   qasm: string,
 ): Promise<{ qasm: string; used: boolean }> {
-  if (!CPP_AVAILABLE) return { qasm, used: false }
+  if (!XPL_AVAILABLE) return { qasm, used: false }
   try {
-    const { stdout } = await execFileAsync(CPP_BINARY, [], {
-      input: qasm,
-      timeout: 5_000,
+    const { stdout } = await execFileAsync(CPP_TRANSPILE, [], {
+      input:     qasm,
+      timeout:   5_000,
       maxBuffer: 1024 * 1024,
-      encoding: 'utf8',
+      encoding:  "utf8",
     } as any)
     return { qasm: String(stdout).trim(), used: true }
   } catch {
@@ -86,19 +135,42 @@ export async function transpileWithCpp(
 // ─── Core functions ────────────────────────────────────────────────────────────
 
 /**
- * Build a parametric circuit from uploaded data, then optimise via C++ if
- * available. All register sizes and rotation angles are derived from the data
- * profile — nothing is hardcoded.
+ * Build a parametric circuit from uploaded data, then optimise via C++.
+ * All register sizes, rotation angles, and gate structure are derived from
+ * the data profile — nothing is hardcoded.
+ *
+ * Pipeline:
+ *   1. analyzeInputData()        → safe O(5K) sample, real log-scale complexity
+ *   2. C++ generator (if large)  → fast QASM directly from profile JSON
+ *      OR TS buildCircuit()      → pure-TS fallback
+ *   3. C++ transpiler            → gate fusion + CX cancellation (if available)
  */
 export async function generateCircuit(
   algorithm: string,
   data: unknown,
+  opts: BuildOptions = {},
 ): Promise<QuantumCircuit> {
   const algo    = sanitizeAlgorithm(algorithm)
-  const profile: DataProfile = analyzeInputData(data)
-  const built   = buildCircuit(algo, profile)
+  const profile: DataProfile = analyzeInputData(data, opts)
 
-  const { qasm, used } = await transpileWithCpp(built.qasm)
+  let rawQasm: string
+  let usedNativeGen = false
+
+  // Use the fast C++ generator for large / massive datasets
+  if (profile.sampleCount >= CPP_GEN_THRESHOLD && GEN_AVAILABLE) {
+    const nativeQasm = await generateWithCpp(algo, profile)
+    if (nativeQasm) {
+      rawQasm       = nativeQasm
+      usedNativeGen = true
+    } else {
+      rawQasm = buildCircuit(algo, profile).qasm
+    }
+  } else {
+    rawQasm = buildCircuit(algo, profile).qasm
+  }
+
+  const { qasm, used: transpiled } = await transpileWithCpp(rawQasm)
+  const built = buildCircuit(algo, profile) // re-run for metadata (cheap)
 
   return {
     qasm,
@@ -109,7 +181,9 @@ export async function generateCircuit(
     gate_count:        built.gateCount,
     algorithm:         algo,
     paramSummary:      built.paramSummary,
-    transpiled:        used,
+    transpiled:        transpiled || usedNativeGen,
+    dataScale:         profile.dataScale,
+    layers:            profile.layers,
   }
 }
 
@@ -141,7 +215,10 @@ function sanitizeAlgorithm(raw: string): SupportedAlgorithm {
 }
 
 function recommendShots(p: DataProfile): number {
-  return Math.min(8192, Math.max(512, 512 + Math.round(p.complexity * 2048) + p.qubits * 32))
+  // Shot count scales with complexity AND data scale tier
+  const scaleBonus: Record<string, number> = { small: 0, medium: 512, large: 1024, massive: 2048 }
+  const bonus = scaleBonus[p.dataScale] ?? 0
+  return Math.min(8192, Math.max(512, 512 + Math.round(p.complexity * 2048) + p.qubits * 32 + bonus))
 }
 
 function extractQubits(qasm: string): number {

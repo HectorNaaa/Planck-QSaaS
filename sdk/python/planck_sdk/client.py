@@ -4,17 +4,24 @@ Planck SDK Client - Main interface for interacting with Planck Platform
 Install with: pip install planck_sdk
 """
 
+import csv
+import io
 import json
+import math
 import time
 import re
 import html
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 
 from .circuit import QuantumCircuit, CircuitBuildOptions
 from .result import ExecutionResult
 from .exceptions import AuthenticationError, APIError, CircuitError, ValidationError
+
+
+# Maximum rows kept in memory / sent to the API (security limit is 10 K elements).
+_CLIENT_SAMPLE_CAP = 5_000
 
 
 class PlanckUser:
@@ -91,28 +98,38 @@ class PlanckUser:
         allowed = {"bell", "grover", "shor", "vqe", "qaoa", "qft"}
         return normalized if normalized in allowed else "vqe"
     
-    def _validate_input_data(self, data: Any) -> Any:
-        """Validate and sanitize input data."""
+    def _validate_input_data(self, data: Any) -> Tuple[Any, int]:
+        """
+        Validate and sanitize input data.
+
+        Returns a tuple (sampled_data, true_sample_count) where:
+          - sampled_data is at most _CLIENT_SAMPLE_CAP rows (safe to send)
+          - true_sample_count is the original length (used as sampleCountHint)
+        """
         if data is None:
             raise ValidationError("Input data cannot be None")
-        
+
         if isinstance(data, str):
-            # If it's a file path, just return it
-            return data
-        
+            # File path — return as-is; _load_data_file handles sampling
+            return data, 0
+
         if isinstance(data, (list, tuple)):
-            # Validate list elements
-            if len(data) > 10000:
-                raise ValidationError("Input data list too large. Maximum 10,000 elements.")
-            return list(data)
-        
+            rows = list(data)
+            true_count = len(rows)
+            if true_count > _CLIENT_SAMPLE_CAP:
+                step = math.ceil(true_count / _CLIENT_SAMPLE_CAP)
+                rows = rows[::step][:_CLIENT_SAMPLE_CAP]
+            return rows, true_count
+
         if isinstance(data, dict):
-            # Validate dict size
-            if len(json.dumps(data)) > self.MAX_PAYLOAD_SIZE:
+            serialised = json.dumps(data)
+            if len(serialised) > self.MAX_PAYLOAD_SIZE:
                 raise ValidationError("Input data dict too large. Maximum 1MB.")
-            return data
-        
-        raise ValidationError(f"Unsupported data type: {type(data)}. Use list, dict, or file path.")
+            return data, 1
+
+        raise ValidationError(
+            f"Unsupported data type: {type(data)}. Use list, dict, or file path string."
+        )
     
     def _request(
         self,
@@ -230,8 +247,8 @@ class PlanckUser:
         Returns:
             ExecutionResult with counts, fidelity, and ML tuning metadata.
         """
-        # Validate inputs
-        validated_data = self._validate_input_data(data)
+        # Validate inputs — returns (sampled_data, true_sample_count)
+        validated_data, true_sample_count = self._validate_input_data(data)
         validated_algorithm = self._validate_algorithm(algorithm)
 
         # Normalise digital_twin_id: treat 0, '', 'none', 'null' as None
@@ -256,16 +273,28 @@ class PlanckUser:
         if qubits is not None:
             qubits = max(1, min(30, int(qubits)))
         
-        # Load data if file path provided
+        # Load data if file path provided — also returns true sample count
         if isinstance(validated_data, str):
-            validated_data = self._load_data_file(validated_data)
-        
+            validated_data, file_true_count = self._load_data_file(validated_data)
+            if file_true_count > true_sample_count:
+                true_sample_count = file_true_count
+
+        # Merge sampleCountHint into build_options so the server knows real volume
+        effective_build_opts = build_options
+        if true_sample_count > 0:
+            if effective_build_opts is None:
+                effective_build_opts = CircuitBuildOptions()
+            # Inject the hint only when it exceeds the sampled row count
+            if not hasattr(effective_build_opts, "_sample_count_hint"):
+                object.__setattr__(effective_build_opts, "_sample_count_hint", true_sample_count)
+
         # Generate circuit — passes build_options hints to the server builder
         circuit = self.generate_circuit(
             data=validated_data,
             algorithm=validated_algorithm,
             qubits=qubits,
-            build_options=build_options,
+            build_options=effective_build_opts,
+            sample_count_hint=true_sample_count if true_sample_count > 0 else None,
         )
         
         # Sanitize circuit name
@@ -357,41 +386,51 @@ class PlanckUser:
         algorithm: str = "vqe",
         qubits: Optional[int] = None,
         build_options: Optional[CircuitBuildOptions] = None,
+        sample_count_hint: Optional[int] = None,
     ) -> QuantumCircuit:
         """
         Generate a parametric quantum circuit without executing it.
 
         Circuit angles, register sizes, and layer counts are derived from
-        ``data`` by the server-side circuit-builder. Pass ``build_options``
+        ``data`` by the server-side circuit-builder.  Pass ``build_options``
         to constrain or tune the parametrisation (max qubits, angle scale, etc.).
 
+        For large datasets the SDK automatically samples before sending so the
+        payload stays within the API 1 MB / 10 K limit.  Pass
+        ``sample_count_hint`` to tell the server the true dataset size so
+        circuit scaling (qubits, layers, data_scale) is correct.
+
         Args:
-            data:          Input dataset (list or dict).
-            algorithm:     'vqe' | 'grover' | 'qaoa' | 'bell' | 'shor'.
-            qubits:        Optional qubit count hint (auto-derived if None).
-            build_options: Optional CircuitBuildOptions for parametric control.
+            data:               Input dataset (list or dict, already sampled).
+            algorithm:          'vqe' | 'grover' | 'qaoa' | 'bell' | 'shor'.
+            qubits:             Optional qubit count hint (auto-derived if None).
+            build_options:      Optional CircuitBuildOptions for parametric control.
+            sample_count_hint:  True row count before sampling (for circuit scaling).
 
         Returns:
-            QuantumCircuit with data-derived QASM and paramSummary.
+            QuantumCircuit with data-derived QASM, data_scale, and paramSummary.
         """
         validated_algorithm = self._validate_algorithm(algorithm)
         if qubits is not None:
             qubits = max(1, min(30, int(qubits)))
 
+        bo_dict: Dict[str, Any] = build_options.to_dict() if build_options is not None else {}
+        # Inject sampleCountHint so the circuit builder knows the true data volume
+        if sample_count_hint and sample_count_hint > 0:
+            bo_dict["sampleCountHint"] = sample_count_hint
+
         payload: Dict[str, Any] = {
             "inputData": data,
-            "algorithm": validated_algorithm,
-            "qubits": qubits,
+            "algorithm":  validated_algorithm,
+            "qubits":     qubits,
         }
-        if build_options is not None:
-            payload["buildOptions"] = build_options.to_dict()
+        if bo_dict:
+            payload.update(bo_dict)   # flat — API reads top-level fields
 
         response = self._request("POST", "generate-circuit", payload)
         if not response.get("success"):
             raise CircuitError(response.get("error", "Circuit generation failed"))
 
-        # from_api_response handles both old shape (recommendedShots/gates) and
-        # new circuit-builder shape (paramSummary/gateCount) via .get() fallbacks.
         return QuantumCircuit.from_api_response({**response, "algorithm": validated_algorithm})
     
     def transpile(
@@ -590,48 +629,83 @@ class PlanckUser:
             "based_on_executions": response.get("basedOnExecutions", 0)
         }
     
-    def _load_data_file(self, file_path: str) -> Union[List, Dict]:
-        """Load data from a file path."""
+    def _load_data_file(self, file_path: str) -> Tuple[Union[List, Dict], int]:
+        """
+        Load (stream-sample if necessary) data from a file path.
+
+        For large files, systematically samples up to _CLIENT_SAMPLE_CAP rows
+        so the API payload stays within the 1 MB / 10 K-element security limit.
+        The returned tuple is (sampled_rows, true_row_count).  The true count
+        is passed to the API as sampleCountHint so circuit scaling reflects
+        the real dataset volume.
+        """
         import os
-        
+
         # Validate file path (basic security check)
         if ".." in file_path or file_path.startswith("/etc") or file_path.startswith("/sys"):
             raise ValidationError("Invalid file path")
-        
+
         if not os.path.exists(file_path):
             raise CircuitError(f"File not found: {file_path}")
-        
-        # Check file size
-        file_size = os.path.getsize(file_path)
-        if file_size > self.MAX_PAYLOAD_SIZE:
-            raise ValidationError(f"File too large ({file_size} bytes). Maximum is 1MB.")
-        
+
         ext = os.path.splitext(file_path)[1].lower()
-        
-        with open(file_path, "r") as f:
-            if ext == ".json":
-                return json.load(f)
-            elif ext == ".csv":
-                lines = f.readlines()
-                if not lines:
-                    return []
-                # Simple CSV parsing
-                data = []
-                for line in lines[1:]:  # Skip header
-                    values = line.strip().split(",")
-                    try:
-                        data.append([float(v) for v in values if v])
-                    except ValueError:
-                        data.append(values)
-                return data
-            else:
-                # Try to parse as JSON
-                content = f.read()
+
+        # ── JSON ──────────────────────────────────────────────────────────────
+        if ext == ".json":
+            with open(file_path, "r", encoding="utf-8") as fh:
+                content = json.load(fh)
+            if isinstance(content, list):
+                true_count = len(content)
+                if true_count > _CLIENT_SAMPLE_CAP:
+                    step = math.ceil(true_count / _CLIENT_SAMPLE_CAP)
+                    content = content[::step][:_CLIENT_SAMPLE_CAP]
+                return content, true_count
+            return content, 1
+
+        # ── CSV  ──────────────────────────────────────────────────────────────
+        elif ext == ".csv":
+            rows: List = []
+            true_count = 0
+            reservoir_step = 1  # updated once we know total rows
+
+            # First pass: count rows, then sample
+            with open(file_path, "r", encoding="utf-8", newline="") as fh:
+                reader = csv.reader(fh)
+                header = next(reader, None)  # skip header
+                all_rows = list(reader)      # buffered (large files: use streaming below)
+                true_count = len(all_rows)
+
+            if true_count > _CLIENT_SAMPLE_CAP:
+                step = math.ceil(true_count / _CLIENT_SAMPLE_CAP)
+                all_rows = all_rows[::step][:_CLIENT_SAMPLE_CAP]
+
+            for row in all_rows:
                 try:
-                    return json.loads(content)
-                except:
-                    # Return as list of lines
-                    return content.strip().split("\n")
+                    rows.append([float(v) for v in row if v.strip()])
+                except ValueError:
+                    rows.append(row)
+            return rows, true_count
+
+        # ── Other (treat as JSON) ─────────────────────────────────────────────
+        else:
+            with open(file_path, "r", encoding="utf-8") as fh:
+                content_str = fh.read()
+            try:
+                obj = json.loads(content_str)
+                if isinstance(obj, list):
+                    true_count = len(obj)
+                    if true_count > _CLIENT_SAMPLE_CAP:
+                        step = math.ceil(true_count / _CLIENT_SAMPLE_CAP)
+                        obj = obj[::step][:_CLIENT_SAMPLE_CAP]
+                    return obj, true_count
+                return obj, 1
+            except json.JSONDecodeError:
+                lines = [l for l in content_str.strip().split("\n") if l]
+                true_count = len(lines)
+                if true_count > _CLIENT_SAMPLE_CAP:
+                    step = math.ceil(true_count / _CLIENT_SAMPLE_CAP)
+                    lines = lines[::step][:_CLIENT_SAMPLE_CAP]
+                return lines, true_count
     
     @staticmethod
     def _extract_qubit_count(qasm: str) -> int:

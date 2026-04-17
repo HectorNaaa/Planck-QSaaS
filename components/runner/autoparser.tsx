@@ -7,11 +7,20 @@ import { Card } from "@/components/ui/card"
 // no Node.js dependencies (no fs, child_process, etc.)
 import { analyzeInputData } from "@/lib/circuit-builder"
 
+const DATA_SCALE_LABELS: Record<string, { label: string; color: string }> = {
+  small:   { label: "Small (<1K rows)",     color: "text-green-500" },
+  medium:  { label: "Medium (<50K rows)",   color: "text-yellow-500" },
+  large:   { label: "Large (<10M rows)",    color: "text-orange-500" },
+  massive: { label: "Massive (≥10M rows)",  color: "text-red-500" },
+}
+
 interface ParsedCircuit {
   gates: number
   depth: number
   qubitsUsed: number
+  layers: number
   paramSummary: string
+  dataScale: string
 }
 
 interface AutoParserProps {
@@ -29,8 +38,8 @@ export function AutoParser({ onParsed, inputData, algorithm }: AutoParserProps) 
   // Listen for external circuit-parsed events (e.g. from the visualiser)
   useEffect(() => {
     const handler = (e: CustomEvent) => {
-      const { gates, depth, qubitsUsed } = e.detail
-      setParsedData({ gates, depth, qubitsUsed, paramSummary: "" })
+      const { gates, depth, qubitsUsed, layers = 1, dataScale = "small" } = e.detail
+      setParsedData({ gates, depth, qubitsUsed, layers, dataScale, paramSummary: "" })
       setError(null)
     }
     window.addEventListener("circuit-parsed" as any, handler as any)
@@ -58,7 +67,9 @@ export function AutoParser({ onParsed, inputData, algorithm }: AutoParserProps) 
         gates:       profile.gateCount,
         depth:       profile.depth,
         qubitsUsed:  profile.qubits,
-        paramSummary: `${profile.featureCount} feature(s), ${profile.sampleCount} sample(s) → ${profile.qubits} qubits`,
+        layers:      profile.layers,
+        dataScale:   profile.dataScale,
+        paramSummary: `${profile.featureCount} feature(s), ${profile.sampleCount.toLocaleString()} sample(s) → ${profile.qubits} qubits, ${profile.layers} layer(s) [${profile.dataScale}]`,
       }
 
       setParsedData(parsed)
@@ -114,7 +125,7 @@ export function AutoParser({ onParsed, inputData, algorithm }: AutoParserProps) 
 
           {parsedData && (
             <>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-2">
                 <div className="p-3 bg-secondary/50 rounded-lg">
                   <p className="text-xs text-muted-foreground">Gates</p>
                   <p className="text-lg font-bold text-foreground">{parsedData.gates}</p>
@@ -127,7 +138,17 @@ export function AutoParser({ onParsed, inputData, algorithm }: AutoParserProps) 
                   <p className="text-xs text-muted-foreground">Qubits</p>
                   <p className="text-lg font-bold text-foreground">{parsedData.qubitsUsed}</p>
                 </div>
+                <div className="p-3 bg-secondary/50 rounded-lg">
+                  <p className="text-xs text-muted-foreground">Layers</p>
+                  <p className="text-lg font-bold text-foreground">{parsedData.layers}</p>
+                </div>
               </div>
+              {parsedData.dataScale && (() => {
+                const { label, color } = DATA_SCALE_LABELS[parsedData.dataScale] ?? { label: parsedData.dataScale, color: "text-muted-foreground" }
+                return (
+                  <p className={`text-xs font-semibold ${color}`}>Dataset scale: {label}</p>
+                )
+              })()}
               {parsedData.paramSummary && (
                 <p className="text-[11px] text-muted-foreground font-mono">{parsedData.paramSummary}</p>
               )}

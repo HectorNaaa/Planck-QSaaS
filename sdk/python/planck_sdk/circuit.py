@@ -78,6 +78,8 @@ class QuantumCircuit:
     recommended_shots: int         = 1024
     param_summary:     str         = ""
     transpiled:        bool        = False
+    data_scale:        str         = "small"   # small | medium | large | massive
+    layers:            int         = 1         # ansatz / iteration layers used
 
     # ── Serialisation ──────────────────────────────────────────────────────────
 
@@ -93,6 +95,8 @@ class QuantumCircuit:
             "recommended_shots": self.recommended_shots,
             "param_summary":     self.param_summary,
             "transpiled":        self.transpiled,
+            "data_scale":        self.data_scale,
+            "layers":            self.layers,
         }
 
     @classmethod
@@ -111,6 +115,8 @@ class QuantumCircuit:
             recommended_shots = int(resp.get("recommended_shots", resp.get("recommendedShots", 1024))),
             param_summary     = resp.get("param_summary", resp.get("paramSummary", "")),
             transpiled        = bool(resp.get("transpiled", False)),
+            data_scale        = resp.get("data_scale", resp.get("dataScale", "small")),
+            layers            = int(resp.get("layers", 1)),
         )
 
     # ── Convenience ────────────────────────────────────────────────────────────

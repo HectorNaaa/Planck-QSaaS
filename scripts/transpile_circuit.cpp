@@ -25,6 +25,7 @@
  * Exit codes: 0 = success, 1 = parse error (original QASM echoed to stdout).
  */
 
+#define _USE_MATH_DEFINES
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -33,6 +34,10 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 
 static constexpr double ANGLE_EPS = 1e-9;
 
