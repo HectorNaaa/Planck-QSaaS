@@ -137,12 +137,12 @@ export default function DashboardPage() {
 
   useEffect(() => { if (liveEnabled && !isGuest) loadAllRef.current() }, [liveEnabled, isGuest])
 
-  // Periodic fallback re-fetch every 15 s while live mode is on.
+  // Periodic fallback re-fetch every 10 s while live mode is on.
   // Covers the case where SSE is connected to a different Vercel function
   // instance than the one handling SDK writes.
   useEffect(() => {
     if (!liveEnabled || isGuest) return
-    const id = setInterval(() => loadAllRef.current(), 15_000)
+    const id = setInterval(() => loadAllRef.current(), 10_000)
     return () => clearInterval(id)
   }, [liveEnabled, isGuest])
 
@@ -224,7 +224,7 @@ export default function DashboardPage() {
         prev.avgQubits !== stats.avgQubits)
     ) {
       setFlashStats(true)
-      const t = setTimeout(() => setFlashStats(false), 700)
+      const t = setTimeout(() => setFlashStats(false), 250)
       return () => clearTimeout(t)
     }
   }, [stats, loading])

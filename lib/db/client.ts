@@ -192,7 +192,31 @@ export const Executions = {
       'UPDATE executions SET status = ?, result = ?, error = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?'
     )
     return stmt.run(status, result || null, error || null, id)
-  }
+  },
+
+  deleteById: (id: string) => {
+    const stmt = db.prepare('DELETE FROM executions WHERE id = ?')
+    return stmt.run(id)
+  },
+
+  deleteByUserId: (userId: string) => {
+    const stmt = db.prepare('DELETE FROM executions WHERE user_id = ?')
+    return stmt.run(userId)
+  },
+
+  /** Approximate on-disk size of a user's execution history in bytes. */
+  getStorageSizeByUserId: (userId: string): number => {
+    const stmt = db.prepare(`
+      SELECT COALESCE(SUM(
+        LENGTH(COALESCE(circuit_data, '')) +
+        LENGTH(COALESCE(result, '')) +
+        LENGTH(COALESCE(error, '')) + 250
+      ), 0) AS total_bytes
+      FROM executions WHERE user_id = ?
+    `)
+    const row = stmt.get(userId) as { total_bytes: number } | undefined
+    return row?.total_bytes ?? 0
+  },
 }
 
 // API Key operations

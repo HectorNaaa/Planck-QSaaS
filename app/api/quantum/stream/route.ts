@@ -89,13 +89,13 @@ export async function GET(req: NextRequest) {
         try { controller.close() } catch { /* already closed */ }
       })
 
-      // Keep-alive ping every 15 s
+      // Keep-alive ping every 10 s
       const kaInterval = setInterval(() => {
         if (!open) { clearInterval(kaInterval); return }
         try { controller.enqueue(encoder.encode(": ping\n\n")) } catch { /* closed */ }
-      }, 15_000)
+      }, 10_000)
 
-      // Poll every 3 s
+      // Poll every 500 ms for near-real-time updates
       const pollInterval = setInterval(async () => {
         if (!open) { clearInterval(pollInterval); return }
         try {
@@ -108,7 +108,7 @@ export async function GET(req: NextRequest) {
         } catch (e) {
           // DB errors are non-fatal — retry on next tick
         }
-      }, 3_000)
+      }, 500)
 
       // Auto-close before hard Vercel timeout
       setTimeout(() => {

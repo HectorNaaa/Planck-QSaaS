@@ -8,7 +8,7 @@ import { useTheme } from "next-themes"
 import { PageHeader } from "@/components/page-header"
 import { useRouter } from "next/navigation"
 import { LanguageSelector } from "@/components/language-selector"
-import { deleteUserAccount, updateUserAccount, generateApiKey, getApiKey, revokeApiKey } from "./actions"
+import { deleteUserAccount, updateUserAccount, generateApiKey, getApiKey, revokeApiKey, getExecutionStorageStats, getExecutionHistory, deleteExecutions, clearAllExecutionHistory } from "./actions"
 import { useIsGuest } from "@/components/guest-banner"
 
 export default function SettingsPage() {
@@ -35,6 +35,17 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const isGuest = useIsGuest()
+
+  // Execution history / storage state
+  type ExecHistoryRow = { id: string; circuit_name: string; algorithm: string; status: string; created_at: string; size_bytes: number }
+  const [execHistory, setExecHistory] = useState<ExecHistoryRow[]>([])
+  const [execStorageUsed, setExecStorageUsed] = useState(0)
+  const [execTotalRows, setExecTotalRows] = useState(0)
+  const [selectedExecIds, setSelectedExecIds] = useState<Set<string>>(new Set())
+  const [showClearHistoryConfirm, setShowClearHistoryConfirm] = useState(false)
+  const [isClearingHistory, setIsClearingHistory] = useState(false)
+  const [isDeletingExecs, setIsDeletingExecs] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
 
   useEffect(() => {
     const loadUserData = async () => {
@@ -91,6 +102,20 @@ export default function SettingsPage() {
         } catch (err) {
           console.warn("Failed to load API keys:", err)
         }
+        // ── Load execution history storage stats ──
+        try {
+          const [statsResult, histResult] = await Promise.all([
+            getExecutionStorageStats(),
+            getExecutionHistory(),
+          ])
+          if (!statsResult.error) {
+            setExecStorageUsed(statsResult.usedBytes ?? 0)
+            setExecTotalRows(statsResult.totalRows ?? 0)
+          }
+          if (!histResult.error) {
+            setExecHistory((histResult.history ?? []) as any[])
+          }
+        } catch { /* non-fatal */ }
       }
 
       const stayLoggedInPref = localStorage.getItem("planck_stay_logged_in")
@@ -150,6 +175,66 @@ export default function SettingsPage() {
       router.push("/auth/login")
     } finally {
       setIsLoggingOut(false)
+    }
+  }
+
+  const loadExecutionHistory = async () => {
+    setIsLoadingHistory(true)
+    try {
+      const [statsResult, histResult] = await Promise.all([
+        getExecutionStorageStats(),
+        getExecutionHistory(),
+      ])
+      if (!statsResult.error) {
+        setExecStorageUsed(statsResult.usedBytes ?? 0)
+        setExecTotalRows(statsResult.totalRows ?? 0)
+      }
+      if (!histResult.error) {
+        setExecHistory((histResult.history ?? []) as ExecHistoryRow[])
+      }
+    } catch { /* non-fatal */ }
+    finally { setIsLoadingHistory(false) }
+  }
+
+  const handleDeleteSelected = async () => {
+    const idsToDelete = Array.from(selectedExecIds)
+    if (!idsToDelete.length) return
+    setIsDeletingExecs(true)
+    try {
+      const result = await deleteExecutions(idsToDelete)
+      if (result.error) throw new Error(result.error)
+      try {
+        const cached = localStorage.getItem("planck_exec_cache")
+        if (cached) {
+          const toDeleteSet = new Set(idsToDelete)
+          const filtered = (JSON.parse(cached) as any[]).filter((r) => !toDeleteSet.has(r.id))
+          localStorage.setItem("planck_exec_cache", JSON.stringify(filtered))
+        }
+      } catch { /* non-fatal */ }
+      setSelectedExecIds(new Set())
+      await loadExecutionHistory()
+    } catch (err: any) {
+      alert(`Error deleting executions: ${err.message}`)
+    } finally {
+      setIsDeletingExecs(false)
+    }
+  }
+
+  const handleClearAllHistory = async () => {
+    setIsClearingHistory(true)
+    try {
+      const result = await clearAllExecutionHistory()
+      if (result.error) throw new Error(result.error)
+      setExecHistory([])
+      setExecStorageUsed(0)
+      setExecTotalRows(0)
+      setSelectedExecIds(new Set())
+      setShowClearHistoryConfirm(false)
+      try { localStorage.removeItem("planck_exec_cache") } catch { /* non-fatal */ }
+    } catch (err: any) {
+      alert(`Error clearing history: ${err.message}`)
+    } finally {
+      setIsClearingHistory(false)
     }
   }
 
@@ -539,6 +624,120 @@ export default function SettingsPage() {
         </div>
       </Card>
 
+      {/* Execution History & Storage */}
+      <Card className="p-6 shadow-lg">
+        <h2 className="text-2xl font-bold text-foreground mb-2">Execution History &amp; Storage</h2>
+        <p className="text-sm text-muted-foreground mb-6">
+          Manage your saved quantum execution history. Usage is measured against a 100 MB cap.
+        </p>
+
+        {/* Storage progress bar */}
+        <div className="mb-6">
+          <div className="flex justify-between text-sm mb-2">
+            <span className="text-muted-foreground">Storage used</span>
+            <span className="font-medium text-foreground">
+              {(execStorageUsed / 1_048_576).toFixed(2)} MB / 100 MB
+              <span className="text-muted-foreground ml-2">
+                ({Math.min(100, (execStorageUsed / (100 * 1_048_576)) * 100).toFixed(1)}%)
+              </span>
+            </span>
+          </div>
+          <div className="w-full bg-secondary rounded-full h-2.5">
+            <div
+              className="bg-primary rounded-full h-2.5 transition-all duration-300"
+              style={{ width: `${Math.min(100, (execStorageUsed / (100 * 1_048_576)) * 100).toFixed(2)}%` }}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {execTotalRows} execution{execTotalRows !== 1 ? "s" : ""} stored
+          </p>
+        </div>
+
+        {/* History table */}
+        {isLoadingHistory ? (
+          <p className="text-sm text-muted-foreground text-center py-6">Loading history…</p>
+        ) : execHistory.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-6">No saved execution history.</p>
+        ) : (
+          <div className="overflow-x-auto max-h-64 overflow-y-auto mb-4 rounded-md border border-border">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-card z-10">
+                <tr className="border-b border-border">
+                  <th className="py-2 px-2 text-left w-8">
+                    <input
+                      type="checkbox"
+                      checked={selectedExecIds.size === execHistory.length && execHistory.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedExecIds(new Set(execHistory.map((r) => r.id)))
+                        else setSelectedExecIds(new Set())
+                      }}
+                    />
+                  </th>
+                  {["Name", "Algorithm", "Status", "Date", "Size"].map((h) => (
+                    <th key={h} className="py-2 px-2 text-left text-muted-foreground font-medium whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {execHistory.map((r) => (
+                  <tr key={r.id} className="border-b border-border/50 hover:bg-secondary/50 transition-colors">
+                    <td className="py-1.5 px-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedExecIds.has(r.id)}
+                        onChange={(e) => {
+                          const next = new Set(selectedExecIds)
+                          if (e.target.checked) next.add(r.id)
+                          else next.delete(r.id)
+                          setSelectedExecIds(next)
+                        }}
+                      />
+                    </td>
+                    <td className="py-1.5 px-2 font-medium text-foreground">{r.circuit_name || "—"}</td>
+                    <td className="py-1.5 px-2 text-muted-foreground">{r.algorithm || "—"}</td>
+                    <td className="py-1.5 px-2">
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${r.status === "completed" ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"}`}>
+                        {r.status === "completed" ? "Success" : r.status}
+                      </span>
+                    </td>
+                    <td className="py-1.5 px-2 text-muted-foreground whitespace-nowrap">{new Date(r.created_at).toLocaleDateString()}</td>
+                    <td className="py-1.5 px-2 text-muted-foreground whitespace-nowrap">
+                      {r.size_bytes < 1024 ? `${r.size_bytes} B` : `${(r.size_bytes / 1024).toFixed(1)} kB`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {selectedExecIds.size > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDeleteSelected}
+              disabled={isDeletingExecs}
+              className="flex items-center gap-2 text-destructive hover:text-destructive border-destructive"
+            >
+              <Trash2 size={14} />
+              {isDeletingExecs ? "Deleting…" : `Delete Selected (${selectedExecIds.size})`}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowClearHistoryConfirm(true)}
+            disabled={execHistory.length === 0 || isClearingHistory}
+            className="flex items-center gap-2 text-destructive hover:text-destructive border-destructive ml-auto"
+          >
+            <Trash2 size={14} />
+            Clear All History
+          </Button>
+        </div>
+      </Card>
+
       {/* Preferences */}
       <Card className="p-6 shadow-lg">
         <h2 className="text-2xl font-bold text-foreground mb-6">Preferences</h2>
@@ -712,6 +911,38 @@ export default function SettingsPage() {
                   </>
                 ) : (
                   "Delete Account"
+                )}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {showClearHistoryConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <Card className="max-w-md w-full mx-4 p-6">
+            <h3 className="text-xl font-bold text-foreground mb-4">Clear All Execution History</h3>
+            <p className="text-muted-foreground mb-6">
+              This will permanently delete all {execTotalRows} saved execution{execTotalRows !== 1 ? "s" : ""} and free{" "}
+              {(execStorageUsed / 1_048_576).toFixed(2)} MB of storage. This cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setShowClearHistoryConfirm(false)} disabled={isClearingHistory}>
+                Cancel
+              </Button>
+              <Button
+                variant="default"
+                onClick={handleClearAllHistory}
+                disabled={isClearingHistory}
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              >
+                {isClearingHistory ? (
+                  <>
+                    <span className="inline-block w-4 h-4 border-4 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Clearing…
+                  </>
+                ) : (
+                  "Clear All"
                 )}
               </Button>
             </div>

@@ -171,8 +171,8 @@ export function useLiveExecutions({
         setConnected(false)
         es.close()
         esRef.current = null
-        // Reconnect after 5 s
-        reconnectTimer = setTimeout(connect, 5_000)
+        // Reconnect after 1 s
+        reconnectTimer = setTimeout(connect, 1_000)
       }
     }
 

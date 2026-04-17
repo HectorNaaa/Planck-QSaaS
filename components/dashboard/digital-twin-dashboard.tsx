@@ -207,7 +207,7 @@ export function DigitalTwinDashboard({
       {liveEnabled && (
         <div className="flex items-center gap-2 text-xs">
           {connected
-            ? <><Wifi size={13} className="text-primary" /><span className="text-primary">Live — updating every 3 s</span></>
+            ? <><Wifi size={13} className="text-primary" /><span className="text-primary">Live — near real-time</span></>
             : <><WifiOff size={13} className="text-muted-foreground" /><span className="text-muted-foreground">Connecting…</span></>
           }
           {error && <span className="text-destructive ml-2">{error}</span>}

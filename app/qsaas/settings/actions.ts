@@ -1,7 +1,7 @@
 "use server"
 
 import { cookies } from "next/headers"
-import { Users, Profiles, ApiKeys } from "@/lib/db/client"
+import { Users, Profiles, ApiKeys, Executions } from "@/lib/db/client"
 import { verifyJWT, generateJWT, generateApiKey as genApiKey } from "@/lib/auth-utils"
 import { ensureDbUser } from "@/lib/db/ensure-user"
 
@@ -204,6 +204,81 @@ export async function revokeApiKey() {
   } catch (error: any) {
     console.error("[SETTINGS] Revoke API key error:", error)
     return { error: error.message || "Failed to revoke API key" }
+  }
+}
+
+// ── Execution History Management ──────────────────────────────────────────────
+
+export async function getExecutionStorageStats() {
+  const payload = await getJWTPayload()
+  if (!payload) return { error: "Not authenticated", usedBytes: 0, totalRows: 0 }
+  try {
+    ensureDbUser(payload)
+    const usedBytes = Executions.getStorageSizeByUserId(payload.userId)
+    const rows = Executions.findByUserId(payload.userId)
+    return { success: true, usedBytes, totalRows: rows.length }
+  } catch (err: any) {
+    console.warn("[SETTINGS] getExecutionStorageStats error:", err)
+    return { error: err.message || "Failed to get storage stats", usedBytes: 0, totalRows: 0 }
+  }
+}
+
+export async function getExecutionHistory() {
+  const payload = await getJWTPayload()
+  if (!payload) return { error: "Not authenticated", history: [] as any[] }
+  try {
+    ensureDbUser(payload)
+    const rows = Executions.findByUserId(payload.userId)
+    const history = rows.map((r: any) => ({
+      id: r.id,
+      circuit_name: r.circuit_name ?? '',
+      algorithm: r.algorithm ?? '',
+      status: r.status ?? 'pending',
+      created_at: new Date(r.created_at ?? Date.now()).toISOString(),
+      size_bytes:
+        (typeof r.circuit_data === 'string' ? r.circuit_data.length : 0) +
+        (typeof r.result === 'string' ? r.result.length : 0) +
+        (typeof r.error === 'string' ? r.error.length : 0) + 250,
+    }))
+    return { success: true, history }
+  } catch (err: any) {
+    console.warn("[SETTINGS] getExecutionHistory error:", err)
+    return { error: err.message || "Failed to get execution history", history: [] as any[] }
+  }
+}
+
+export async function deleteExecutions(ids: string[]) {
+  const payload = await getJWTPayload()
+  if (!payload) return { error: "Not authenticated" }
+  if (!ids.length) return { success: true, deleted: 0 }
+  try {
+    ensureDbUser(payload)
+    let deleted = 0
+    for (const id of ids) {
+      // Verify ownership before deleting to prevent cross-user deletion
+      const row = Executions.findById(id)
+      if (row && row.user_id === payload.userId) {
+        Executions.deleteById(id)
+        deleted++
+      }
+    }
+    return { success: true, deleted }
+  } catch (err: any) {
+    console.error("[SETTINGS] deleteExecutions error:", err)
+    return { error: err.message || "Failed to delete executions" }
+  }
+}
+
+export async function clearAllExecutionHistory() {
+  const payload = await getJWTPayload()
+  if (!payload) return { error: "Not authenticated" }
+  try {
+    ensureDbUser(payload)
+    Executions.deleteByUserId(payload.userId)
+    return { success: true }
+  } catch (err: any) {
+    console.error("[SETTINGS] clearAllExecutionHistory error:", err)
+    return { error: err.message || "Failed to clear execution history" }
   }
 }
 

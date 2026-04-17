@@ -128,11 +128,10 @@
 
 /* ── Number-change flash animation ─────────────────────────────────────────── */
 @keyframes stat-value-flash {
-  0%   { color: var(--primary); text-shadow: 0 0 14px var(--primary); transform: scale(1.06); }
-  60%  { color: var(--primary); text-shadow: 0 0 6px  var(--primary); transform: scale(1.01); }
-  100% { color: inherit;        text-shadow: none;                     transform: scale(1); }
+  0%   { color: var(--primary); text-shadow: 0 0 8px var(--primary); }
+  100% { color: inherit;        text-shadow: none; }
 }
 
 .stat-value-flash {
-  animation: stat-value-flash 0.65s ease-out;
+  animation: stat-value-flash 0.25s ease-out;
 }
