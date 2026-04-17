@@ -98,8 +98,8 @@ export default function RunnerPage() {
   // Shared live mode — synced with dashboard via sessionStorage + BroadcastChannel
   const [sdkMode, setLiveEnabled] = useLiveMode(isGuest)
 
-  // ── Storage limit tracking (10 MB cap) ────────────────────────────────
-  const STORAGE_CAP_BYTES = 10 * 1024 * 1024
+  // ── Storage limit tracking (50 MB cap) ──────────────────────────────────
+  const STORAGE_CAP_BYTES = 50 * 1024 * 1024
   const [storageUsedBytes, setStorageUsedBytes] = useState(0)
 
   /** Recompute storage from localStorage cache. Called on mount + after each run. */
@@ -114,6 +114,35 @@ export default function RunnerPage() {
   }
 
   useEffect(() => { refreshStorageEstimate() }, [])
+
+  // ── SDK live: periodic polling fallback ────────────────────────────────────
+  // SSE only sees rows written to the SAME Vercel lambda instance. SDK calls
+  // often land on a different instance, so we poll /api/dashboard/data every
+  // 3 s as a cross-instance fallback. New rows are fed into initialLiveRows
+  // → useLiveExecutions merges them → liveRows updates → results + charts refresh.
+  useEffect(() => {
+    if (!sdkMode || isGuest) return
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/dashboard/data?timeRange=7d")
+        if (!res.ok) return
+        const data = await res.json()
+        const serverRows: ExecutionRow[] = data.logs || []
+        if (serverRows.length === 0) return
+        setInitialLiveRows((prev) => {
+          const prevIds = new Set(prev.map((r) => r.id))
+          const fresh = serverRows.filter((r) => !prevIds.has(r.id))
+          if (fresh.length === 0) return prev
+          const merged = [...prev, ...fresh]
+          merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          return merged.slice(-500)
+        })
+      } catch { /* non-fatal */ }
+    }
+    poll() // immediate on first enable
+    const id = setInterval(poll, 3_000)
+    return () => clearInterval(id)
+  }, [sdkMode, isGuest])
 
   // ── Pre-seed live hook with cached + server data so SDK mode shows history ──
   const [initialLiveRows, setInitialLiveRows] = useState<ExecutionRow[]>([])
@@ -482,7 +511,7 @@ const adaptiveShots = calculateAdaptiveShots({
     }
     // Client-side proactive storage block
     if (storageUsedBytes >= STORAGE_CAP_BYTES) {
-      alert("Storage limit reached (10 MB). Delete some execution history in Settings → Execution History & Storage to free space.")
+      alert("Storage limit reached (50 MB). Delete some execution history in Settings → Execution History & Storage to free space.")
       return
     }
     setIsRunning(true)
@@ -525,7 +554,7 @@ const adaptiveShots = calculateAdaptiveShots({
 
       if (!simulateData.success) {
         if (simulateData.storage_limit_exceeded) {
-          throw new Error(`Storage limit reached (${simulateData.used_mb} MB / 10 MB). Go to Settings → Execution History & Storage to free space.`)
+          throw new Error(`Storage limit reached (${simulateData.used_mb} MB / 50 MB). Go to Settings → Execution History & Storage to free space.`)
         }
         throw new Error("Simulation failed")
       }
@@ -802,7 +831,7 @@ const adaptiveShots = calculateAdaptiveShots({
         <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-destructive/60 bg-destructive/10 text-sm">
           <span className="text-destructive font-bold mt-0.5">⚠</span>
           <div>
-            <p className="font-semibold text-destructive">Execution history storage limit reached ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 10 MB)</p>
+            <p className="font-semibold text-destructive">Execution history storage limit reached ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 50 MB)</p>
             <p className="text-destructive/80 text-xs mt-0.5">New executions are blocked. Go to <strong>Settings → Execution History &amp; Storage</strong> and delete some records to free space.</p>
           </div>
         </div>
@@ -811,7 +840,7 @@ const adaptiveShots = calculateAdaptiveShots({
         <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-amber-500/60 bg-amber-500/10 text-sm">
           <span className="text-amber-600 font-bold mt-0.5">⚠</span>
           <div>
-            <p className="font-semibold text-amber-700 dark:text-amber-400">Execution history approaching limit ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 10 MB)</p>
+            <p className="font-semibold text-amber-700 dark:text-amber-400">Execution history approaching limit ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 50 MB)</p>
             <p className="text-amber-600/80 dark:text-amber-400/70 text-xs mt-0.5">Consider freeing space in <strong>Settings → Execution History &amp; Storage</strong> before it fills up.</p>
           </div>
         </div>
@@ -837,7 +866,7 @@ const adaptiveShots = calculateAdaptiveShots({
             </div>
             <p className="text-xs text-muted-foreground">
               {sdkMode
-                ? "Results update automatically every 3 s from SDK jobs. Upload and editing are disabled."
+                ? "Results update in near real-time from SDK jobs. Upload and editing are disabled."
                 : "Enable to receive live results from notebook/script SDK calls."}
             </p>
           </div>

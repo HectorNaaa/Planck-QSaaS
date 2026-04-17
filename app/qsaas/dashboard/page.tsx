@@ -95,7 +95,7 @@ export default function DashboardPage() {
   const prevStatsRef = useRef<DashboardStats | null>(null)
 
   // Storage warning: read localStorage cache size on mount
-  const STORAGE_CAP_BYTES = 10 * 1024 * 1024
+  const STORAGE_CAP_BYTES = 50 * 1024 * 1024
   const [storageUsedBytes, setStorageUsedBytes] = useState(0)
   useEffect(() => {
     if (isGuest) return
@@ -296,7 +296,7 @@ export default function DashboardPage() {
         <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-destructive/60 bg-destructive/10 text-sm">
           <span className="text-destructive font-bold mt-0.5">⚠</span>
           <div>
-            <p className="font-semibold text-destructive">Execution history storage limit reached ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 10 MB)</p>
+            <p className="font-semibold text-destructive">Execution history storage limit reached ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 50 MB)</p>
             <p className="text-destructive/80 text-xs mt-0.5">New executions are blocked. Go to <strong>Settings → Execution History &amp; Storage</strong> and delete some records to free space.</p>
           </div>
         </div>
@@ -305,7 +305,7 @@ export default function DashboardPage() {
         <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-yellow-500/50 bg-yellow-500/10 text-sm">
           <span className="text-yellow-600 dark:text-yellow-400 font-bold mt-0.5">⚠</span>
           <div>
-            <p className="font-semibold text-yellow-700 dark:text-yellow-300">Execution history storage is almost full ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 10 MB)</p>
+            <p className="font-semibold text-yellow-700 dark:text-yellow-300">Execution history storage is almost full ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 50 MB)</p>
             <p className="text-yellow-600/80 dark:text-yellow-400/80 text-xs mt-0.5">Go to <strong>Settings → Execution History &amp; Storage</strong> to free space before your limit is reached.</p>
           </div>
         </div>

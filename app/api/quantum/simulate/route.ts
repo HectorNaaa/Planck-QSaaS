@@ -92,8 +92,8 @@ export async function POST(request: NextRequest) {
     }
     const userId = auth.userId!
 
-    // ── Storage cap: 10 MB per user ────────────────────────────────────────
-    const STORAGE_CAP_BYTES = 10 * 1024 * 1024 // 10 MB
+    // ── Storage cap: 50 MB per user ────────────────────────────────────────
+    const STORAGE_CAP_BYTES = 50 * 1024 * 1024 // 50 MB
     try {
       const usedBytes = Executions.getStorageSizeByUserId(userId)
       if (usedBytes >= STORAGE_CAP_BYTES) {
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
             storage_limit_exceeded: true,
             used_mb: (usedBytes / 1_048_576).toFixed(2),
             error:
-              "Execution history storage limit reached (10 MB). Please delete some execution history in QSaaS → Settings → Execution History & Storage to free space, then try again.",
+              "Execution history storage limit reached (50 MB). Please delete some execution history in QSaaS → Settings → Execution History & Storage to free space, then try again.",
           },
           { status: 429 }
         )

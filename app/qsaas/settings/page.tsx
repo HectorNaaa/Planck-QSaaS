@@ -11,6 +11,49 @@ import { LanguageSelector } from "@/components/language-selector"
 import { deleteUserAccount, updateUserAccount, generateApiKey, getApiKey, revokeApiKey, deleteExecutions, clearAllExecutionHistory } from "./actions"
 import { useIsGuest } from "@/components/guest-banner"
 
+// ── Execution history deletion-tracking helpers (localStorage) ────────────
+// These prevent server rows from "coming back" after a user deletes them,
+// even when a different Vercel lambda instance still has them in its SQLite.
+const EXEC_CACHE_KEY = "planck_exec_cache"
+const CLEARED_BEFORE_KEY = "planck_exec_cleared_before"
+const DELETED_IDS_KEY = "planck_exec_deleted_ids"
+
+function appendDeletedIds(ids: string[]) {
+  try {
+    let arr: string[] = []
+    const raw = localStorage.getItem(DELETED_IDS_KEY)
+    if (raw) arr = JSON.parse(raw) as string[]
+    const next = Array.from(new Set([...arr, ...ids])).slice(-2000)
+    localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(next))
+  } catch { /* non-fatal */ }
+}
+
+function markHistoryCleared() {
+  try {
+    localStorage.setItem(CLEARED_BEFORE_KEY, new Date().toISOString())
+    localStorage.removeItem(DELETED_IDS_KEY) // superseded by cleared_before
+  } catch { /* non-fatal */ }
+}
+
+function applyLocalDeletedFilter<T extends { id: string; created_at: string }>(rows: T[]): T[] {
+  let clearedBefore: Date | null = null
+  let deletedIds = new Set<string>()
+  try {
+    const ts = localStorage.getItem(CLEARED_BEFORE_KEY)
+    if (ts) clearedBefore = new Date(ts)
+  } catch {}
+  try {
+    const raw = localStorage.getItem(DELETED_IDS_KEY)
+    if (raw) deletedIds = new Set(JSON.parse(raw) as string[])
+  } catch {}
+  if (!clearedBefore && deletedIds.size === 0) return rows
+  return rows.filter((r) => {
+    if (deletedIds.has(r.id)) return false
+    if (clearedBefore && new Date(r.created_at) <= clearedBefore) return false
+    return true
+  })
+}
+
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const router = useRouter()
@@ -183,13 +226,14 @@ export default function SettingsPage() {
       // 2. Merge with localStorage cache (cold-start resilience + SDK cross-tab sync)
       let cachedRows: ExecHistoryRow[] = []
       try {
-        const raw = localStorage.getItem("planck_exec_cache")
+        const raw = localStorage.getItem(EXEC_CACHE_KEY)
         if (raw) cachedRows = JSON.parse(raw) as ExecHistoryRow[]
       } catch { /* localStorage unavailable */ }
 
       const serverIds = new Set(serverRows.map((r) => r.id))
       const extra = cachedRows.filter((r) => !serverIds.has(r.id))
-      const merged = [...serverRows, ...extra]
+      // Filter out rows the user explicitly deleted (guards against cross-lambda SQLite drift)
+      const merged = applyLocalDeletedFilter([...serverRows, ...extra])
       merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
       // 3. Annotate with estimated per-row storage footprint
@@ -218,13 +262,15 @@ export default function SettingsPage() {
     try {
       // Best-effort server delete (may be no-op if SQLite is cold-started)
       await deleteExecutions(idsToDelete).catch(() => {})
+      // Persist deleted IDs so they’re filtered even if server returns them (cross-lambda)
+      appendDeletedIds(idsToDelete)
       // Always remove from localStorage cache
       try {
-        const cached = localStorage.getItem("planck_exec_cache")
+        const cached = localStorage.getItem(EXEC_CACHE_KEY)
         if (cached) {
           const toDeleteSet = new Set(idsToDelete)
           const filtered = (JSON.parse(cached) as any[]).filter((r) => !toDeleteSet.has(r.id))
-          localStorage.setItem("planck_exec_cache", JSON.stringify(filtered))
+          localStorage.setItem(EXEC_CACHE_KEY, JSON.stringify(filtered))
         }
       } catch { /* non-fatal */ }
       // Update state immediately without a full reload
@@ -248,12 +294,14 @@ export default function SettingsPage() {
     try {
       const result = await clearAllExecutionHistory()
       if (result.error) throw new Error(result.error)
+      // Mark all current rows as cleared so they’re filtered even if server returns them
+      markHistoryCleared()
       setExecHistory([])
       setExecStorageUsed(0)
       setExecTotalRows(0)
       setSelectedExecIds(new Set())
       setShowClearHistoryConfirm(false)
-      try { localStorage.removeItem("planck_exec_cache") } catch { /* non-fatal */ }
+      try { localStorage.removeItem(EXEC_CACHE_KEY) } catch { /* non-fatal */ }
     } catch (err: any) {
       alert(`Error clearing history: ${err.message}`)
     } finally {
@@ -651,7 +699,7 @@ export default function SettingsPage() {
       <Card className="p-6 shadow-lg">
         <h2 className="text-2xl font-bold text-foreground mb-2">Execution History &amp; Storage</h2>
         <p className="text-sm text-muted-foreground mb-6">
-          Manage your saved quantum execution history. Usage is measured against a 10 MB cap.
+          Manage your saved quantum execution history. Usage is measured against a 50 MB cap.
         </p>
 
         {/* Storage progress bar */}
@@ -659,16 +707,16 @@ export default function SettingsPage() {
           <div className="flex justify-between text-sm mb-2">
             <span className="text-muted-foreground">Storage used</span>
             <span className="font-medium text-foreground">
-              {(execStorageUsed / 1_048_576).toFixed(2)} MB / 10 MB
+              {(execStorageUsed / 1_048_576).toFixed(2)} MB / 50 MB
               <span className="text-muted-foreground ml-2">
-                ({Math.min(100, (execStorageUsed / (10 * 1_048_576)) * 100).toFixed(1)}%)
+                ({Math.min(100, (execStorageUsed / (50 * 1_048_576)) * 100).toFixed(1)}%)
               </span>
             </span>
           </div>
           <div className="w-full bg-secondary rounded-full h-2.5">
             <div
               className="bg-primary rounded-full h-2.5 transition-all duration-300"
-              style={{ width: `${Math.min(100, (execStorageUsed / (10 * 1_048_576)) * 100).toFixed(2)}%` }}
+              style={{ width: `${Math.min(100, (execStorageUsed / (50 * 1_048_576)) * 100).toFixed(2)}%` }}
             />
           </div>
           <p className="text-xs text-muted-foreground mt-1">
