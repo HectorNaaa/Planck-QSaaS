@@ -8,7 +8,7 @@ import { useTheme } from "next-themes"
 import { PageHeader } from "@/components/page-header"
 import { useRouter } from "next/navigation"
 import { LanguageSelector } from "@/components/language-selector"
-import { deleteUserAccount, updateUserAccount, generateApiKey, getApiKey, revokeApiKey, getExecutionStorageStats, getExecutionHistory, deleteExecutions, clearAllExecutionHistory } from "./actions"
+import { deleteUserAccount, updateUserAccount, generateApiKey, getApiKey, revokeApiKey, deleteExecutions, clearAllExecutionHistory } from "./actions"
 import { useIsGuest } from "@/components/guest-banner"
 
 export default function SettingsPage() {
@@ -37,7 +37,7 @@ export default function SettingsPage() {
   const isGuest = useIsGuest()
 
   // Execution history / storage state
-  type ExecHistoryRow = { id: string; circuit_name: string; algorithm: string; status: string; created_at: string; size_bytes: number }
+  type ExecHistoryRow = { id: string; circuit_name: string; algorithm: string; status: string; created_at: string; size_bytes: number; backend_selected?: string | null; runtime_ms?: number; shots?: number; circuit_data?: any }
   const [execHistory, setExecHistory] = useState<ExecHistoryRow[]>([])
   const [execStorageUsed, setExecStorageUsed] = useState(0)
   const [execTotalRows, setExecTotalRows] = useState(0)
@@ -102,20 +102,6 @@ export default function SettingsPage() {
         } catch (err) {
           console.warn("Failed to load API keys:", err)
         }
-        // ── Load execution history storage stats ──
-        try {
-          const [statsResult, histResult] = await Promise.all([
-            getExecutionStorageStats(),
-            getExecutionHistory(),
-          ])
-          if (!statsResult.error) {
-            setExecStorageUsed(statsResult.usedBytes ?? 0)
-            setExecTotalRows(statsResult.totalRows ?? 0)
-          }
-          if (!histResult.error) {
-            setExecHistory((histResult.history ?? []) as any[])
-          }
-        } catch { /* non-fatal */ }
       }
 
       const stayLoggedInPref = localStorage.getItem("planck_stay_logged_in")
@@ -178,31 +164,61 @@ export default function SettingsPage() {
     }
   }
 
+  // Loads execution history by merging /api/dashboard/data (server SQLite rows)
+  // with planck_exec_cache (localStorage), exactly like the dashboard does.
+  // This survives Vercel ephemeral SQLite cold-starts and includes SDK runs.
   const loadExecutionHistory = async () => {
     setIsLoadingHistory(true)
     try {
-      const [statsResult, histResult] = await Promise.all([
-        getExecutionStorageStats(),
-        getExecutionHistory(),
-      ])
-      if (!statsResult.error) {
-        setExecStorageUsed(statsResult.usedBytes ?? 0)
-        setExecTotalRows(statsResult.totalRows ?? 0)
-      }
-      if (!histResult.error) {
-        setExecHistory((histResult.history ?? []) as ExecHistoryRow[])
-      }
+      // 1. Fetch server rows (same endpoint as dashboard, covers UI + SDK runs)
+      let serverRows: ExecHistoryRow[] = []
+      try {
+        const res = await fetch("/api/dashboard/data?timeRange=30d", { credentials: "include" })
+        if (res.ok) {
+          const data = await res.json()
+          serverRows = (data.logs ?? []) as ExecHistoryRow[]
+        }
+      } catch { /* network error — fall back to cache only */ }
+
+      // 2. Merge with localStorage cache (cold-start resilience + SDK cross-tab sync)
+      let cachedRows: ExecHistoryRow[] = []
+      try {
+        const raw = localStorage.getItem("planck_exec_cache")
+        if (raw) cachedRows = JSON.parse(raw) as ExecHistoryRow[]
+      } catch { /* localStorage unavailable */ }
+
+      const serverIds = new Set(serverRows.map((r) => r.id))
+      const extra = cachedRows.filter((r) => !serverIds.has(r.id))
+      const merged = [...serverRows, ...extra]
+      merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+      // 3. Annotate with estimated per-row storage footprint
+      const annotated: ExecHistoryRow[] = merged.map((r) => ({
+        ...r,
+        size_bytes: JSON.stringify(r).length,
+      }))
+
+      setExecHistory(annotated)
+      setExecTotalRows(annotated.length)
+      setExecStorageUsed(annotated.reduce((s, r) => s + (r.size_bytes ?? 0), 0))
     } catch { /* non-fatal */ }
     finally { setIsLoadingHistory(false) }
   }
+
+  // Trigger history load once auth is resolved (isGuest becomes stable after /api/request-utils)
+  useEffect(() => {
+    if (!isGuest) loadExecutionHistory()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGuest])
 
   const handleDeleteSelected = async () => {
     const idsToDelete = Array.from(selectedExecIds)
     if (!idsToDelete.length) return
     setIsDeletingExecs(true)
     try {
-      const result = await deleteExecutions(idsToDelete)
-      if (result.error) throw new Error(result.error)
+      // Best-effort server delete (may be no-op if SQLite is cold-started)
+      await deleteExecutions(idsToDelete).catch(() => {})
+      // Always remove from localStorage cache
       try {
         const cached = localStorage.getItem("planck_exec_cache")
         if (cached) {
@@ -211,8 +227,15 @@ export default function SettingsPage() {
           localStorage.setItem("planck_exec_cache", JSON.stringify(filtered))
         }
       } catch { /* non-fatal */ }
+      // Update state immediately without a full reload
+      const toDeleteSet = new Set(idsToDelete)
+      setExecHistory((prev) => {
+        const next = prev.filter((r) => !toDeleteSet.has(r.id))
+        setExecTotalRows(next.length)
+        setExecStorageUsed(next.reduce((s, r) => s + (r.size_bytes ?? 0), 0))
+        return next
+      })
       setSelectedExecIds(new Set())
-      await loadExecutionHistory()
     } catch (err: any) {
       alert(`Error deleting executions: ${err.message}`)
     } finally {
