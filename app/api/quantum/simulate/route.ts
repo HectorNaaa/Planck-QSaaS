@@ -203,7 +203,18 @@ export async function POST(request: NextRequest) {
     const circuitDataJson = JSON.stringify({
       source,
       digital_twin_id: digitalTwinId,
+      qasm,  // full QASM for download
       results: { fidelity: actualFidelity, counts: results.counts },
+      backend_reason: policyResult.reason,
+      effective_shots: effectiveShots,
+      effective_error_mitigation: effectiveErrorMitigation,
+      ml_tuning: mlRecommendation ? {
+        shots: mlRecommendation.recommendedShots,
+        error_mitigation: mlRecommendation.recommendedErrorMitigation,
+        confidence: mlRecommendation.confidence,
+        reasoning: mlRecommendation.reasoning,
+        based_on_executions: mlRecommendation.basedOnExecutions,
+      } : null,
     })
     const { id: executionId } = Executions.create({
       user_id: userId,

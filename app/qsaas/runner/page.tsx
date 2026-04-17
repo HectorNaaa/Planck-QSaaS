@@ -35,7 +35,7 @@ import { useIsGuest } from "@/components/guest-banner"
 /** Convert a manual-run results object into the ExecutionRow shape the DT dashboard expects. */
 function resultToRow(
   r: any,
-  ctx: { circuitName: string; shots: number | null; qubits: number; backend: string; errorMitigation: string; digitalTwinId?: string | null },
+  ctx: { circuitName: string; shots: number | null; qubits: number; backend: string; errorMitigation: string; digitalTwinId?: string | null; qasm?: string | null },
 ) {
   return {
     id: r._liveJobId ?? "manual-run",
@@ -50,7 +50,13 @@ function resultToRow(
     backend_selected: r.backend_selected ?? ctx.backend,
     error_mitigation: r.error_mitigation ?? ctx.errorMitigation,
     digital_twin_id: ctx.digitalTwinId ?? null,
-    circuit_data: { fidelity: r.fidelity, counts: r.counts },
+    circuit_data: {
+      fidelity: r.fidelity,
+      counts: r.counts,
+      qasm: ctx.qasm ?? null,
+      ml_tuning: r.ml_tuning ?? null,
+      backend_reason: r.backendReason ?? null,
+    },
   }
 }
 
@@ -595,10 +601,12 @@ const adaptiveShots = calculateAdaptiveShots({
         qubits_used: qubits,
         total_shots: simulateData.total_shots || (executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024)),
         backend: simulateData.backend || backend,
+        fidelity: simulateData.fidelity,
         counts: simulateData.counts,
         error_mitigation: simulateData.error_mitigation || errorMitigation,
         error_mitigation_requested: simulateData.error_mitigation_requested || errorMitigation,
         ml_tuning: simulateData.ml_tuning || null,
+        backendReason: simulateData.backendReason || null,
         ...(digitalTwinData.success ? { digital_twin: digitalTwinData.digital_twin } : {}),
       }
 
@@ -616,6 +624,7 @@ const adaptiveShots = calculateAdaptiveShots({
             backend: simulateData.backend || backend,
             errorMitigation: simulateData.error_mitigation || errorMitigation,
             digitalTwinId: selectedDigitalTwinId,
+            qasm: circuitCode || null,
           },
         )
         const raw = localStorage.getItem("planck_exec_cache")

@@ -52,12 +52,34 @@ interface DashboardStats {
 // as a persistent fallback so authenticated users keep their history across
 // server restarts without requiring an external database.
 const EXEC_CACHE_KEY = "planck_exec_cache"
+const CLEARED_BEFORE_KEY = "planck_exec_cleared_before"
+const DELETED_IDS_KEY = "planck_exec_deleted_ids"
+
+/** Filter out rows the user explicitly deleted or cleared (cross-lambda guard). */
+function applyDeletedFilter(rows: ExecutionRow[]): ExecutionRow[] {
+  let clearedBefore: Date | null = null
+  let deletedIds = new Set<string>()
+  try {
+    const ts = localStorage.getItem(CLEARED_BEFORE_KEY)
+    if (ts) clearedBefore = new Date(ts)
+  } catch {}
+  try {
+    const raw = localStorage.getItem(DELETED_IDS_KEY)
+    if (raw) deletedIds = new Set(JSON.parse(raw) as string[])
+  } catch {}
+  if (!clearedBefore && deletedIds.size === 0) return rows
+  return rows.filter((r) => {
+    if (deletedIds.has(r.id)) return false
+    if (clearedBefore && new Date(r.created_at) <= clearedBefore) return false
+    return true
+  })
+}
 
 function readExecCache(): ExecutionRow[] {
   try {
     const raw = localStorage.getItem(EXEC_CACHE_KEY)
     if (!raw) return []
-    return JSON.parse(raw) as ExecutionRow[]
+    return applyDeletedFilter(JSON.parse(raw) as ExecutionRow[])
   } catch {
     return []
   }
@@ -74,7 +96,9 @@ function writeExecCache(rows: ExecutionRow[]) {
 function mergeExecRows(serverRows: ExecutionRow[], cachedRows: ExecutionRow[]): ExecutionRow[] {
   const serverIds = new Set(serverRows.map((r) => r.id))
   const extra = cachedRows.filter((r) => !serverIds.has(r.id))
-  const merged = [...serverRows, ...extra]
+  // Apply deletion filter so rows deleted in Settings don't reappear from a
+  // different Vercel lambda that still has them in its ephemeral SQLite.
+  const merged = applyDeletedFilter([...serverRows, ...extra])
   merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   return merged
 }
