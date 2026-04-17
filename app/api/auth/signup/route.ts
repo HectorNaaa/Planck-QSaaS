@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { Users, Profiles } from '@/lib/db/client'
-import { hashPassword, generateJWT } from '@/lib/auth-utils'
+import { Users, Profiles, ApiKeys } from '@/lib/db/client'
+import { hashPassword, generateJWT, generateApiKey } from '@/lib/auth-utils'
 
 export async function POST(request: NextRequest) {
   try {
@@ -90,6 +90,19 @@ export async function POST(request: NextRequest) {
     // Generate JWT with ALL profile data and set cookie
     const fullName = `${firstName} ${lastName}`.trim()
     const passwordHash = hashPassword(password)
+
+    // Auto-generate an API key so the SDK works immediately after signup
+    // without needing to visit Settings first.
+    let autoApiKey: string | undefined
+    try {
+      autoApiKey = generateApiKey()
+      ApiKeys.create(user.id, 'Default Key', autoApiKey)
+      console.log('[SIGNUP] API key auto-generated for user:', user.id)
+    } catch (keyErr) {
+      console.warn('[SIGNUP] Failed to auto-create API key (non-fatal):', keyErr)
+      autoApiKey = undefined
+    }
+
     const token = generateJWT(user.id, user.email, {
       fullName,
       organization: organization || '',
@@ -97,6 +110,7 @@ export async function POST(request: NextRequest) {
       country: country || '',
       occupation: occupation || '',
       passwordHash,
+      apiKey: autoApiKey,
     })
 
     const response = NextResponse.json({

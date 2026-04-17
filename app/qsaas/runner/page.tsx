@@ -98,6 +98,23 @@ export default function RunnerPage() {
   // Shared live mode — synced with dashboard via sessionStorage + BroadcastChannel
   const [sdkMode, setLiveEnabled] = useLiveMode(isGuest)
 
+  // ── Storage limit tracking (10 MB cap) ────────────────────────────────
+  const STORAGE_CAP_BYTES = 10 * 1024 * 1024
+  const [storageUsedBytes, setStorageUsedBytes] = useState(0)
+
+  /** Recompute storage from localStorage cache. Called on mount + after each run. */
+  const refreshStorageEstimate = () => {
+    try {
+      const raw = localStorage.getItem("planck_exec_cache")
+      if (!raw) { setStorageUsedBytes(0); return }
+      const rows = JSON.parse(raw) as any[]
+      const total = rows.reduce((s, r) => s + JSON.stringify(r).length, 0)
+      setStorageUsedBytes(total)
+    } catch { setStorageUsedBytes(0) }
+  }
+
+  useEffect(() => { refreshStorageEstimate() }, [])
+
   // ── Pre-seed live hook with cached + server data so SDK mode shows history ──
   const [initialLiveRows, setInitialLiveRows] = useState<ExecutionRow[]>([])
 
@@ -463,6 +480,11 @@ const adaptiveShots = calculateAdaptiveShots({
       alert("Create a free account or sign in to run quantum circuits.")
       return
     }
+    // Client-side proactive storage block
+    if (storageUsedBytes >= STORAGE_CAP_BYTES) {
+      alert("Storage limit reached (10 MB). Delete some execution history in Settings → Execution History & Storage to free space.")
+      return
+    }
     setIsRunning(true)
 
     try {
@@ -502,6 +524,9 @@ const adaptiveShots = calculateAdaptiveShots({
       const simulateData = await simulateResponse.json()
 
       if (!simulateData.success) {
+        if (simulateData.storage_limit_exceeded) {
+          throw new Error(`Storage limit reached (${simulateData.used_mb} MB / 10 MB). Go to Settings → Execution History & Storage to free space.`)
+        }
         throw new Error("Simulation failed")
       }
 
@@ -570,6 +595,8 @@ const adaptiveShots = calculateAdaptiveShots({
         localStorage.setItem("planck_exec_cache", JSON.stringify(updated))
         // Broadcast to dashboard and any other open pages for instant update
         broadcastExecution(execRow)
+        // Refresh local storage estimate so banner updates immediately
+        refreshStorageEstimate()
       } catch {
         // localStorage unavailable — fail silently; server DB is the primary store
       }
@@ -589,6 +616,8 @@ const adaptiveShots = calculateAdaptiveShots({
     circuitName,
     executionType,
     targetLatency,
+    storageUsedBytes,
+    STORAGE_CAP_BYTES,
   ])
 
   const handleDownloadCircuitImage = useCallback(() => {
@@ -767,6 +796,26 @@ const adaptiveShots = calculateAdaptiveShots({
   return (
     <div className="p-8 space-y-8 px-0">
       <PageHeader title="Runner" description="Configure and execute your quantum circuits" />
+
+      {/* Storage limit warning banner */}
+      {!isGuest && storageUsedBytes >= STORAGE_CAP_BYTES && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-destructive/60 bg-destructive/10 text-sm">
+          <span className="text-destructive font-bold mt-0.5">⚠</span>
+          <div>
+            <p className="font-semibold text-destructive">Execution history storage limit reached ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 10 MB)</p>
+            <p className="text-destructive/80 text-xs mt-0.5">New executions are blocked. Go to <strong>Settings → Execution History &amp; Storage</strong> and delete some records to free space.</p>
+          </div>
+        </div>
+      )}
+      {!isGuest && storageUsedBytes >= STORAGE_CAP_BYTES * 0.8 && storageUsedBytes < STORAGE_CAP_BYTES && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-amber-500/60 bg-amber-500/10 text-sm">
+          <span className="text-amber-600 font-bold mt-0.5">⚠</span>
+          <div>
+            <p className="font-semibold text-amber-700 dark:text-amber-400">Execution history approaching limit ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 10 MB)</p>
+            <p className="text-amber-600/80 dark:text-amber-400/70 text-xs mt-0.5">Consider freeing space in <strong>Settings → Execution History &amp; Storage</strong> before it fills up.</p>
+          </div>
+        </div>
+      )}
 
       {/* SDK / Intensive-use mode toggle */}
       <div className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${

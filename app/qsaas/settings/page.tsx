@@ -651,7 +651,7 @@ export default function SettingsPage() {
       <Card className="p-6 shadow-lg">
         <h2 className="text-2xl font-bold text-foreground mb-2">Execution History &amp; Storage</h2>
         <p className="text-sm text-muted-foreground mb-6">
-          Manage your saved quantum execution history. Usage is measured against a 100 MB cap.
+          Manage your saved quantum execution history. Usage is measured against a 10 MB cap.
         </p>
 
         {/* Storage progress bar */}
@@ -659,16 +659,16 @@ export default function SettingsPage() {
           <div className="flex justify-between text-sm mb-2">
             <span className="text-muted-foreground">Storage used</span>
             <span className="font-medium text-foreground">
-              {(execStorageUsed / 1_048_576).toFixed(2)} MB / 100 MB
+              {(execStorageUsed / 1_048_576).toFixed(2)} MB / 10 MB
               <span className="text-muted-foreground ml-2">
-                ({Math.min(100, (execStorageUsed / (100 * 1_048_576)) * 100).toFixed(1)}%)
+                ({Math.min(100, (execStorageUsed / (10 * 1_048_576)) * 100).toFixed(1)}%)
               </span>
             </span>
           </div>
           <div className="w-full bg-secondary rounded-full h-2.5">
             <div
               className="bg-primary rounded-full h-2.5 transition-all duration-300"
-              style={{ width: `${Math.min(100, (execStorageUsed / (100 * 1_048_576)) * 100).toFixed(2)}%` }}
+              style={{ width: `${Math.min(100, (execStorageUsed / (10 * 1_048_576)) * 100).toFixed(2)}%` }}
             />
           </div>
           <p className="text-xs text-muted-foreground mt-1">

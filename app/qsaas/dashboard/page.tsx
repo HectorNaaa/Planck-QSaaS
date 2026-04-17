@@ -94,6 +94,20 @@ export default function DashboardPage() {
   const [flashStats, setFlashStats] = useState(false)
   const prevStatsRef = useRef<DashboardStats | null>(null)
 
+  // Storage warning: read localStorage cache size on mount
+  const STORAGE_CAP_BYTES = 10 * 1024 * 1024
+  const [storageUsedBytes, setStorageUsedBytes] = useState(0)
+  useEffect(() => {
+    if (isGuest) return
+    try {
+      const raw = localStorage.getItem(EXEC_CACHE_KEY)
+      if (!raw) return
+      const rows = JSON.parse(raw) as ExecutionRow[]
+      const total = rows.reduce((sum, r) => sum + JSON.stringify(r).length, 0)
+      setStorageUsedBytes(total)
+    } catch { /* non-fatal */ }
+  }, [isGuest])
+
   // Page-level SSE feed — drives stat cards and tab counts in real time.
   // The embedded <DigitalTwinDashboard> uses liveEnabled=false and receives
   // real-time rows via the initialRows prop (rowsForTab) instead, keeping
@@ -276,6 +290,26 @@ export default function DashboardPage() {
           </Select>
         </div>
       </div>
+
+      {/* Storage limit warning banner */}
+      {!isGuest && storageUsedBytes >= STORAGE_CAP_BYTES && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-destructive/60 bg-destructive/10 text-sm">
+          <span className="text-destructive font-bold mt-0.5">⚠</span>
+          <div>
+            <p className="font-semibold text-destructive">Execution history storage limit reached ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 10 MB)</p>
+            <p className="text-destructive/80 text-xs mt-0.5">New executions are blocked. Go to <strong>Settings → Execution History &amp; Storage</strong> and delete some records to free space.</p>
+          </div>
+        </div>
+      )}
+      {!isGuest && storageUsedBytes >= STORAGE_CAP_BYTES * 0.8 && storageUsedBytes < STORAGE_CAP_BYTES && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-yellow-500/50 bg-yellow-500/10 text-sm">
+          <span className="text-yellow-600 dark:text-yellow-400 font-bold mt-0.5">⚠</span>
+          <div>
+            <p className="font-semibold text-yellow-700 dark:text-yellow-300">Execution history storage is almost full ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 10 MB)</p>
+            <p className="text-yellow-600/80 dark:text-yellow-400/80 text-xs mt-0.5">Go to <strong>Settings → Execution History &amp; Storage</strong> to free space before your limit is reached.</p>
+          </div>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
