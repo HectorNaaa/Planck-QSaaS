@@ -15,6 +15,8 @@ interface ExecutionSettingsProps {
   autoShots?: number
   qubits: number
   depth: number
+  /** Reason why the auto-router selected the backend on the last run. */
+  postRunReason?: string | null
 }
 
 export function ExecutionSettings({
@@ -26,6 +28,7 @@ export function ExecutionSettings({
   autoShots,
   qubits,
   depth,
+  postRunReason,
 }: ExecutionSettingsProps) {
   const [backend, setBackend] = useState<ExecutionBackend>(currentBackend || "quantum_inspired_gpu")
   const [isExpanded, setIsExpanded] = useState(false)
@@ -124,6 +127,14 @@ export function ExecutionSettings({
                 ? `Recommended: ${backends.find((b) => b.id === recommendedBackend)?.label}`
                 : "Manually select execution backend"}
             </p>
+            {mode === "auto" && postRunReason && (
+              <div className="mt-2 px-3 py-2 bg-secondary/40 rounded-lg border border-border">
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  <span className="font-semibold text-foreground">Auto-routing: </span>
+                  {postRunReason}
+                </p>
+              </div>
+            )}
           </div>
 
           <div>

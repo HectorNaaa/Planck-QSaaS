@@ -68,9 +68,12 @@ export async function GET(req: NextRequest) {
       shots:            r.shots          ?? 0,
       error_mitigation: r.error_mitigation ?? null,
       circuit_data: parsed ? {
-        source:  parsed.source,
-        fidelity: parsed.results?.fidelity ?? null,
-        counts:   parsed.results?.counts   ?? null,
+        source:         parsed.source,
+        fidelity:       parsed.results?.fidelity ?? null,
+        counts:         parsed.results?.counts   ?? null,
+        qasm:           parsed.qasm              ?? null,
+        backend_reason: parsed.backend_reason    ?? null,
+        ml_tuning:      parsed.ml_tuning         ?? null,
       } : null,
     }
   }

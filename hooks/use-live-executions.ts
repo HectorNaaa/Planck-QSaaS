@@ -32,8 +32,17 @@ export interface ExecutionRow {
   error_mitigation: string | null
   circuit_data: {
     source?: string
-    fidelity?: number
-    counts?: Record<string, number>
+    fidelity?: number | null
+    counts?: Record<string, number> | null
+    qasm?: string | null
+    backend_reason?: string | null
+    ml_tuning?: {
+      shots?: number
+      error_mitigation?: string
+      confidence?: number
+      reasoning?: string
+      based_on_executions?: number
+    } | null
     [key: string]: unknown
   } | null
 }

@@ -169,13 +169,16 @@ export function DigitalTwinDashboard({
       status: r.status,
       created_at: r.created_at,
       backend_selected: r.backend_selected,
+      backend_reason: r.circuit_data?.backend_reason ?? null,
       qubits_used: r.qubits_used,
       shots: r.shots,
       runtime_ms: r.runtime_ms,
       success_rate: r.success_rate,
       error_mitigation: r.error_mitigation,
       digital_twin_id: r.digital_twin_id,
-      // Full circuit_data — includes QASM, counts, fidelity, ML tuning
+      // QASM of the executed quantum circuit
+      qasm: r.circuit_data?.qasm ?? null,
+      // Full circuit_data — includes fidelity, counts, ML tuning
       circuit_data: r.circuit_data ?? null,
     }
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" })

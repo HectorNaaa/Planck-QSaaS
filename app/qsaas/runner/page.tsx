@@ -1006,6 +1006,7 @@ const adaptiveShots = calculateAdaptiveShots({
           onModeChange={setExecutionType}
           qubits={qubits}
           depth={circuitData?.depth || 20}
+          postRunReason={results?.backendReason ?? null}
         />
         <ExpectedResults backend={backend} qubits={qubits} depth={circuitData?.depth || 20} hasData={dataUploaded} />
 
@@ -1331,6 +1332,7 @@ const adaptiveShots = calculateAdaptiveShots({
             onModeChange={setExecutionType}
             qubits={qubits}
             depth={circuitData?.depth || 20}
+            postRunReason={results?.backendReason ?? null}
           />
           <ExpectedResults backend={backend} qubits={qubits} depth={circuitData?.depth || 20} hasData={dataUploaded} />
           {executionType === "manual" && (
