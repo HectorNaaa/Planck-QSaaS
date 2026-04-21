@@ -152,6 +152,7 @@ export default function RunnerPage() {
 
   // ── Pre-seed live hook with cached + server data so SDK mode shows history ──
   const [initialLiveRows, setInitialLiveRows] = useState<ExecutionRow[]>([])
+  const [clearKey, setClearKey] = useState(0)
 
   useEffect(() => {
     if (!sdkMode || isGuest) {
@@ -687,6 +688,7 @@ const adaptiveShots = calculateAdaptiveShots({
 
     const downloadData = {
       ...results,
+      qasm: circuitCode || null,
       metadata: {
         execution_name: executionName,
         circuit_name: circuitName,
@@ -722,6 +724,7 @@ const adaptiveShots = calculateAdaptiveShots({
     URL.revokeObjectURL(url)
   }, [
     results,
+    circuitCode,
     circuitName,
     executionName,
     selectedAlgorithm,
@@ -829,6 +832,7 @@ const adaptiveShots = calculateAdaptiveShots({
     setResults(null)
     clearLiveRows()
     setInitialLiveRows([])
+    setClearKey((k) => k + 1)
   }, [clearLiveRows])
 
   return (
@@ -1163,6 +1167,7 @@ const adaptiveShots = calculateAdaptiveShots({
               {/* Digital Twin Dashboard — live-driven in SDK mode via its own SSE connection,
                   pre-seeded with liveRows so it immediately shows existing rows. */}
               <DigitalTwinDashboard
+                key={`dt-${clearKey}`}
                 liveEnabled={false}
                 apiKey={null}
                 digitalTwinId={selectedDigitalTwinId}
