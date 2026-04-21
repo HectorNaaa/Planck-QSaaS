@@ -117,8 +117,9 @@ export function DigitalTwinDashboard({
   const [filterMinQubits, setFilterMinQubits] = useState(0)
   const [filterMinShots, setFilterMinShots] = useState(0)
   const [filterMaxRuntime, setFilterMaxRuntime] = useState(0) // 0 = any; -1 = >1000ms
+  const [filterDigitalTwin, setFilterDigitalTwin] = useState("all") // "all" | "none" | <id>
 
-  const hasActiveFilters = search.trim() !== "" || filterBackend !== "all" || filterMinQubits > 0 || filterMinShots > 0 || filterMaxRuntime !== 0
+  const hasActiveFilters = search.trim() !== "" || filterBackend !== "all" || filterMinQubits > 0 || filterMinShots > 0 || filterMaxRuntime !== 0 || filterDigitalTwin !== "all"
 
   const { rows, connected, error } = useLiveExecutions({
     enabled: liveEnabled,
@@ -132,6 +133,15 @@ export function DigitalTwinDashboard({
   // Limit chart to last 80 points for readability
   const chartRows = useMemo(() => rows.slice(-80), [rows])
   const labels = useMemo(() => chartRows.map((_, i) => `#${i + 1}`), [chartRows])
+
+  // ── Unique digital twin IDs present in the loaded rows ───────────────────
+  const uniqueDigitalTwinIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const r of rows) {
+      if (r.digital_twin_id) ids.add(r.digital_twin_id)
+    }
+    return Array.from(ids).sort()
+  }, [rows])
 
   // ── Filtered table rows ───────────────────────────────────────────────────
   const filteredRows = useMemo(() => {
@@ -147,6 +157,11 @@ export function DigitalTwinDashboard({
     if (filterBackend !== "all") {
       result = result.filter((r) => r.backend_selected === filterBackend)
     }
+    if (filterDigitalTwin === "none") {
+      result = result.filter((r) => !r.digital_twin_id)
+    } else if (filterDigitalTwin !== "all") {
+      result = result.filter((r) => r.digital_twin_id === filterDigitalTwin)
+    }
     if (filterMinQubits > 0) {
       result = result.filter((r) => (r.qubits_used ?? 0) >= filterMinQubits)
     }
@@ -161,7 +176,7 @@ export function DigitalTwinDashboard({
       }
     }
     return result
-  }, [rows, search, filterBackend, filterMinQubits, filterMinShots, filterMaxRuntime])
+  }, [rows, search, filterBackend, filterDigitalTwin, filterMinQubits, filterMinShots, filterMaxRuntime])
 
   // ── Per-row download ──────────────────────────────────────────────────────
   function downloadRow(r: ExecutionRow) {
@@ -377,6 +392,19 @@ export function DigitalTwinDashboard({
             )}
           </div>
 
+          {/* Digital Twin filter */}
+          <select
+            value={filterDigitalTwin}
+            onChange={(e) => setFilterDigitalTwin(e.target.value)}
+            className="h-7 text-xs rounded-md border border-input bg-background px-2 text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            <option value="all">All twins</option>
+            <option value="none">No twin</option>
+            {uniqueDigitalTwinIds.map((id) => (
+              <option key={id} value={id}>{id.slice(0, 8)}…</option>
+            ))}
+          </select>
+
           {/* Backend filter */}
           <select
             value={filterBackend}
@@ -435,7 +463,7 @@ export function DigitalTwinDashboard({
               variant="ghost"
               size="sm"
               className="h-7 text-xs px-2 text-muted-foreground hover:text-foreground"
-              onClick={() => { setSearch(""); setFilterBackend("all"); setFilterMinQubits(0); setFilterMinShots(0); setFilterMaxRuntime(0) }}
+              onClick={() => { setSearch(""); setFilterBackend("all"); setFilterDigitalTwin("all"); setFilterMinQubits(0); setFilterMinShots(0); setFilterMaxRuntime(0) }}
             >
               <X size={11} className="mr-1" />Clear
             </Button>
@@ -451,7 +479,7 @@ export function DigitalTwinDashboard({
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-secondary z-10">
                 <tr className="border-b border-border">
-                  {["Src", "Algorithm", "Name", "Status", "Backend", "Qubits", "Shots", "Runtime", "Time", ""].map((h) => (
+                  {["Src", "Algorithm", "Name", "Digital Twin", "Status", "Backend", "Qubits", "Shots", "Runtime", "Time", ""].map((h) => (
                     <th key={h} className="text-left py-2 px-2 text-muted-foreground font-medium whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -468,6 +496,12 @@ export function DigitalTwinDashboard({
                       <span className="px-1.5 py-0.5 rounded-full bg-primary/15 text-primary font-medium">{r.algorithm || "—"}</span>
                     </td>
                     <td className="py-1.5 px-2 font-medium text-foreground">{r.circuit_name || "—"}</td>
+                    <td className="py-1.5 px-2">
+                      {r.digital_twin_id
+                        ? <span className="px-1.5 py-0.5 rounded-full bg-accent/15 text-accent font-mono text-[10px]" title={r.digital_twin_id}>{r.digital_twin_id.slice(0, 8)}…</span>
+                        : <span className="text-muted-foreground/50 text-[10px]">—</span>
+                      }
+                    </td>
                     <td className="py-1.5 px-2">
                       <span className={`px-1.5 py-0.5 rounded-full whitespace-nowrap font-medium ${r.status === "completed" ? "bg-primary/15 text-primary" : r.status === "running" ? "bg-accent/15 text-accent" : "bg-destructive/15 text-destructive"}`}>
                         {r.status === "completed" ? "Success" : r.status === "running" ? "Running" : r.status || "—"}
