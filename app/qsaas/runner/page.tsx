@@ -9,7 +9,7 @@ import { DatabaseUploader } from "@/components/runner/database-uploader"
 import { AutoParser } from "@/components/runner/autoparser"
 import { ExpectedResults } from "@/components/runner/expected-results"
 import { CircuitResults } from "@/components/runner/circuit-results"
-import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff, Trash2 } from "lucide-react"
+import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff, Trash2, Brain } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import type { BuiltCircuit } from "@/lib/circuit-builder"
 
@@ -155,6 +155,21 @@ export default function RunnerPage() {
   // ── Pre-seed live hook with cached + server data so SDK mode shows history ──
   const [initialLiveRows, setInitialLiveRows] = useState<ExecutionRow[]>([])
   const [clearKey, setClearKey] = useState(0)
+  const [dtHistoryRows, setDtHistoryRows] = useState<ExecutionRow[]>([])
+
+  // Load DTDashboard history from localStorage on mount (always, regardless of sdkMode)
+  useEffect(() => {
+    if (isGuest) return
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem("runner_results_cleared") === "1") return
+    const cached = readExecCache()
+    if (cached.length > 0) {
+      setDtHistoryRows(
+        [...cached]
+          .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          .slice(-200),
+      )
+    }
+  }, [isGuest])
 
   useEffect(() => {
     if (!sdkMode || isGuest) {
@@ -203,6 +218,8 @@ export default function RunnerPage() {
   // When a new live row arrives, update results + circuit display from the latest job
   useEffect(() => {
     if (!sdkMode || liveRows.length === 0) return
+    // Don't restore results if user explicitly cleared them
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem("runner_results_cleared") === "1") return
     const latest = liveRows[liveRows.length - 1]
     // Map ExecutionRow shape to the results shape CircuitResults expects
     setResults((prev: any) => {
@@ -526,6 +543,9 @@ const adaptiveShots = calculateAdaptiveShots({
     setIsRunning(true)
 
     try {
+      // New run — allow DTDashboard to populate from fresh results
+      if (typeof sessionStorage !== "undefined") sessionStorage.removeItem("runner_results_cleared")
+
       const transpileResponse = await fetch("/api/quantum/transpile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -636,6 +656,12 @@ const adaptiveShots = calculateAdaptiveShots({
         localStorage.setItem("planck_exec_cache", JSON.stringify(updated))
         // Broadcast to dashboard and any other open pages for instant update
         broadcastExecution(execRow)
+        // Keep local DTDashboard history in sync
+        setDtHistoryRows((prev) => {
+          const next = [...prev.filter((r) => r.id !== execRow.id), execRow]
+          next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+          return next.slice(-500)
+        })
         // Refresh local storage estimate so banner updates immediately
         refreshStorageEstimate()
       } catch {
@@ -834,7 +860,9 @@ const adaptiveShots = calculateAdaptiveShots({
     setResults(null)
     clearLiveRows()
     setInitialLiveRows([])
+    setDtHistoryRows([])
     setClearKey((k) => k + 1)
+    if (typeof sessionStorage !== "undefined") sessionStorage.setItem("runner_results_cleared", "1")
   }, [clearLiveRows])
 
   return (
@@ -1153,42 +1181,55 @@ const adaptiveShots = calculateAdaptiveShots({
           </Card>
           )} {/* end !sdkMode pipeline */}
 
-          {/* Results — always shown in SDK mode; shown after a manual run otherwise */}
-          {(results || sdkMode) ? (
-            <div className="space-y-6">
-              {/* Clear Previous Results button */}
-              {results && (
-                <div className="flex justify-end">
-                  <Button
-                    onClick={handleClearResults}
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-2 text-muted-foreground hover:text-destructive hover:border-destructive/40"
-                  >
-                    <Trash2 size={14} />
-                    Clear previous results
-                  </Button>
-                </div>
-              )}
-
-              {/* Stable key so useAnimatedValue smoothly counts between values
-                  instead of replaying from zero on every live row. The isLive
-                  prop already enables animated transitions + flash rings. */}
-              {!isHidden('runner.circuit_results') && (
-              <CircuitResults key={sdkMode ? "cr-live" : "static"} backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} isLive={true} />
-              )}
-
-              {/* Digital Twin Dashboard — live-driven in SDK mode via its own SSE connection,
-                  pre-seeded with liveRows so it immediately shows existing rows. */}
-              {!isHidden('runner.digital_twin_dashboard') && (
+          {/* Digital Twin Dashboard — always visible by default, shows execution history.
+              BroadcastChannel inside useLiveExecutions auto-appends new runs instantly. */}
+          {!isHidden('runner.digital_twin_dashboard') && (
+            <div className="space-y-3">
+              <div className="flex justify-end">
+                <Button
+                  onClick={handleClearResults}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2 text-muted-foreground hover:text-destructive hover:border-destructive/40"
+                >
+                  <Trash2 size={14} />
+                  Clear previous results
+                </Button>
+              </div>
               <DigitalTwinDashboard
                 key={`dt-${clearKey}`}
                 liveEnabled={false}
                 apiKey={null}
                 digitalTwinId={selectedDigitalTwinId}
-                initialRows={sdkMode ? liveRows : results ? [resultToRow(results, { circuitName, shots, qubits, backend, errorMitigation, digitalTwinId: selectedDigitalTwinId })] : []}
-                title={selectedDigitalTwinId ? "Selected Digital Twin" : "All Digital Twins"}
+                initialRows={sdkMode ? liveRows : dtHistoryRows}
+                title={selectedDigitalTwinId ? "Selected Digital Twin" : "Runs — All Digital Twins"}
               />
+            </div>
+          )}
+
+          {/* Execution results — always shown in SDK mode; shown after a manual run otherwise */}
+          {(results || sdkMode) ? (
+            <div className="space-y-6">
+              {/* RL backend selection announcement */}
+              {results?.backendReason && !results.backendReason.startsWith("Manual selection:") && (
+                <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-primary/20 bg-primary/5 text-sm">
+                  <Brain size={16} className="text-primary mt-0.5 flex-shrink-0" />
+                  <p className="text-foreground">
+                    <span className="font-medium">Automatic backend selection system based on Reinforcement Learning selected: </span>
+                    <span className="font-bold" style={{ color: "#7ab5ac" }}>
+                      {(
+                        { quantum_inspired_gpu: "Quantum Inspired GPU", hpc_gpu: "HPC GPU", quantum_qpu: "Quantum QPU" } as Record<string, string>
+                      )[results.backend] ?? results.backend}
+                    </span>
+                    <span className="font-medium"> as best choice.</span>
+                  </p>
+                </div>
+              )}
+
+              {/* Stable key so useAnimatedValue smoothly counts between values
+                  instead of replaying from zero on every live row. */}
+              {!isHidden('runner.circuit_results') && (
+              <CircuitResults key={sdkMode ? "cr-live" : "static"} backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} isLive={true} />
               )}
 
               {results && uploadedData && circuitCode && !isHidden('runner.digital_twin_panel') && (
