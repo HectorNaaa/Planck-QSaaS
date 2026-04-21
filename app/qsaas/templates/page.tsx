@@ -7,9 +7,11 @@ import { PageHeader } from "@/components/page-header"
 import { useState } from "react"
 import Image from "next/image"
 import { QUANTUM_TEMPLATES } from "@/lib/constants"
+import { useUIPreferences } from "@/contexts/ui-preferences-context"
 
 export default function TemplatesPage() {
   const [flippedCards, setFlippedCards] = useState<Record<string, boolean>>({})
+  const { isHidden } = useUIPreferences()
 
   const toggleFlip = (id: string) => {
     setFlippedCards((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -31,7 +33,7 @@ export default function TemplatesPage() {
       <PageHeader title="Quantum Templates" description="Explore pre-built quantum cases and circuits." />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-center">
-        {QUANTUM_TEMPLATES.map((template) => (
+        {QUANTUM_TEMPLATES.filter((t) => !isHidden(`templates.${t.id}`)).map((template) => (
           <div
             key={template.id}
             className="relative w-full max-w-xs min-h-[320px] max-h-[400px] h-[35vh]"

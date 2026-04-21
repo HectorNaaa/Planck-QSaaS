@@ -29,6 +29,7 @@ import { useLiveExecutions, type ExecutionRow } from "@/hooks/use-live-execution
 import { useIsGuest } from "@/components/guest-banner"
 import { useLiveMode } from "@/hooks/use-live-mode"
 import { useRef } from "react"
+import { useUIPreferences } from "@/contexts/ui-preferences-context"
 
 type TimeRange = "24h" | "7d" | "30d"
 
@@ -275,12 +276,14 @@ export default function DashboardPage() {
 
   const activeTwin = twins.find((t) => t.id === activeTab) ?? null
 
+  const { isHidden } = useUIPreferences()
+
   const statCards = [
-    { label: "Total Runs", value: loading ? "…" : stats.totalRuns.toString(), icon: Zap },
-    { label: "Avg Success Rate", value: loading ? "…" : `${stats.avgSuccessRate}%`, icon: TrendingUp },
-    { label: "Avg Runtime", value: loading ? "…" : `${stats.avgRuntime}ms`, icon: Clock },
-    { label: "Avg Qubits", value: loading ? "…" : stats.avgQubits.toString(), icon: BarChart3 },
-  ]
+    { key: "dashboard.stat.total_runs",       label: "Total Runs",       value: loading ? "\u2026" : stats.totalRuns.toString(),       icon: Zap },
+    { key: "dashboard.stat.avg_success_rate", label: "Avg Success Rate", value: loading ? "\u2026" : `${stats.avgSuccessRate}%`,        icon: TrendingUp },
+    { key: "dashboard.stat.avg_runtime",      label: "Avg Runtime",      value: loading ? "\u2026" : `${stats.avgRuntime}ms`,           icon: Clock },
+    { key: "dashboard.stat.avg_qubits",       label: "Avg Qubits",       value: loading ? "\u2026" : stats.avgQubits.toString(),       icon: BarChart3 },
+  ].filter((c) => !isHidden(c.key))
 
   return (
     <div className="p-8 space-y-8 px-0">

@@ -129,6 +129,9 @@ export function initializeDatabase() {
   if (!colNames.has('occupation')) {
     db.exec("ALTER TABLE profiles ADD COLUMN occupation TEXT DEFAULT ''")
   }
+  if (!colNames.has('ui_preferences')) {
+    db.exec("ALTER TABLE profiles ADD COLUMN ui_preferences TEXT DEFAULT NULL")
+  }
 }
 
 // Initialize database automatically on import

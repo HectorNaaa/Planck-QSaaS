@@ -3,13 +3,15 @@
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Save, Sun, Moon, Check, LogOut, Trash2, Edit, Copy, RefreshCw } from "lucide-react"
+import { Save, Sun, Moon, Check, LogOut, Trash2, Edit, Copy, RefreshCw, ChevronDown } from "lucide-react"
 import { useTheme } from "next-themes"
 import { PageHeader } from "@/components/page-header"
 import { useRouter } from "next/navigation"
 import { LanguageSelector } from "@/components/language-selector"
 import { deleteUserAccount, updateUserAccount, generateApiKey, getApiKey, revokeApiKey, deleteExecutions, clearAllExecutionHistory } from "./actions"
 import { useIsGuest } from "@/components/guest-banner"
+import { useUIPreferences } from "@/contexts/ui-preferences-context"
+import { QUANTUM_TEMPLATES } from "@/lib/constants"
 
 // ── Execution history deletion-tracking helpers (localStorage) ────────────
 // These prevent server rows from "coming back" after a user deletes them,
@@ -78,6 +80,8 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const isGuest = useIsGuest()
+  const { hidden, toggle } = useUIPreferences()
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["dashboard", "charts", "runner", "templates"]))
 
   // Execution history / storage state
   type ExecHistoryRow = { id: string; circuit_name: string; algorithm: string; status: string; created_at: string; size_bytes: number; backend_selected?: string | null; runtime_ms?: number; shots?: number; circuit_data?: any }
@@ -890,6 +894,85 @@ export default function SettingsPage() {
           </div>
         </div>
       </Card>
+
+      {/* Interface Visibility */}
+      {!isGuest && (
+      <Card className="p-6 shadow-lg">
+        <h2 className="text-2xl font-bold text-foreground mb-2">Interface Visibility</h2>
+        <p className="text-sm text-muted-foreground mb-6">Hide sections or cards you don't use. Hidden items continue to work — they're just removed from the UI until you re-enable them here.</p>
+
+        {(() => {
+          const toggleSection = (key: string) =>
+            setExpandedSections((prev) => {
+              const next = new Set(prev)
+              if (next.has(key)) next.delete(key); else next.add(key)
+              return next
+            })
+
+          const Section = ({ id, label, children }: { id: string; label: string; children: React.ReactNode }) => (
+            <div className="border border-border rounded-lg overflow-hidden">
+              <button
+                onClick={() => toggleSection(id)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-secondary/40 hover:bg-secondary/70 transition-colors text-sm font-semibold text-foreground"
+              >
+                {label}
+                <ChevronDown size={16} className={`text-muted-foreground transition-transform duration-200 ${expandedSections.has(id) ? "rotate-180" : ""}`} />
+              </button>
+              {expandedSections.has(id) && (
+                <div className="divide-y divide-border/50">{children}</div>
+              )}
+            </div>
+          )
+
+          const Item = ({ prefKey, label }: { prefKey: string; label: string }) => (
+            <div className="flex items-center justify-between px-4 py-2.5">
+              <span className={`text-sm ${hidden.has(prefKey) ? "text-muted-foreground line-through" : "text-foreground"}`}>{label}</span>
+              <button
+                aria-label={`${hidden.has(prefKey) ? "Show" : "Hide"} ${label}`}
+                onClick={() => toggle(prefKey)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${hidden.has(prefKey) ? "bg-muted" : "bg-primary"}`}
+              >
+                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${hidden.has(prefKey) ? "translate-x-1" : "translate-x-6"}`} />
+              </button>
+            </div>
+          )
+
+          return (
+            <div className="space-y-3">
+              <Section id="dashboard" label="Dashboard — Stat Cards">
+                <Item prefKey="dashboard.stat.total_runs"       label="Total Runs" />
+                <Item prefKey="dashboard.stat.avg_success_rate" label="Avg Success Rate" />
+                <Item prefKey="dashboard.stat.avg_runtime"      label="Avg Runtime" />
+                <Item prefKey="dashboard.stat.avg_qubits"       label="Avg Qubits" />
+              </Section>
+
+              <Section id="charts" label="Charts (Dashboard &amp; Runner)">
+                <Item prefKey="dtdashboard.chart.latency"      label="Execution Latency chart" />
+                <Item prefKey="dtdashboard.chart.backend"      label="Backend Selection chart" />
+                <Item prefKey="dtdashboard.chart.success_rate" label="Success Rate chart" />
+                <Item prefKey="dtdashboard.chart.table"        label="Execution runs table" />
+              </Section>
+
+              <Section id="runner" label="Runner — Sections">
+                <Item prefKey="runner.database_uploader"       label="Database Uploader" />
+                <Item prefKey="runner.autoparser"              label="AutoParser / Expected Results" />
+                <Item prefKey="runner.circuit_settings"        label="Circuit Settings" />
+                <Item prefKey="runner.execution_settings"      label="Execution Settings" />
+                <Item prefKey="runner.circuit_results"         label="Execution Results (Execution Dashboard)" />
+                <Item prefKey="runner.digital_twin_dashboard"  label="Digital Twin Dashboard" />
+                <Item prefKey="runner.digital_twin_panel"      label="Digital Twin Panel (3D analysis)" />
+              </Section>
+
+              <Section id="templates" label="Templates — Circuit Cards">
+                {QUANTUM_TEMPLATES.map((t) => (
+                  <Item key={t.id} prefKey={`templates.${t.id}`} label={t.name} />
+                ))}
+              </Section>
+            </div>
+          )
+        })()}
+      </Card>
+      )}
 
       {/* Billing & Plans */}
       <Card className="p-6 shadow-lg">

@@ -31,6 +31,7 @@ import { DigitalTwinDashboard } from "@/components/dashboard/digital-twin-dashbo
 import { useLiveExecutions, type ExecutionRow } from "@/hooks/use-live-executions"
 import { useLiveMode, broadcastExecution } from "@/hooks/use-live-mode"
 import { useIsGuest } from "@/components/guest-banner"
+import { useUIPreferences } from "@/contexts/ui-preferences-context"
 
 /** Convert a manual-run results object into the ExecutionRow shape the DT dashboard expects. */
 function resultToRow(
@@ -101,6 +102,7 @@ export default function RunnerPage() {
   const [showDominantStates, setShowDominantStates] = useState(false)
   const [selectedDigitalTwinId, setSelectedDigitalTwinId] = useState<string | null>(null)
   const isGuest = useIsGuest()
+  const { isHidden } = useUIPreferences()
   // Shared live mode — synced with dashboard via sessionStorage + BroadcastChannel
   const [sdkMode, setLiveEnabled] = useLiveMode(isGuest)
 
@@ -991,6 +993,7 @@ const adaptiveShots = calculateAdaptiveShots({
       {/* Mobile pipeline — hidden in SDK/live mode */}
       {!sdkMode && (
       <div className="lg:hidden space-y-6">
+        {!isHidden('runner.database_uploader') && (
         <DatabaseUploader
           onDataUpload={handleDataUpload}
           preSelectedAlgorithm={selectedAlgorithm}
@@ -998,12 +1001,18 @@ const adaptiveShots = calculateAdaptiveShots({
             setCircuitName(algorithm)
           }}
         />
+        )}
+        {!isHidden('runner.autoparser') && (
         <AutoParser onParsed={handleAutoParse} inputData={uploadedData} algorithm={selectedAlgorithm ?? undefined} />
+        )}
+        {!isHidden('runner.circuit_settings') && (
         <CircuitSettings
           onExecutionTypeChange={setExecutionType}
           onQubitsChange={setQubits}
           onErrorMitigationChange={setErrorMitigation}
         />
+        )}
+        {!isHidden('runner.execution_settings') && (
         <ExecutionSettings
           onBackendChange={setBackend}
           currentBackend={backend}
@@ -1012,7 +1021,10 @@ const adaptiveShots = calculateAdaptiveShots({
           depth={circuitData?.depth || 20}
           postRunReason={results?.backendReason ?? null}
         />
+        )}
+        {!isHidden('runner.autoparser') && (
         <ExpectedResults backend={backend} qubits={qubits} depth={circuitData?.depth || 20} hasData={dataUploaded} />
+        )}
 
         <div className="flex justify-center gap-3 pt-6 border-border border-t-2">
           <Button onClick={handleReset} variant="outline" className="flex items-center gap-2 bg-secondary">
@@ -1162,10 +1174,13 @@ const adaptiveShots = calculateAdaptiveShots({
               {/* Stable key so useAnimatedValue smoothly counts between values
                   instead of replaying from zero on every live row. The isLive
                   prop already enables animated transitions + flash rings. */}
+              {!isHidden('runner.circuit_results') && (
               <CircuitResults key={sdkMode ? "cr-live" : "static"} backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} isLive={true} />
+              )}
 
               {/* Digital Twin Dashboard — live-driven in SDK mode via its own SSE connection,
                   pre-seeded with liveRows so it immediately shows existing rows. */}
+              {!isHidden('runner.digital_twin_dashboard') && (
               <DigitalTwinDashboard
                 key={`dt-${clearKey}`}
                 liveEnabled={false}
@@ -1174,8 +1189,9 @@ const adaptiveShots = calculateAdaptiveShots({
                 initialRows={sdkMode ? liveRows : results ? [resultToRow(results, { circuitName, shots, qubits, backend, errorMitigation, digitalTwinId: selectedDigitalTwinId })] : []}
                 title={selectedDigitalTwinId ? "Selected Digital Twin" : "All Digital Twins"}
               />
+              )}
 
-              {results && uploadedData && circuitCode && (
+              {results && uploadedData && circuitCode && !isHidden('runner.digital_twin_panel') && (
                 <DigitalTwinPanel
                   algorithm={circuitName}
                   inputData={uploadedData}
@@ -1318,6 +1334,7 @@ const adaptiveShots = calculateAdaptiveShots({
         {/* Right column: pipeline settings — manual mode only */}
         {!sdkMode && (
         <div className="hidden lg:block space-y-6">
+          {!isHidden('runner.database_uploader') && (
           <DatabaseUploader
             onDataUpload={handleDataUpload}
             preSelectedAlgorithm={selectedAlgorithm}
@@ -1325,12 +1342,18 @@ const adaptiveShots = calculateAdaptiveShots({
               setCircuitName(algorithm)
             }}
           />
+          )}
+          {!isHidden('runner.autoparser') && (
           <AutoParser onParsed={handleAutoParse} inputData={uploadedData} algorithm={selectedAlgorithm ?? undefined} />
+          )}
+          {!isHidden('runner.circuit_settings') && (
           <CircuitSettings
             onExecutionTypeChange={setExecutionType}
             onQubitsChange={setQubits}
             onErrorMitigationChange={setErrorMitigation}
           />
+          )}
+          {!isHidden('runner.execution_settings') && (
           <ExecutionSettings
             onBackendChange={setBackend}
             currentBackend={backend}
@@ -1339,7 +1362,10 @@ const adaptiveShots = calculateAdaptiveShots({
             depth={circuitData?.depth || 20}
             postRunReason={results?.backendReason ?? null}
           />
+          )}
+          {!isHidden('runner.autoparser') && (
           <ExpectedResults backend={backend} qubits={qubits} depth={circuitData?.depth || 20} hasData={dataUploaded} />
+          )}
           {executionType === "manual" && (
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">Shots</label>

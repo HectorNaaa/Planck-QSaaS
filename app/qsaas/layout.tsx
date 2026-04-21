@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { MainLayout } from "@/components/layout/main-layout"
 import { QuantumLoadingScreen } from "@/components/quantum-loading-screen"
 import { GuestBanner } from "@/components/guest-banner"
+import { UIPreferencesProvider } from "@/contexts/ui-preferences-context"
 import { useTheme } from "next-themes"
 
 export default function QsaasLayout({ children }: { children: React.ReactNode }) {
@@ -65,9 +66,11 @@ export default function QsaasLayout({ children }: { children: React.ReactNode })
   if (isLoading) return <QuantumLoadingScreen />
 
   return (
-    <MainLayout>
-      <GuestBanner />
-      {children}
-    </MainLayout>
+    <UIPreferencesProvider>
+      <MainLayout>
+        <GuestBanner />
+        {children}
+      </MainLayout>
+    </UIPreferencesProvider>
   )
 }

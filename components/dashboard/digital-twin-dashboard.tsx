@@ -33,6 +33,7 @@ import {
   Filler,
 } from "chart.js"
 import { useLiveExecutions, type ExecutionRow } from "@/hooks/use-live-executions"
+import { useUIPreferences } from "@/contexts/ui-preferences-context"
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
@@ -125,6 +126,8 @@ export function DigitalTwinDashboard({
     initialRows,
     apiKey,
   })
+
+  const { isHidden } = useUIPreferences()
 
   // Limit chart to last 80 points for readability
   const chartRows = useMemo(() => rows.slice(-80), [rows])
@@ -289,6 +292,7 @@ export function DigitalTwinDashboard({
       {/* 3 charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Latency */}
+        {!isHidden('dtdashboard.chart.latency') && (
         <Card className="p-5 shadow-lg bg-secondary">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-sm font-semibold text-foreground">Execution Latency</h3>
@@ -302,8 +306,10 @@ export function DigitalTwinDashboard({
               : <Line ref={latRef} data={latencyData} options={baseChartOptions("ms")} />}
           </div>
         </Card>
+        )}
 
         {/* Backend */}
+        {!isHidden('dtdashboard.chart.backend') && (
         <Card className="p-5 shadow-lg bg-secondary">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-sm font-semibold text-foreground">Backend Selection</h3>
@@ -317,8 +323,10 @@ export function DigitalTwinDashboard({
               : <Line ref={backRef} data={backendData} options={backendOptions} />}
           </div>
         </Card>
+        )}
 
         {/* Success rate */}
+        {!isHidden('dtdashboard.chart.success_rate') && (
         <Card className="p-5 shadow-lg bg-secondary">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-sm font-semibold text-foreground">Success Rate</h3>
@@ -332,9 +340,11 @@ export function DigitalTwinDashboard({
               : <Line ref={sucRef} data={successData} options={baseChartOptions("%")} />}
           </div>
         </Card>
+        )}
       </div>
 
       {/* Runs table */}
+      {!isHidden('dtdashboard.chart.table') && (
       <Card className="p-5 shadow-lg bg-secondary">
         {/* Header */}
         <div className="flex justify-between items-center mb-3">
@@ -486,6 +496,7 @@ export function DigitalTwinDashboard({
           </div>
         )}
       </Card>
+      )}
     </div>
   )
 }

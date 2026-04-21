@@ -70,9 +70,9 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
 
   const b = results || {}
   const successRateRaw  = Math.round(b.success_rate  ?? b.successRate  ?? 0)
-  const totalShotsRaw   = b.total_shots ?? b.shots ?? 1024
-  const qubitsUsedRaw   = b.qubits_used ?? b.qubitsUsed ?? qubits
-  const fidelityRaw     = Math.round(b.fidelity ?? 95)
+  const totalShotsRaw   = b.total_shots ?? b.shots ?? 0
+  const qubitsUsedRaw   = results ? (b.qubits_used ?? b.qubitsUsed ?? qubits) : 0
+  const fidelityRaw     = results ? Math.round(b.fidelity ?? 95) : 0
   const runtimeMsRaw    = Math.round(b.runtime_ms ?? (b.runtime ?? 0) * 1000)
   const emLevel         = results?.error_mitigation ?? "none"
 
@@ -93,7 +93,8 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
 
   // Gauge scores — use animated values so needles sweep smoothly in live mode
   const reliabilityScore = Math.round((successRate + fidelity) / 2)
-  const perfScore = runtimeMs <= 100 ? 95
+  const perfScore = !results ? 0
+    : runtimeMs <= 100  ? 95
     : runtimeMs <= 500  ? 82
     : runtimeMs <= 2000 ? 60
     : Math.max(20, Math.round(100 - runtimeMs / 50))
@@ -107,14 +108,7 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
         .map(([bitstring, count]) => ({ bitstring, probability: count / (totalShots || 1) }))
         .sort((a, b) => b.probability - a.probability)
         .slice(0, 10)
-    : [
-        { bitstring: "0110001", probability: 0.342 },
-        { bitstring: "1001110", probability: 0.218 },
-        { bitstring: "0011101", probability: 0.156 },
-        { bitstring: "1100010", probability: 0.124 },
-        { bitstring: "0000000", probability: 0.089 },
-        { bitstring: "1111111", probability: 0.071 },
-      ]
+    : []
 
   return (
     <Card className="p-6 shadow-lg">
@@ -185,7 +179,7 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
             {[
               { label: "Success Rate", value: `${successRate}%`,  flash: srFlash      },
               { label: "Total Shots",  value: `${totalShots}`,    flash: shotsFlash   },
-              { label: "Backend",      value: backendNames[backend] ?? backend, flash: "" },
+              { label: "Backend",      value: results ? (backendNames[backend] ?? backend) : "—", flash: "" },
               { label: "Runtime",      value: `${runtimeMs}ms`,  flash: runtimeFlash  },
             ].map(({ label, value, flash }) => (
               <div key={label} className={`p-3 bg-secondary/50 rounded-lg border border-border text-center ${flash}`}>
