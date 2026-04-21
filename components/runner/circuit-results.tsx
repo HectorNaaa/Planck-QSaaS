@@ -208,8 +208,16 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
               <div className="mt-3 space-y-3 pl-2 border-l-2 border-border">
                 <div className="p-3 bg-secondary/30 rounded-lg border border-border">
                   <p className="text-xs font-semibold text-foreground mb-1">Backend</p>
-                  <p className="text-xs text-muted-foreground">{backendNames[backend] ?? backend}</p>
-                  {results?.backendReason && <p className="text-xs text-muted-foreground mt-1">{results.backendReason}</p>}
+                  <p className="text-xs text-muted-foreground font-medium">{backendNames[results?.backend ?? backend] ?? (results?.backend ?? backend)}</p>
+                  {results?.backendReason && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {results.backendReason.startsWith("Manual selection:") ? (
+                        <span>Selected manually by user</span>
+                      ) : (
+                        <span>{results.backendReason}</span>
+                      )}
+                    </p>
+                  )}
                 </div>
 
                 {results?.error_mitigation_requested === "auto" && (

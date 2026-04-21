@@ -551,7 +551,8 @@ const adaptiveShots = calculateAdaptiveShots({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           qasm: circuitCode,
-          backend,
+          // In auto mode pass "auto" so the server chooses the backend via policy engine
+          backend: executionType === "auto" ? "auto" : backend,
           errorMitigation,
         }),
       })
@@ -568,7 +569,9 @@ const adaptiveShots = calculateAdaptiveShots({
         body: JSON.stringify({
           qasm: transpileData.transpiledQASM,
           shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
-          backend,
+          // In auto mode, send "auto" so the server policy engine selects the backend
+          // (sending a specific backend name is treated as a manual override and bypasses orchestration)
+          backend: executionType === "auto" ? "auto" : backend,
           errorMitigation,
           circuitName: executionName || `${circuitName} Execution`,
           algorithm: circuitName,
@@ -623,7 +626,9 @@ const adaptiveShots = calculateAdaptiveShots({
         runtime_ms: simulateData.runtime,
         qubits_used: qubits,
         total_shots: simulateData.total_shots || (executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024)),
-        backend: simulateData.backend || backend,
+        // Prefer the server-resolved backend (important: in auto mode the client sends "auto",
+        // so the server policy engine picks the real backend — always use the server value here)
+        backend: simulateData.backend ?? backend,
         fidelity: simulateData.fidelity,
         counts: simulateData.counts,
         error_mitigation: simulateData.error_mitigation || errorMitigation,
@@ -634,6 +639,12 @@ const adaptiveShots = calculateAdaptiveShots({
       }
 
       setResults(baseResults)
+
+      // Update the client backend state to reflect what the server actually chose
+      // (so the Execution Settings panel stays in sync after an auto run)
+      if (simulateData.backend && executionType === "auto") {
+        setBackend(simulateData.backend as any)
+      }
 
       // Persist this execution to localStorage so the dashboard shows it after
       // a server cold-start (Vercel ephemeral /tmp SQLite is wiped between instances).
@@ -1214,15 +1225,18 @@ const adaptiveShots = calculateAdaptiveShots({
               {results?.backendReason && !results.backendReason.startsWith("Manual selection:") && (
                 <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-primary/20 bg-primary/5 text-sm">
                   <Brain size={16} className="text-primary mt-0.5 flex-shrink-0" />
-                  <p className="text-foreground">
-                    <span className="font-medium">Automatic backend selection system based on Reinforcement Learning selected: </span>
-                    <span className="font-bold" style={{ color: "#7ab5ac" }}>
-                      {(
-                        { quantum_inspired_gpu: "Quantum Inspired GPU", hpc_gpu: "HPC GPU", quantum_qpu: "Quantum QPU" } as Record<string, string>
-                      )[results.backend] ?? results.backend}
-                    </span>
-                    <span className="font-medium"> as best choice.</span>
-                  </p>
+                  <div>
+                    <p className="text-foreground">
+                      <span className="font-medium">Automatic backend selection system based on Reinforcement Learning selected: </span>
+                      <span className="font-bold" style={{ color: "#7ab5ac" }}>
+                        {(
+                          { quantum_inspired_gpu: "Quantum Inspired GPU", hpc_gpu: "HPC GPU", quantum_qpu: "Quantum QPU" } as Record<string, string>
+                        )[results.backend] ?? results.backend}
+                      </span>
+                      <span className="font-medium"> as best choice.</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">{results.backendReason}</p>
+                  </div>
                 </div>
               )}
 
