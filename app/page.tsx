@@ -5,9 +5,8 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Zap, BarChart3, GitBranch, Menu, X } from "lucide-react"
 import { PricingSection } from "@/components/pricing-section"
-import { HeroAnimation } from "@/components/hero-animation"
+import { HeroBackground } from "@/components/hero-background"
 import { FAQSection } from "@/components/faq-section"
-import { TitleAnimation } from "@/components/title-animation"
 import { LanguageSelector } from "@/components/language-selector"
 import { useLanguage } from "@/contexts/language-context"
 import React from "react"
@@ -125,11 +124,8 @@ export default function LandingPage() {
           className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-[380px] md:pt-[200px] md:pb-[300px]"
           style={{ "--scroll-rotation": `${scrollRotation}deg`, "--glow-opacity": glowOpacity } as React.CSSProperties}
         >
-          <div className="absolute inset-0 -z-10">
-            <HeroAnimation />
-          </div>
-          <div className="absolute inset-0 -z-10">
-            <TitleAnimation />
+          <div className="absolute inset-0 -z-10 pointer-events-none">
+            <HeroBackground />
           </div>
 
           <div className="flex flex-col items-center gap-12 relative z-10">
