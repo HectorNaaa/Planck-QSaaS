@@ -135,3 +135,9 @@
 .stat-value-flash {
   animation: stat-value-flash 0.25s ease-out;
 }
+
+/* ── FAQ section dot-grid background ───────────────────────────────────────── */
+.faq-dot-grid {
+  background-image: radial-gradient(circle, #578e7e 1px, transparent 1px);
+  background-size: 28px 28px;
+}
