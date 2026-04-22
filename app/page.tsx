@@ -121,10 +121,10 @@ export default function LandingPage() {
         <section
           ref={heroRef}
           data-hn-hero
-          className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-[380px] md:pt-[200px] md:pb-[300px]"
+          className="relative isolate max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-[380px] md:pt-[200px] md:pb-[300px]"
           style={{ "--scroll-rotation": `${scrollRotation}deg`, "--glow-opacity": glowOpacity } as React.CSSProperties}
         >
-          <div className="absolute inset-0 -z-10 pointer-events-none">
+          <div className="absolute inset-0 z-0 pointer-events-none">
             <HeroBackground />
           </div>
 
