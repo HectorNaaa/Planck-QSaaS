@@ -421,11 +421,10 @@ const adaptiveShots = calculateAdaptiveShots({
   // Thin wrapper: delegates to lib/circuit-utils so runner and API stay in sync.
   const calculateAdaptiveShots = useCallback(
     (circuitParams: { qubits: number; depth: number; gates: number }) => {
-      const base = 512
-      const qubitBonus = Math.floor(circuitParams.qubits / 5) * 256
-      const depthBonus  = Math.floor(circuitParams.depth   / 20) * 128
-      const gateBonus   = Math.floor(circuitParams.gates   / 30) * 64
-      return Math.min(8192, Math.max(512, base + qubitBonus + depthBonus + gateBonus))
+      const base = Math.round(512 * Math.pow(2, (circuitParams.qubits - 4) / 6))
+      const depthBonus = Math.floor(circuitParams.depth / 15) * 128
+      const gateBonus  = Math.floor(circuitParams.gates / 25) * 64
+      return Math.min(8192, Math.max(512, base + depthBonus + gateBonus))
     },
     [],
   )
@@ -523,7 +522,7 @@ const adaptiveShots = calculateAdaptiveShots({
             setBackend(optimal)
           }
 
-          const adaptiveShots = calculateAdaptiveShots({
+          const adaptiveShots = data.recommendedShots ?? calculateAdaptiveShots({
             qubits: data.qubits,
             depth: data.depth,
             gates: data.gates.length,

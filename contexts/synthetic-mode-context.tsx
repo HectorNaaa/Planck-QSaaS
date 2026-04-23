@@ -67,9 +67,15 @@ export const DEFAULT_SYNTHETIC_PARAMS: SyntheticParams = {
   maxNoise: 0.05,
 }
 
-/** Derive qubit count automatically from number of data inputs. */
+/**
+ * Derive qubit count automatically from number of data inputs.
+ * Mirrors circuit-builder's analyzeInputData() for flat scalar arrays
+ * (featureCount=1 → base=2), with qBonus scaling logarithmically with sample count.
+ * This keeps qubit counts sensible: ~4 for ≤100 inputs, ~5 for ≤1 000, ~6 for ≤100 000.
+ */
 export function qubitsFromInputs(nInputs: number): number {
-  return Math.max(2, Math.min(20, Math.ceil(Math.log2(nInputs + 1))))
+  const qBonus = Math.floor(Math.log2(Math.log2(nInputs + 1) + 1))
+  return Math.max(2, Math.min(20, 2 + qBonus))
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -178,6 +184,10 @@ export function SyntheticModeProvider({
       })
       const genData = genRes.ok ? await genRes.json() : null
 
+      // Use the data-aware recommended shot count from circuit generation;
+      // fall back to 1024 only if the API didn't return one.
+      const recommendedShots: number = genData?.recommendedShots ?? 1024
+
       // 2. Simulate
       const simRes = await fetch("/api/quantum/simulate", {
         method: "POST",
@@ -187,7 +197,7 @@ export function SyntheticModeProvider({
             genData?.success && genData?.qasm
               ? genData.qasm
               : `OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[${qubits}];\ncreg c[${qubits}];`,
-          shots: 1024,
+          shots: recommendedShots,
           backend: "auto",
           errorMitigation: "auto",
           circuitName: `Synthetic-${p.algorithm}-${iterIndex}`,
@@ -212,7 +222,7 @@ export function SyntheticModeProvider({
         circuit_name: `Synthetic-${p.algorithm}-${iterIndex}`,
         algorithm: p.algorithm,
         status: "completed",
-        shots: 1024,
+        shots: simData.total_shots ?? recommendedShots,
         qubits_used: simData.qubits ?? qubits,
         runtime_ms: simData.runtime ?? 0,
         success_rate: simData.successRate ?? 0,

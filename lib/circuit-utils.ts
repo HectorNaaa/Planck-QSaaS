@@ -24,20 +24,22 @@ export function extractQubitCount(qasm: string): number {
 /**
  * Compute the recommended shot count for a circuit, scaling with complexity.
  *
- * Formula (mirrors the UI display in runner/page.tsx):
- *   base = 512
- *   + 256  per 5 qubits  (depth of Hilbert space grows exponentially)
- *   + 128  per 20 gate depth
- *   + 64   per 30 gates
+ * Formula: exponential base grows with qubit count (~doubling every 6 qubits),
+ * with additive bonuses for circuit depth and gate count.
+ *   base ≈ 512 × 2^((qubits−4)/6)
+ *   + 128 per 15 gate-layers of depth
+ *   + 64  per 25 gates
+ *
+ * Representative values (no depth/gate bonus):
+ *   4 q → 512 | 8 q → 813 | 10 q → 1 024 | 12 q → 1 290 | 16 q → 2 048
  *
  * Clamped to [512, 8192].
  */
 export function calculateAdaptiveShots(qubits: number, depth: number, gateCount: number): number {
-  const base = 512
-  const qubitBonus = Math.floor(qubits / 5) * 256
-  const depthBonus = Math.floor(depth / 20) * 128
-  const gateBonus = Math.floor(gateCount / 30) * 64
-  return Math.min(8192, Math.max(512, base + qubitBonus + depthBonus + gateBonus))
+  const base = Math.round(512 * Math.pow(2, (qubits - 4) / 6))
+  const depthBonus = Math.floor(depth / 15) * 128
+  const gateBonus = Math.floor(gateCount / 25) * 64
+  return Math.min(8192, Math.max(512, base + depthBonus + gateBonus))
 }
 
 // ── Error-mitigation heuristic ────────────────────────────────────────────────
