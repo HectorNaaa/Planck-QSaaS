@@ -10,6 +10,7 @@ import { AutoParser } from "@/components/runner/autoparser"
 import { ExpectedResults } from "@/components/runner/expected-results"
 import { CircuitResults } from "@/components/runner/circuit-results"
 import { SyntheticDataRunner } from "@/components/runner/synthetic-data-runner"
+import { useSyntheticMode } from "@/contexts/synthetic-mode-context"
 import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff, Trash2, Brain, FlaskConical } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import type { BuiltCircuit } from "@/lib/circuit-builder"
@@ -106,6 +107,7 @@ export default function RunnerPage() {
   const { isHidden } = useUIPreferences()
   // Shared live mode — synced with dashboard via sessionStorage + BroadcastChannel
   const [sdkMode, setLiveEnabled] = useLiveMode(isGuest)
+  const { isRunning: syntheticRunning, lastRow: synthLastRow } = useSyntheticMode()
   const [syntheticMode, setSyntheticMode] = useState(false)
 
   // ── Storage limit tracking (50 MB cap) ──────────────────────────────────
@@ -216,6 +218,32 @@ export default function RunnerPage() {
     apiKey: null, // session cookie handles auth for browser EventSource
     initialRows: initialLiveRows,
   })
+
+  // When a synthetic row arrives, mirror it into local results state so CircuitResults updates
+  useEffect(() => {
+    if (!synthLastRow) return
+    setDtHistoryRows((prev) => {
+      const next = [...prev.filter((r) => r.id !== synthLastRow.id), synthLastRow]
+      next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      return next.slice(-500)
+    })
+    setResults((prev: any) => ({
+      ...prev,
+      success_rate: synthLastRow.success_rate ?? prev?.success_rate ?? 0,
+      runtime_ms:   synthLastRow.runtime_ms   ?? prev?.runtime_ms   ?? 0,
+      fidelity:     synthLastRow.circuit_data?.fidelity ?? prev?.fidelity ?? 95,
+      total_shots:  synthLastRow.shots        ?? prev?.total_shots   ?? 1024,
+      qubits_used:  synthLastRow.qubits_used  ?? prev?.qubits_used   ?? qubits,
+      backend_selected: synthLastRow.backend_selected ?? prev?.backend_selected ?? backend,
+      error_mitigation: synthLastRow.error_mitigation ?? prev?.error_mitigation ?? "auto",
+      counts:       synthLastRow.circuit_data?.counts ?? prev?.counts ?? {},
+      algorithm:    synthLastRow.algorithm    ?? circuitName,
+      circuit_name: synthLastRow.circuit_name ?? prev?.circuit_name,
+      _liveJobId:   synthLastRow.id,
+    }))
+    refreshStorageEstimate()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [synthLastRow])
 
   // When a new live row arrives, update results + circuit display from the latest job
   useEffect(() => {
@@ -977,35 +1005,7 @@ const adaptiveShots = calculateAdaptiveShots({
       />
 
       {/* ── Synthetic Data runner panel ───────────────────────────────── */}
-      {syntheticMode && (
-        <SyntheticDataRunner
-          selectedDigitalTwinId={selectedDigitalTwinId}
-          onNewRow={(row) => {
-            // Feed into DT dashboard history and results
-            setDtHistoryRows((prev) => {
-              const next = [...prev.filter((r) => r.id !== row.id), row]
-              next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-              return next.slice(-500)
-            })
-            // Update last result display
-            setResults((prev: any) => ({
-              ...prev,
-              success_rate: row.success_rate ?? prev?.success_rate ?? 0,
-              runtime_ms: row.runtime_ms ?? prev?.runtime_ms ?? 0,
-              fidelity: row.circuit_data?.fidelity ?? prev?.fidelity ?? 95,
-              total_shots: row.shots ?? prev?.total_shots ?? 1024,
-              qubits_used: row.qubits_used ?? prev?.qubits_used ?? qubits,
-              backend_selected: row.backend_selected ?? prev?.backend_selected ?? backend,
-              error_mitigation: row.error_mitigation ?? prev?.error_mitigation ?? "auto",
-              counts: row.circuit_data?.counts ?? prev?.counts ?? {},
-              algorithm: row.algorithm ?? circuitName,
-              circuit_name: row.circuit_name ?? prev?.circuit_name,
-              _liveJobId: row.id,
-            }))
-            refreshStorageEstimate()
-          }}
-        />
-      )}
+      {syntheticMode && <SyntheticDataRunner />}
 
       {/* ── SDK live feed panel ─────────────────────────────────────────── */}
       {sdkMode && (
