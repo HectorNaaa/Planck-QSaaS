@@ -9,7 +9,8 @@ import { DatabaseUploader } from "@/components/runner/database-uploader"
 import { AutoParser } from "@/components/runner/autoparser"
 import { ExpectedResults } from "@/components/runner/expected-results"
 import { CircuitResults } from "@/components/runner/circuit-results"
-import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff, Trash2, Brain } from "lucide-react"
+import { SyntheticDataRunner } from "@/components/runner/synthetic-data-runner"
+import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff, Trash2, Brain, FlaskConical } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import type { BuiltCircuit } from "@/lib/circuit-builder"
 
@@ -105,6 +106,7 @@ export default function RunnerPage() {
   const { isHidden } = useUIPreferences()
   // Shared live mode — synced with dashboard via sessionStorage + BroadcastChannel
   const [sdkMode, setLiveEnabled] = useLiveMode(isGuest)
+  const [syntheticMode, setSyntheticMode] = useState(false)
 
   // ── Storage limit tracking (50 MB cap) ──────────────────────────────────
   const STORAGE_CAP_BYTES = 50 * 1024 * 1024
@@ -900,6 +902,35 @@ const adaptiveShots = calculateAdaptiveShots({
         </div>
       )}
 
+      {/* Synthetic Data mode toggle */}
+      <div className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
+        syntheticMode ? "border-[#7ab5ac]/40 bg-[#7ab5ac]/5" : "border-border bg-secondary/40"
+      }`}>
+        <div className="flex items-center gap-3">
+          <FlaskConical size={18} className={syntheticMode ? "text-[#7ab5ac]" : "text-muted-foreground"} />
+          <div>
+            <p className="text-sm font-medium text-foreground">Synthetic Data mode</p>
+            <p className="text-xs text-muted-foreground">
+              {syntheticMode
+                ? "Generating synthetic telemetry locally and feeding the quantum pipeline automatically."
+                : "Enable to run parametrized synthetic data without writing code or using the remote SDK."}
+            </p>
+          </div>
+        </div>
+        <button
+          role="switch"
+          aria-checked={syntheticMode}
+          onClick={() => setSyntheticMode((v) => !v)}
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7ab5ac] ${
+            syntheticMode ? "bg-[#7ab5ac]" : "bg-muted"
+          }`}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+            syntheticMode ? "translate-x-6" : "translate-x-1"
+          }`} />
+        </button>
+      </div>
+
       {/* SDK / Intensive-use mode toggle */}
       <div className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
         sdkMode ? "border-primary/40 bg-primary/5" : "border-border bg-secondary/40"
@@ -944,6 +975,37 @@ const adaptiveShots = calculateAdaptiveShots({
         selectedTwinId={selectedDigitalTwinId}
         onSelect={setSelectedDigitalTwinId}
       />
+
+      {/* ── Synthetic Data runner panel ───────────────────────────────── */}
+      {syntheticMode && (
+        <SyntheticDataRunner
+          selectedDigitalTwinId={selectedDigitalTwinId}
+          onNewRow={(row) => {
+            // Feed into DT dashboard history and results
+            setDtHistoryRows((prev) => {
+              const next = [...prev.filter((r) => r.id !== row.id), row]
+              next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+              return next.slice(-500)
+            })
+            // Update last result display
+            setResults((prev: any) => ({
+              ...prev,
+              success_rate: row.success_rate ?? prev?.success_rate ?? 0,
+              runtime_ms: row.runtime_ms ?? prev?.runtime_ms ?? 0,
+              fidelity: row.circuit_data?.fidelity ?? prev?.fidelity ?? 95,
+              total_shots: row.shots ?? prev?.total_shots ?? 1024,
+              qubits_used: row.qubits_used ?? prev?.qubits_used ?? qubits,
+              backend_selected: row.backend_selected ?? prev?.backend_selected ?? backend,
+              error_mitigation: row.error_mitigation ?? prev?.error_mitigation ?? "auto",
+              counts: row.circuit_data?.counts ?? prev?.counts ?? {},
+              algorithm: row.algorithm ?? circuitName,
+              circuit_name: row.circuit_name ?? prev?.circuit_name,
+              _liveJobId: row.id,
+            }))
+            refreshStorageEstimate()
+          }}
+        />
+      )}
 
       {/* ── SDK live feed panel ─────────────────────────────────────────── */}
       {sdkMode && (
