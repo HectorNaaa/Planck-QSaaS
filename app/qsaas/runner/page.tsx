@@ -34,6 +34,7 @@ import { useLiveExecutions, type ExecutionRow } from "@/hooks/use-live-execution
 import { useLiveMode, broadcastExecution } from "@/hooks/use-live-mode"
 import { useIsGuest } from "@/components/guest-banner"
 import { useUIPreferences } from "@/contexts/ui-preferences-context"
+import { useDigitalTwinMode } from "@/contexts/digital-twin-mode-context"
 
 /** Convert a manual-run results object into the ExecutionRow shape the DT dashboard expects. */
 function resultToRow(
@@ -105,6 +106,7 @@ export default function RunnerPage() {
   const [selectedDigitalTwinId, setSelectedDigitalTwinId] = useState<string | null>(null)
   const isGuest = useIsGuest()
   const { isHidden } = useUIPreferences()
+  const { dtMode } = useDigitalTwinMode()
   // Shared live mode — synced with dashboard via sessionStorage + BroadcastChannel
   const [sdkMode, setLiveEnabled] = useLiveMode(isGuest)
   const { isRunning: syntheticRunning, lastRow: synthLastRow } = useSyntheticMode()
@@ -907,7 +909,10 @@ const adaptiveShots = calculateAdaptiveShots({
 
   return (
     <div className="p-8 space-y-8 px-0">
-      <PageHeader title="Runner" description="Configure and execute your quantum circuits" />
+      <PageHeader
+        title={dtMode ? "Simulator" : "Runner"}
+        description={dtMode ? "Configure and simulate your digital twin models" : "Configure and execute your quantum circuits"}
+      />
 
       {/* Storage limit warning banner */}
       {!isGuest && storageUsedBytes >= STORAGE_CAP_BYTES && (
@@ -1055,17 +1060,17 @@ const adaptiveShots = calculateAdaptiveShots({
         <div className="space-y-4">
           <div>
             <label htmlFor="execution-name" className="block text-sm font-medium text-foreground mb-2">
-              Execution Name (Optional)
+              {dtMode ? "Simulation Name (Optional)" : "Execution Name (Optional)"}
             </label>
             <input
               id="execution-name"
               type="text"
               value={executionName}
               onChange={(e) => setExecutionName(e.target.value)}
-              placeholder={`e.g., "My ${circuitName} Experiment"`}
+              placeholder={dtMode ? `e.g., "${circuitName} Baseline Run"` : `e.g., "My ${circuitName} Experiment"`}
               className="w-full px-4 py-2 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            <p className="text-xs text-muted-foreground mt-1">Optional label for this execution</p>
+            <p className="text-xs text-muted-foreground mt-1">{dtMode ? "Optional label for this simulation" : "Optional label for this execution"}</p>
           </div>
 
           <div className="mt-4">
@@ -1143,12 +1148,12 @@ const adaptiveShots = calculateAdaptiveShots({
             {isRunning ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Running
+                {dtMode ? "Simulating" : "Running"}
               </>
             ) : (
               <>
                 <Play size={18} />
-                Run
+                {dtMode ? "Simulate" : "Run"}
               </>
             )}
           </Button>
@@ -1161,7 +1166,7 @@ const adaptiveShots = calculateAdaptiveShots({
           {/* Execution Pipeline — manual mode only */}
           {!sdkMode && (
           <Card className="p-6 shadow-lg bg-card px-4 py-4">
-            <h2 className="text-2xl font-bold text-foreground mb-4">Execution Pipeline</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-4">{dtMode ? "Simulation Pipeline" : "Execution Pipeline"}</h2>
             {!dataUploaded ? (
               <div className="rounded-lg min-h-64 border border-border border-dashed flex items-center justify-center bg-secondary/30">
                 <p className="text-muted-foreground px-3 py-3">
@@ -1199,7 +1204,7 @@ const adaptiveShots = calculateAdaptiveShots({
                     3
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-foreground">Circuit Execution</h3>
+                    <h3 className="font-semibold text-foreground">{dtMode ? "Model Simulation" : "Circuit Execution"}</h3>
                     {results ? (
                       <p className="text-sm text-muted-foreground">Completed in {results.runtime_ms}ms</p>
                     ) : executionType === "auto" && circuitData ? (
@@ -1232,7 +1237,7 @@ const adaptiveShots = calculateAdaptiveShots({
                         )}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">Ready to run</p>
+                      <p className="text-sm text-muted-foreground">{dtMode ? "Ready to simulate" : "Ready to run"}</p>
                     )}
                   </div>
                 </div>
@@ -1242,9 +1247,9 @@ const adaptiveShots = calculateAdaptiveShots({
                     4
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-foreground">Results Generated</h3>
+                    <h3 className="font-semibold text-foreground">{dtMode ? "Output Generated" : "Results Generated"}</h3>
                     <p className="text-sm text-muted-foreground">
-                      {results ? `Success rate: ${results.success_rate.toFixed(2)}%` : 'Waiting for execution'}
+                      {results ? `Success rate: ${results.success_rate.toFixed(2)}%` : (dtMode ? 'Waiting for simulation' : 'Waiting for execution')}
                     </p>
                   </div>
                 </div>
@@ -1274,7 +1279,7 @@ const adaptiveShots = calculateAdaptiveShots({
                 apiKey={null}
                 digitalTwinId={selectedDigitalTwinId}
                 initialRows={sdkMode ? liveRows : dtHistoryRows}
-                title={selectedDigitalTwinId ? "Selected Digital Twin" : "Runs — All Digital Twins"}
+                title={selectedDigitalTwinId ? "Selected Digital Twin" : (dtMode ? "Simulations — All Digital Twins" : "Runs — All Digital Twins")}
               />
             </div>
           )}
@@ -1518,12 +1523,12 @@ const adaptiveShots = calculateAdaptiveShots({
           {isRunning ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />
-              Running
+              {dtMode ? "Simulating" : "Running"}
             </>
           ) : (
             <>
               <Play size={18} />
-              Run
+              {dtMode ? "Simulate" : "Run"}
             </>
           )}
         </Button>

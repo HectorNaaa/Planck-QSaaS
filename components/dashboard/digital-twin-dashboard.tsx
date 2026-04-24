@@ -34,6 +34,7 @@ import {
 } from "chart.js"
 import { useLiveExecutions, type ExecutionRow } from "@/hooks/use-live-executions"
 import { useUIPreferences } from "@/contexts/ui-preferences-context"
+import { useDigitalTwinMode } from "@/contexts/digital-twin-mode-context"
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, Filler)
 
@@ -129,6 +130,7 @@ export function DigitalTwinDashboard({
   })
 
   const { isHidden } = useUIPreferences()
+  const { dtMode } = useDigitalTwinMode()
 
   // Limit chart to last 80 points for readability
   const chartRows = useMemo(() => rows.slice(-80), [rows])
@@ -300,7 +302,7 @@ export function DigitalTwinDashboard({
             : <><WifiOff size={13} className="text-muted-foreground" /><span className="text-muted-foreground">Connecting…</span></>
           }
           {error && <span className="text-destructive ml-2">{error}</span>}
-          <span className="text-muted-foreground ml-auto">{rows.length} run{rows.length !== 1 ? "s" : ""} loaded</span>
+          <span className="text-muted-foreground ml-auto">{rows.length} {dtMode ? "simulation" : "run"}{rows.length !== 1 ? "s" : ""} loaded</span>
         </div>
       )}
 
@@ -310,7 +312,7 @@ export function DigitalTwinDashboard({
         {!isHidden('dtdashboard.chart.latency') && (
         <Card className="p-5 shadow-lg bg-secondary">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-sm font-semibold text-foreground">Execution Latency</h3>
+            <h3 className="text-sm font-semibold text-foreground">{dtMode ? "Simulation Latency" : "Execution Latency"}</h3>
             <Button variant="ghost" size="sm" onClick={() => downloadChart(latRef, "latency.png")}>
               <Download size={14} />
             </Button>
@@ -364,7 +366,7 @@ export function DigitalTwinDashboard({
         {/* Header */}
         <div className="flex justify-between items-center mb-3">
           <h3 className="text-sm font-semibold text-foreground">
-            Runs — {title}
+            {dtMode ? "Simulations" : "Runs"} — {title}
             {liveEnabled && (
               <span className="ml-2 text-xs font-normal text-muted-foreground">(live)</span>
             )}
@@ -471,7 +473,7 @@ export function DigitalTwinDashboard({
         </div>
 
         {rows.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-8">No runs in this period.</p>
+          <p className="text-xs text-muted-foreground text-center py-8">No {dtMode ? "simulations" : "runs"} in this period.</p>
         ) : filteredRows.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-8">No runs match the current filters.</p>
         ) : (

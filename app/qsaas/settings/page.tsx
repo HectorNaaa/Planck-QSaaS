@@ -11,6 +11,7 @@ import { LanguageSelector } from "@/components/language-selector"
 import { deleteUserAccount, updateUserAccount, generateApiKey, getApiKey, revokeApiKey, deleteExecutions, clearAllExecutionHistory } from "./actions"
 import { useIsGuest } from "@/components/guest-banner"
 import { useUIPreferences } from "@/contexts/ui-preferences-context"
+import { useDigitalTwinMode } from "@/contexts/digital-twin-mode-context"
 import { QUANTUM_TEMPLATES } from "@/lib/constants"
 
 // ── Execution history deletion-tracking helpers (localStorage) ────────────
@@ -81,6 +82,7 @@ export default function SettingsPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const isGuest = useIsGuest()
   const { hidden, toggle } = useUIPreferences()
+  const { dtMode, toggleDtMode } = useDigitalTwinMode()
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["dashboard", "charts", "runner", "templates"]))
 
   // Execution history / storage state
@@ -888,6 +890,28 @@ export default function SettingsPage() {
               <span
                 className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
                   stayLoggedIn ? "translate-x-7" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+          <div className="flex items-center justify-between pt-4 border-t border-border">
+            <div>
+              <p className="font-medium text-foreground">Digital Twin Mode</p>
+              <p className="text-sm text-muted-foreground">
+                {dtMode
+                  ? "Platform shown as hybrid digital twin system. Labels use simulation terminology."
+                  : "Platform shown in standard quantum execution mode."}
+              </p>
+            </div>
+            <button
+              onClick={toggleDtMode}
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
+                dtMode ? "bg-primary" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                  dtMode ? "translate-x-7" : "translate-x-1"
                 }`}
               />
             </button>

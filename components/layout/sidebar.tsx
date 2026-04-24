@@ -5,14 +5,16 @@ import { usePathname } from "next/navigation"
 import { LayoutDashboard, Zap, BookOpen, Settings } from "lucide-react"
 import Image from "next/image"
 import { useLanguage } from "@/contexts/language-context"
+import { useDigitalTwinMode } from "@/contexts/digital-twin-mode-context"
 
 export function Sidebar() {
   const pathname = usePathname()
   const { t } = useLanguage()
+  const { dtMode } = useDigitalTwinMode()
 
   const navItems = [
     { href: "/qsaas/dashboard", label: t("Dashboard"), icon: LayoutDashboard },
-    { href: "/qsaas/runner", label: "Runner", icon: Zap },
+    { href: "/qsaas/runner", label: dtMode ? "Simulator" : "Runner", icon: Zap },
     { href: "/qsaas/templates", label: t("Templates"), icon: BookOpen },
     { href: "/qsaas/settings", label: t("Settings"), icon: Settings },
   ]

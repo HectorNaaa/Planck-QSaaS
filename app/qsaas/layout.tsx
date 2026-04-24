@@ -8,6 +8,7 @@ import { QuantumLoadingScreen } from "@/components/quantum-loading-screen"
 import { GuestBanner } from "@/components/guest-banner"
 import { UIPreferencesProvider } from "@/contexts/ui-preferences-context"
 import { SyntheticModeProvider } from "@/contexts/synthetic-mode-context"
+import { DigitalTwinModeProvider } from "@/contexts/digital-twin-mode-context"
 import { ModeStatusBanner } from "@/components/layout/mode-status-banner"
 import { useTheme } from "next-themes"
 
@@ -70,11 +71,13 @@ export default function QsaasLayout({ children }: { children: React.ReactNode })
   return (
     <UIPreferencesProvider>
       <SyntheticModeProvider>
-        <ModeStatusBanner />
-        <MainLayout>
-          <GuestBanner />
-          {children}
-        </MainLayout>
+        <DigitalTwinModeProvider>
+          <ModeStatusBanner />
+          <MainLayout>
+            <GuestBanner />
+            {children}
+          </MainLayout>
+        </DigitalTwinModeProvider>
       </SyntheticModeProvider>
     </UIPreferencesProvider>
   )
