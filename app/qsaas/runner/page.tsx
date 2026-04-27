@@ -11,7 +11,7 @@ import { ExpectedResults } from "@/components/runner/expected-results"
 import { CircuitResults } from "@/components/runner/circuit-results"
 import { SyntheticDataRunner } from "@/components/runner/synthetic-data-runner"
 import { useSyntheticMode } from "@/contexts/synthetic-mode-context"
-import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff, Trash2, Brain, FlaskConical } from "lucide-react"
+import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff, Trash2, Brain, FlaskConical, ChevronDown, Settings2, Target, Layers } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import type { BuiltCircuit } from "@/lib/circuit-builder"
 
@@ -104,6 +104,14 @@ export default function RunnerPage() {
   const [showCodeEditor, setShowCodeEditor] = useState(false)
   const [showDominantStates, setShowDominantStates] = useState(false)
   const [selectedDigitalTwinId, setSelectedDigitalTwinId] = useState<string | null>(null)
+  const [showAdvancedQuantum, setShowAdvancedQuantum] = useState(false)
+
+  // ── Scenario Setup state ─────────────────────────────────────────────────
+  const [systemType, setSystemType] = useState<string>("Custom")
+  const [scenarioName, setScenarioName] = useState<string>("")
+  const [scenarioVariant, setScenarioVariant] = useState<"Baseline" | "Scenario A" | "Scenario B">("Baseline")
+  const [scenarioObjective, setScenarioObjective] = useState<string>("efficiency")
+
   const isGuest = useIsGuest()
   const { isHidden } = useUIPreferences()
   const { dtMode } = useDigitalTwinMode()
@@ -910,8 +918,8 @@ const adaptiveShots = calculateAdaptiveShots({
   return (
     <div className="p-8 space-y-8 px-0">
       <PageHeader
-        title={dtMode ? "Simulator" : "Runner"}
-        description={dtMode ? "Configure and simulate your digital twin models" : "Configure and execute your quantum circuits"}
+        title="Twin Simulator"
+        description="Define your system scenario, then simulate it with quantum compute."
       />
 
       {/* Storage limit warning banner */}
@@ -933,6 +941,93 @@ const adaptiveShots = calculateAdaptiveShots({
           </div>
         </div>
       )}
+
+      {/* ── Scenario Setup Panel ─────────────────────────────────────────── */}
+      <Card className="p-5 shadow-lg border border-primary/15">
+        <div className="flex items-center gap-2 mb-4">
+          <Layers size={16} className="text-primary" />
+          <h2 className="text-base font-semibold text-foreground">System &amp; Scenario</h2>
+          <span className="ml-auto text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-medium">Step 1</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* System Type */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">System Type</label>
+            <select
+              value={systemType}
+              onChange={(e) => setSystemType(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {["Mobility", "Energy", "Finance", "Logistics", "Materials", "Custom"].map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+          {/* Scenario Name */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Scenario Name</label>
+            <input
+              type="text"
+              value={scenarioName}
+              onChange={(e) => setScenarioName(e.target.value)}
+              placeholder="e.g., Peak Load 2026"
+              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+          {/* Scenario Variant */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Variant</label>
+            <div className="flex gap-1.5">
+              {(["Baseline", "Scenario A", "Scenario B"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setScenarioVariant(v)}
+                  className={`flex-1 py-2 px-1 rounded-md text-xs font-medium transition-colors ${
+                    scenarioVariant === v
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {v === "Baseline" ? "Base" : v === "Scenario A" ? "A" : "B"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Objective */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+              <Target size={11} />Objective
+            </label>
+            <select
+              value={scenarioObjective}
+              onChange={(e) => setScenarioObjective(e.target.value)}
+              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {[
+                { value: "efficiency", label: "Optimize efficiency" },
+                { value: "latency", label: "Reduce latency" },
+                { value: "cost", label: "Minimize cost" },
+                { value: "reliability", label: "Maximize reliability" },
+                { value: "routing", label: "Optimize routing" },
+                { value: "risk", label: "Minimize risk" },
+              ].map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {(scenarioName || systemType !== "Custom") && (
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <span className="w-2 h-2 rounded-full bg-primary inline-block" />
+            <span>
+              <span className="font-medium text-foreground">{systemType}</span>
+              {scenarioName ? ` · ${scenarioName}` : ""}
+              {" · "}<span className="capitalize">{scenarioVariant}</span>
+              {" · "}<span className="capitalize">{scenarioObjective}</span>
+            </span>
+          </div>
+        )}
+      </Card>
 
       {/* Synthetic Data mode toggle */}
       <div className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
@@ -1060,17 +1155,17 @@ const adaptiveShots = calculateAdaptiveShots({
         <div className="space-y-4">
           <div>
             <label htmlFor="execution-name" className="block text-sm font-medium text-foreground mb-2">
-              {dtMode ? "Simulation Name (Optional)" : "Execution Name (Optional)"}
+              Simulation Name (Optional)
             </label>
             <input
               id="execution-name"
               type="text"
               value={executionName}
               onChange={(e) => setExecutionName(e.target.value)}
-              placeholder={dtMode ? `e.g., "${circuitName} Baseline Run"` : `e.g., "My ${circuitName} Experiment"`}
+              placeholder={`e.g., "${systemType || circuitName} ${scenarioVariant}"`}
               className="w-full px-4 py-2 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            <p className="text-xs text-muted-foreground mt-1">{dtMode ? "Optional label for this simulation" : "Optional label for this execution"}</p>
+            <p className="text-xs text-muted-foreground mt-1">Optional label for this simulation run</p>
           </div>
 
           <div className="mt-4">
@@ -1111,21 +1206,37 @@ const adaptiveShots = calculateAdaptiveShots({
         <AutoParser onParsed={handleAutoParse} inputData={uploadedData} algorithm={selectedAlgorithm ?? undefined} />
         )}
         {!isHidden('runner.circuit_settings') && (
-        <CircuitSettings
-          onExecutionTypeChange={setExecutionType}
-          onQubitsChange={setQubits}
-          onErrorMitigationChange={setErrorMitigation}
-        />
-        )}
-        {!isHidden('runner.execution_settings') && (
-        <ExecutionSettings
-          onBackendChange={setBackend}
-          currentBackend={backend}
-          onModeChange={setExecutionType}
-          qubits={qubits}
-          depth={circuitData?.depth || 20}
-          postRunReason={results?.backendReason ?? null}
-        />
+        <div>
+          <button
+            onClick={() => setShowAdvancedQuantum((v) => !v)}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-secondary/40 hover:bg-secondary/70 transition-colors text-sm font-semibold text-foreground mb-2"
+          >
+            <div className="flex items-center gap-2">
+              <Settings2 size={15} className="text-muted-foreground" />
+              Advanced Quantum Settings
+            </div>
+            <ChevronDown size={15} className={`text-muted-foreground transition-transform duration-200 ${showAdvancedQuantum ? "rotate-180" : ""}`} />
+          </button>
+          {showAdvancedQuantum && (
+            <div className="space-y-4">
+              <CircuitSettings
+                onExecutionTypeChange={setExecutionType}
+                onQubitsChange={setQubits}
+                onErrorMitigationChange={setErrorMitigation}
+              />
+              {!isHidden('runner.execution_settings') && (
+              <ExecutionSettings
+                onBackendChange={setBackend}
+                currentBackend={backend}
+                onModeChange={setExecutionType}
+                qubits={qubits}
+                depth={circuitData?.depth || 20}
+                postRunReason={results?.backendReason ?? null}
+              />
+              )}
+            </div>
+          )}
+        </div>
         )}
         {!isHidden('runner.autoparser') && (
         <ExpectedResults backend={backend} qubits={qubits} depth={circuitData?.depth || 20} hasData={dataUploaded} />
@@ -1148,12 +1259,12 @@ const adaptiveShots = calculateAdaptiveShots({
             {isRunning ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                {dtMode ? "Simulating" : "Running"}
+                Simulating…
               </>
             ) : (
               <>
                 <Play size={18} />
-                {dtMode ? "Simulate" : "Run"}
+                Simulate scenario
               </>
             )}
           </Button>
@@ -1166,7 +1277,7 @@ const adaptiveShots = calculateAdaptiveShots({
           {/* Execution Pipeline — manual mode only */}
           {!sdkMode && (
           <Card className="p-6 shadow-lg bg-card px-4 py-4">
-            <h2 className="text-2xl font-bold text-foreground mb-4">{dtMode ? "Simulation Pipeline" : "Execution Pipeline"}</h2>
+            <h2 className="text-2xl font-bold text-foreground mb-4">Simulation Pipeline</h2>
             {!dataUploaded ? (
               <div className="rounded-lg min-h-64 border border-border border-dashed flex items-center justify-center bg-secondary/30">
                 <p className="text-muted-foreground px-3 py-3">
@@ -1182,7 +1293,7 @@ const adaptiveShots = calculateAdaptiveShots({
                   <div className="flex-1">
                     <h3 className="font-semibold text-foreground">Data Uploaded</h3>
                     <p className="text-sm text-muted-foreground">
-                      {circuitName} algorithm with {qubits} qubits
+                      {circuitName} model with {qubits} quantum resources
                     </p>
                   </div>
                 </div>
@@ -1192,9 +1303,9 @@ const adaptiveShots = calculateAdaptiveShots({
                     2
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-foreground">Circuit Generated</h3>
+                    <h3 className="font-semibold text-foreground">Model Generated</h3>
                     <p className="text-sm text-muted-foreground">
-                      {circuitData?.gates.length || 0} gates, depth {circuitData?.depth || 0}
+                      {circuitData?.gates.length || 0} gate operations, depth {circuitData?.depth || 0}
                     </p>
                   </div>
                 </div>
@@ -1204,7 +1315,7 @@ const adaptiveShots = calculateAdaptiveShots({
                     3
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-foreground">{dtMode ? "Model Simulation" : "Circuit Execution"}</h3>
+                    <h3 className="font-semibold text-foreground">Scenario Simulation</h3>
                     {results ? (
                       <p className="text-sm text-muted-foreground">Completed in {results.runtime_ms}ms</p>
                     ) : executionType === "auto" && circuitData ? (
@@ -1237,7 +1348,7 @@ const adaptiveShots = calculateAdaptiveShots({
                         )}
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">{dtMode ? "Ready to simulate" : "Ready to run"}</p>
+                      <p className="text-sm text-muted-foreground">Ready to simulate</p>
                     )}
                   </div>
                 </div>
@@ -1247,9 +1358,9 @@ const adaptiveShots = calculateAdaptiveShots({
                     4
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-foreground">{dtMode ? "Output Generated" : "Results Generated"}</h3>
+                    <h3 className="font-semibold text-foreground">Insights Generated</h3>
                     <p className="text-sm text-muted-foreground">
-                      {results ? `Success rate: ${results.success_rate.toFixed(2)}%` : (dtMode ? 'Waiting for simulation' : 'Waiting for execution')}
+                      {results ? `Success rate: ${results.success_rate.toFixed(2)}%` : 'Waiting for simulation'}
                     </p>
                   </div>
                 </div>
@@ -1279,7 +1390,7 @@ const adaptiveShots = calculateAdaptiveShots({
                 apiKey={null}
                 digitalTwinId={selectedDigitalTwinId}
                 initialRows={sdkMode ? liveRows : dtHistoryRows}
-                title={selectedDigitalTwinId ? "Selected Digital Twin" : (dtMode ? "Simulations — All Digital Twins" : "Runs — All Digital Twins")}
+                title={selectedDigitalTwinId ? "Selected Digital Twin" : "Simulations — All Scenarios"}
               />
             </div>
           )}
@@ -1353,7 +1464,7 @@ const adaptiveShots = calculateAdaptiveShots({
                         : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
                     }`}
                   >
-                    Circuit Visualizer
+                    Model Visualizer
                   </button>
                 )}
                 {circuitCode && (
@@ -1365,7 +1476,7 @@ const adaptiveShots = calculateAdaptiveShots({
                         : "bg-secondary text-muted-foreground border-border hover:border-primary/50"
                     }`}
                   >
-                    Code Editor
+                    Model Code
                   </button>
                 )}
                 {results && (
@@ -1388,7 +1499,7 @@ const adaptiveShots = calculateAdaptiveShots({
           {!sdkMode && dataUploaded && circuitImageUrl && showVisualizer && (
             <Card className="p-6 shadow-lg">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">Circuit Visualizer</h3>
+                <h3 className="text-lg font-semibold text-foreground">Model Visualizer</h3>
                 <Button
                   onClick={handleDownloadCircuitImage}
                   size="sm"
@@ -1413,7 +1524,7 @@ const adaptiveShots = calculateAdaptiveShots({
           {!sdkMode && dataUploaded && circuitCode && showCodeEditor && (
             <Card className="p-6 shadow-lg">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-foreground">Circuit Code Editor</h3>
+                <h3 className="text-lg font-semibold text-foreground">Model Code (OpenQASM)</h3>
                 <div className="flex gap-2">
                   {isCodeEditable ? (
                     <Button onClick={handleSaveCode} size="sm" className="bg-primary">
@@ -1468,21 +1579,38 @@ const adaptiveShots = calculateAdaptiveShots({
           <AutoParser onParsed={handleAutoParse} inputData={uploadedData} algorithm={selectedAlgorithm ?? undefined} />
           )}
           {!isHidden('runner.circuit_settings') && (
-          <CircuitSettings
-            onExecutionTypeChange={setExecutionType}
-            onQubitsChange={setQubits}
-            onErrorMitigationChange={setErrorMitigation}
-          />
-          )}
-          {!isHidden('runner.execution_settings') && (
-          <ExecutionSettings
-            onBackendChange={setBackend}
-            currentBackend={backend}
-            onModeChange={setExecutionType}
-            qubits={qubits}
-            depth={circuitData?.depth || 20}
-            postRunReason={results?.backendReason ?? null}
-          />
+          <div>
+            {/* Advanced Quantum Settings collapsible wrapper */}
+            <button
+              onClick={() => setShowAdvancedQuantum((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-border bg-secondary/40 hover:bg-secondary/70 transition-colors text-sm font-semibold text-foreground mb-2"
+            >
+              <div className="flex items-center gap-2">
+                <Settings2 size={15} className="text-muted-foreground" />
+                Advanced Quantum Settings
+              </div>
+              <ChevronDown size={15} className={`text-muted-foreground transition-transform duration-200 ${showAdvancedQuantum ? "rotate-180" : ""}`} />
+            </button>
+            {showAdvancedQuantum && (
+              <div className="space-y-4">
+                <CircuitSettings
+                  onExecutionTypeChange={setExecutionType}
+                  onQubitsChange={setQubits}
+                  onErrorMitigationChange={setErrorMitigation}
+                />
+                {!isHidden('runner.execution_settings') && (
+                <ExecutionSettings
+                  onBackendChange={setBackend}
+                  currentBackend={backend}
+                  onModeChange={setExecutionType}
+                  qubits={qubits}
+                  depth={circuitData?.depth || 20}
+                  postRunReason={results?.backendReason ?? null}
+                />
+                )}
+              </div>
+            )}
+          </div>
           )}
           {!isHidden('runner.autoparser') && (
           <ExpectedResults backend={backend} qubits={qubits} depth={circuitData?.depth || 20} hasData={dataUploaded} />
@@ -1523,12 +1651,12 @@ const adaptiveShots = calculateAdaptiveShots({
           {isRunning ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />
-              {dtMode ? "Simulating" : "Running"}
+              Simulating…
             </>
           ) : (
             <>
               <Play size={18} />
-              {dtMode ? "Simulate" : "Run"}
+              Simulate scenario
             </>
           )}
         </Button>

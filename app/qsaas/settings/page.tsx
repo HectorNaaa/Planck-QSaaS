@@ -896,11 +896,11 @@ export default function SettingsPage() {
           </div>
           <div className="flex items-center justify-between pt-4 border-t border-border">
             <div>
-              <p className="font-medium text-foreground">Digital Twin Mode</p>
+              <p className="font-medium text-foreground">Platform Mode</p>
               <p className="text-sm text-muted-foreground">
                 {dtMode
-                  ? "Platform shown as hybrid digital twin system. Labels use simulation terminology."
-                  : "Platform shown in standard quantum execution mode."}
+                  ? "Digital Twin Mode — simulation-first interface."
+                  : "Advanced Quantum Mode — full quantum controls visible."}
               </p>
             </div>
             <button
@@ -916,6 +916,50 @@ export default function SettingsPage() {
               />
             </button>
           </div>
+        </div>
+      </Card>
+
+      {/* Platform Mode */}
+      <Card className="p-6 shadow-lg">
+        <h2 className="text-2xl font-bold text-foreground mb-2">Platform Mode</h2>
+        <p className="text-sm text-muted-foreground mb-5">
+          Choose how the platform presents itself. Digital Twin Mode is the default experience—it hides raw quantum terminology and focuses on system modeling. Advanced Quantum Mode exposes full circuit and execution controls.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Digital Twin Mode */}
+          <button
+            onClick={() => { if (!dtMode) toggleDtMode() }}
+            className={`p-4 rounded-lg border-2 text-left transition-all ${
+              dtMode
+                ? "border-primary bg-primary/5"
+                : "border-border bg-secondary/30 hover:border-primary/40"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-semibold text-foreground">Digital Twin Mode</p>
+              {dtMode && <span className="text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-medium">Active</span>}
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Default UX: System → Scenario → Simulation → Optimization → Insights. Quantum models appear as simulation templates. Raw circuit settings are hidden behind Advanced panel.
+            </p>
+          </button>
+          {/* Advanced Quantum Mode */}
+          <button
+            onClick={() => { if (dtMode) toggleDtMode() }}
+            className={`p-4 rounded-lg border-2 text-left transition-all ${
+              !dtMode
+                ? "border-primary bg-primary/5"
+                : "border-border bg-secondary/30 hover:border-primary/40"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-semibold text-foreground">Advanced Quantum Mode</p>
+              {!dtMode && <span className="text-[10px] bg-primary text-primary-foreground px-2 py-0.5 rounded-full font-medium">Active</span>}
+            </div>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Full quantum-first UX. Exposes circuit settings, backend selection, qubit counts, shots, and error mitigation controls at the top level. For advanced users and research workflows.
+            </p>
+          </button>
         </div>
       </Card>
 
@@ -963,31 +1007,31 @@ export default function SettingsPage() {
 
           return (
             <div className="space-y-3">
-              <Section id="dashboard" label="Dashboard — Stat Cards">
-                <Item prefKey="dashboard.stat.total_runs"       label="Total Runs" />
-                <Item prefKey="dashboard.stat.avg_success_rate" label="Avg Success Rate" />
-                <Item prefKey="dashboard.stat.avg_runtime"      label="Avg Runtime" />
-                <Item prefKey="dashboard.stat.avg_qubits"       label="Avg Qubits" />
+              <Section id="dashboard" label="Dashboard — Summary Cards">
+                <Item prefKey="dashboard.stat.total_runs"       label="Total Simulations" />
+                <Item prefKey="dashboard.stat.avg_success_rate" label="Avg Reliability" />
+                <Item prefKey="dashboard.stat.avg_runtime"      label="Avg Simulation Time" />
+                <Item prefKey="dashboard.stat.avg_qubits"       label="Avg Quantum Resources" />
               </Section>
 
-              <Section id="charts" label="Charts (Dashboard &amp; Runner)">
-                <Item prefKey="dtdashboard.chart.latency"      label="Execution Latency chart" />
-                <Item prefKey="dtdashboard.chart.backend"      label="Backend Selection chart" />
-                <Item prefKey="dtdashboard.chart.success_rate" label="Success Rate chart" />
-                <Item prefKey="dtdashboard.chart.table"        label="Execution runs table" />
+              <Section id="charts" label="Charts (Dashboard &amp; Twin Simulator)">
+                <Item prefKey="dtdashboard.chart.latency"      label="Simulation Latency chart" />
+                <Item prefKey="dtdashboard.chart.backend"      label="Compute Route chart" />
+                <Item prefKey="dtdashboard.chart.success_rate" label="Reliability chart" />
+                <Item prefKey="dtdashboard.chart.table"        label="Simulation history table" />
               </Section>
 
-              <Section id="runner" label="Runner — Sections">
-                <Item prefKey="runner.database_uploader"       label="Database Uploader" />
-                <Item prefKey="runner.autoparser"              label="AutoParser / Expected Results" />
-                <Item prefKey="runner.circuit_settings"        label="Circuit Settings" />
-                <Item prefKey="runner.execution_settings"      label="Execution Settings" />
-                <Item prefKey="runner.circuit_results"         label="Execution Results (Execution Dashboard)" />
-                <Item prefKey="runner.digital_twin_dashboard"  label="Digital Twin Dashboard" />
-                <Item prefKey="runner.digital_twin_panel"      label="Digital Twin Panel (3D analysis)" />
+              <Section id="runner" label="Twin Simulator — Sections">
+                <Item prefKey="runner.database_uploader"       label="Data Uploader" />
+                <Item prefKey="runner.autoparser"              label="Model Parser / Expected Results" />
+                <Item prefKey="runner.circuit_settings"        label="Advanced Quantum Settings" />
+                <Item prefKey="runner.execution_settings"      label="Compute Route Settings" />
+                <Item prefKey="runner.circuit_results"         label="Simulation Results" />
+                <Item prefKey="runner.digital_twin_dashboard"  label="Simulation History (Twin Dashboard)" />
+                <Item prefKey="runner.digital_twin_panel"      label="Twin Analysis Panel (3D)" />
               </Section>
 
-              <Section id="templates" label="Templates — Circuit Cards">
+              <Section id="templates" label="Model Templates — Cards">
                 {QUANTUM_TEMPLATES.map((t) => (
                   <Item key={t.id} prefKey={`templates.${t.id}`} label={t.name} />
                 ))}

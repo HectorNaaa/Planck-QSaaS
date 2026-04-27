@@ -38,8 +38,8 @@ export function CircuitSettings({
     <Card className="p-6 shadow-lg">
       <div className="flex items-center justify-between mb-4 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
         <div className="flex items-center gap-3">
-          <span className="text-primary font-bold text-base">3.</span>
-          <h3 className="text-lg font-bold text-foreground">Circuit Settings</h3>
+          <h3 className="text-sm font-semibold text-foreground">Advanced Quantum Settings</h3>
+          <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">Sampling &amp; mitigation</span>
         </div>
         <ChevronDown
           size={24}
@@ -77,15 +77,15 @@ export function CircuitSettings({
 
           {isAutomatic ? (
             <div className="p-3 bg-secondary/50 rounded-lg border border-primary/20">
-              <p className="text-xs font-medium text-foreground">Auto mode</p>
+              <p className="text-xs font-medium text-foreground">Automatic mode</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Shots &amp; mitigation tuned by RL from circuit data.
+                Sampling budget &amp; mitigation auto-tuned by the RL engine from simulation data.
               </p>
             </div>
           ) : (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">Shots: {shots}</label>
+                <label className="block text-sm font-medium text-foreground mb-2">Sampling Budget: {shots}</label>
                 <select
                   value={shots}
                   onChange={(e) => setShots(Number(e.target.value))}

@@ -279,17 +279,17 @@ export default function DashboardPage() {
   const { isHidden } = useUIPreferences()
 
   const statCards = [
-    { key: "dashboard.stat.total_runs",       label: "Total Runs",       value: loading ? "\u2026" : stats.totalRuns.toString(),       icon: Zap },
-    { key: "dashboard.stat.avg_success_rate", label: "Avg Success Rate", value: loading ? "\u2026" : `${stats.avgSuccessRate}%`,        icon: TrendingUp },
-    { key: "dashboard.stat.avg_runtime",      label: "Avg Runtime",      value: loading ? "\u2026" : `${stats.avgRuntime}ms`,           icon: Clock },
-    { key: "dashboard.stat.avg_qubits",       label: "Avg Qubits",       value: loading ? "\u2026" : stats.avgQubits.toString(),       icon: BarChart3 },
+    { key: "dashboard.stat.total_runs",       label: "Total Simulations",     value: loading ? "\u2026" : stats.totalRuns.toString(),       icon: Zap },
+    { key: "dashboard.stat.avg_success_rate", label: "Avg Reliability",       value: loading ? "\u2026" : `${stats.avgSuccessRate}%`,        icon: TrendingUp },
+    { key: "dashboard.stat.avg_runtime",      label: "Avg Simulation Time",   value: loading ? "\u2026" : `${stats.avgRuntime}ms`,           icon: Clock },
+    { key: "dashboard.stat.avg_qubits",       label: "Avg Quantum Resources", value: loading ? "\u2026" : stats.avgQubits.toString(),       icon: BarChart3 },
   ].filter((c) => !isHidden(c.key))
 
   return (
     <div className="p-8 space-y-8 px-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <PageHeader title="Digital Twin Dashboard" description="Live quantum execution activity across all your digital twins." />
+        <PageHeader title="Digital Twin Dashboard" description="System state, scenario history, and simulation insights across all your digital twins." />
         <div className="flex items-center gap-3 flex-wrap">
           {/* Live-mode toggle */}
           <button
@@ -352,6 +352,54 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Scenario Comparison Cards */}
+      {allRows.length >= 2 && (
+        <div>
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Scenario Comparison</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Baseline vs latest */}
+            {(() => {
+              const done = allRows.filter((r) => r.status === "completed" || r.status === "saved")
+              const baseline = done[done.length - 1] // oldest completed
+              const latest   = done[0]               // newest completed
+              if (!baseline || !latest || baseline.id === latest.id) return null
+              const runtimeDelta = latest.runtime_ms && baseline.runtime_ms
+                ? ((latest.runtime_ms - baseline.runtime_ms) / baseline.runtime_ms * 100).toFixed(1)
+                : null
+              const reliabilityDelta = latest.success_rate && baseline.success_rate
+                ? (latest.success_rate - baseline.success_rate).toFixed(1)
+                : null
+              return (
+                <>
+                  <Card className="p-4 shadow border border-border bg-secondary/30">
+                    <p className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">Best Scenario</p>
+                    <p className="text-sm font-semibold text-foreground truncate">{latest.circuit_name || latest.algorithm || "Latest simulation"}</p>
+                    <p className="text-2xl font-bold text-primary mt-1">{latest.success_rate?.toFixed(1) ?? "—"}%</p>
+                    <p className="text-xs text-muted-foreground mt-1">reliability · {latest.backend_selected?.replace("quantum_inspired_gpu","QI-GPU").replace("hpc_gpu","HPC").replace("quantum_qpu","QPU") ?? "—"}</p>
+                  </Card>
+                  <Card className="p-4 shadow border border-border bg-secondary/30">
+                    <p className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">Simulation Time Δ</p>
+                    <p className="text-2xl font-bold mt-1" style={{ color: runtimeDelta && Number(runtimeDelta) < 0 ? "#578e7e" : "#e07b54" }}>
+                      {runtimeDelta ? `${Number(runtimeDelta) > 0 ? "+" : ""}${runtimeDelta}%` : "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">{baseline.runtime_ms ?? "—"}ms → {latest.runtime_ms ?? "—"}ms</p>
+                    <p className="text-xs text-muted-foreground">baseline → latest</p>
+                  </Card>
+                  <Card className="p-4 shadow border border-border bg-secondary/30">
+                    <p className="text-xs text-muted-foreground mb-1 font-medium uppercase tracking-wide">Reliability Δ</p>
+                    <p className="text-2xl font-bold mt-1" style={{ color: reliabilityDelta && Number(reliabilityDelta) > 0 ? "#578e7e" : "#e07b54" }}>
+                      {reliabilityDelta ? `${Number(reliabilityDelta) > 0 ? "+" : ""}${reliabilityDelta}pp` : "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">{baseline.success_rate?.toFixed(1) ?? "—"}% → {latest.success_rate?.toFixed(1) ?? "—"}%</p>
+                    <p className="text-xs text-muted-foreground">baseline → latest</p>
+                  </Card>
+                </>
+              )
+            })()}
+          </div>
+        </div>
+      )}
+
       {/* Tab bar: All + one per DT */}
       <div className="flex items-center gap-1 flex-wrap">
         <button
@@ -385,12 +433,13 @@ export default function DashboardPage() {
         ))}
         <Link href="/qsaas/runner">
           <Button size="sm" className="ml-auto bg-primary hover:bg-primary/90 text-xs">
-            + New Digital Twin
+            + New Simulation
           </Button>
         </Link>
       </div>
 
-      {/* Active tab content */}
+      {/* Active tab content — Simulation History */}
+      {!loading && <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Simulation History</h3>}
       {loading ? (
         <p className="text-muted-foreground text-sm py-12 text-center">Loading…</p>
       ) : (

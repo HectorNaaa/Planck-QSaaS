@@ -64,22 +64,23 @@ export function HeroBackground() {
     let BP: FlowParticle[] = []
 
     // ── Reliable dimension reading ────────────────────────────────────────────
-    // Use parent element's bounding rect (always accurate for positioned elements).
-    // Falls back to the section's data attribute, then window size.
+    // Use the parent's bounding rect (absolute inset-0 fills the canvas-host div).
+    // Always use window.innerWidth so the canvas covers the full viewport width.
     const readSize = (): { w: number; h: number } => {
+      const w = window.innerWidth
       const parent = canvas.parentElement
       if (parent) {
         const r = parent.getBoundingClientRect()
-        if (r.width > 0 && r.height > 0) return { w: r.width, h: r.height }
+        if (r.height > 0) return { w, h: r.height }
       }
-      // Last resort: find the hero section by walking up
+      // Walk up to find the hero section by data attribute
       let el: HTMLElement | null = canvas
-      while (el && !el.dataset.hnHero) el = el.parentElement
+      while (el && !(el as any).dataset?.hnHero) el = el.parentElement
       if (el) {
         const r = el.getBoundingClientRect()
-        if (r.width > 0 && r.height > 0) return { w: r.width, h: r.height }
+        if (r.height > 0) return { w, h: r.height }
       }
-      return { w: window.innerWidth, h: window.innerHeight * 0.75 }
+      return { w, h: Math.max(520, window.innerHeight * 0.75) }
     }
 
     // ── Setup ─────────────────────────────────────────────────────────────────
@@ -91,10 +92,12 @@ export function HeroBackground() {
       cx = W * 0.5
       cy = H * 0.5
 
+      // Scale particle/node density with viewport — more nodes on larger screens
       const sm = W < 640
-      const nc = sm ? 12 : 20
-      const nf = sm ? 10 : 18
-      const nb = sm ?  5 :  9
+      const lg = W >= 1280
+      const nc = sm ? 12 : lg ? 28 : 20
+      const nf = sm ? 10 : lg ? 24 : 18
+      const nb = sm ?  5 : lg ? 12 :  9
 
       // LEFT — organic/physical cluster
       ON = Array.from({ length: nc }, () => {
@@ -192,14 +195,14 @@ export function HeroBackground() {
 
       // ── Left organic connections ────────────────────────────────────────────
       const ldmax = W * 0.22
-      ctx.lineWidth = 1.5
+      ctx.lineWidth = 2
       for (let i = 0; i < ON.length; i++) {
         for (let j = i + 1; j < ON.length; j++) {
           const dx = ON[i].x - ON[j].x
           const dy = ON[i].y - ON[j].y
           const d  = Math.hypot(dx, dy)
           if (d < ldmax) {
-            ctx.strokeStyle = `rgba(${T}, ${(1 - d / ldmax) * 0.58})`
+            ctx.strokeStyle = `rgba(${T}, ${(1 - d / ldmax) * 0.80})`
             ctx.beginPath()
             ctx.moveTo(ON[i].x, ON[i].y)
             ctx.lineTo(ON[j].x, ON[j].y)
@@ -210,14 +213,14 @@ export function HeroBackground() {
 
       // ── Right grid connections ──────────────────────────────────────────────
       const rdmax = W * 0.18
-      ctx.lineWidth = 1.2
+      ctx.lineWidth = 1.8
       for (let i = 0; i < SN.length; i++) {
         for (let j = i + 1; j < SN.length; j++) {
           const dx = SN[i].x - SN[j].x
           const dy = SN[i].y - SN[j].y
           const d  = Math.hypot(dx, dy)
           if (d < rdmax) {
-            ctx.strokeStyle = `rgba(${T}, ${(1 - d / rdmax) * 0.62})`
+            ctx.strokeStyle = `rgba(${T}, ${(1 - d / rdmax) * 0.85})`
             ctx.beginPath()
             ctx.moveTo(SN[i].x, SN[i].y)
             ctx.lineTo(SN[j].x, SN[j].y)
@@ -229,8 +232,8 @@ export function HeroBackground() {
       // ── Forward bridge: left → right (solid, upper arc) ────────────────────
       const fwdCtrlY = cy - H * 0.10
       ctx.setLineDash([])
-      ctx.lineWidth = 2.5
-      ctx.strokeStyle = `rgba(${T}, ${0.50 + pulse * 0.15})`
+      ctx.lineWidth = 3
+      ctx.strokeStyle = `rgba(${T}, ${0.70 + pulse * 0.18})`
       ctx.beginPath()
       ctx.moveTo(lx, ly)
       ctx.quadraticCurveTo(cx, fwdCtrlY, rx, ry)
@@ -238,8 +241,8 @@ export function HeroBackground() {
 
       // ── Feedback bridge: right → left (dashed, lower arc) ──────────────────
       const fbkCtrlY = cy + H * 0.10
-      ctx.lineWidth = 1.4
-      ctx.strokeStyle = `rgba(${T}, ${0.32 + pulse * 0.12})`
+      ctx.lineWidth = 2
+      ctx.strokeStyle = `rgba(${T}, ${0.48 + pulse * 0.14})`
       ctx.setLineDash([6, 8])
       ctx.beginPath()
       ctx.moveTo(rx, ry)
@@ -248,10 +251,10 @@ export function HeroBackground() {
       ctx.setLineDash([])
 
       // ── Quantum/AI processing core ──────────────────────────────────────────
-      const cr = 60 + pulse * 22
+      const cr = 70 + pulse * 28
       const grd = ctx.createRadialGradient(cx, cy, 0, cx, cy, cr)
-      grd.addColorStop(0,   `rgba(${T}, ${0.55 + pulse * 0.20})`)
-      grd.addColorStop(0.35,`rgba(${T}, ${0.22 + pulse * 0.10})`)
+      grd.addColorStop(0,   `rgba(${T}, ${0.72 + pulse * 0.22})`)
+      grd.addColorStop(0.35,`rgba(${T}, ${0.30 + pulse * 0.12})`)
       grd.addColorStop(1,   `rgba(${T}, 0)`)
       ctx.fillStyle = grd
       ctx.beginPath()
@@ -259,23 +262,23 @@ export function HeroBackground() {
       ctx.fill()
 
       // Inner ring
-      ctx.lineWidth = 2
-      ctx.strokeStyle = `rgba(${T}, ${0.55 + pulse * 0.20})`
+      ctx.lineWidth = 2.5
+      ctx.strokeStyle = `rgba(${T}, ${0.70 + pulse * 0.22})`
       ctx.beginPath()
-      ctx.arc(cx, cy, 18 + pulse * 6, 0, Math.PI * 2)
+      ctx.arc(cx, cy, 20 + pulse * 7, 0, Math.PI * 2)
       ctx.stroke()
 
       // Outer ring
-      ctx.lineWidth = 1
-      ctx.strokeStyle = `rgba(${T}, ${0.28 + pulse * 0.12})`
+      ctx.lineWidth = 1.5
+      ctx.strokeStyle = `rgba(${T}, ${0.42 + pulse * 0.15})`
       ctx.beginPath()
-      ctx.arc(cx, cy, 36 + pulse * 10, 0, Math.PI * 2)
+      ctx.arc(cx, cy, 40 + pulse * 12, 0, Math.PI * 2)
       ctx.stroke()
 
       // Centre dot
-      ctx.fillStyle = `rgba(${T}, ${0.90 + pulse * 0.10})`
+      ctx.fillStyle = `rgba(${T}, ${0.95 + pulse * 0.05})`
       ctx.beginPath()
-      ctx.arc(cx, cy, 6, 0, Math.PI * 2)
+      ctx.arc(cx, cy, 7, 0, Math.PI * 2)
       ctx.fill()
 
       // ── Forward flow particles (left → right) ───────────────────────────────
@@ -329,7 +332,7 @@ export function HeroBackground() {
       }
 
       // ── Left organic nodes ──────────────────────────────────────────────────
-      ctx.fillStyle = `rgba(${T}, 0.82)`
+      ctx.fillStyle = `rgba(${T}, 0.95)`
       for (const n of ON) {
         ctx.beginPath()
         ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2)
@@ -337,7 +340,7 @@ export function HeroBackground() {
       }
 
       // ── Right structured nodes ──────────────────────────────────────────────
-      ctx.fillStyle = `rgba(${T}, 0.78)`
+      ctx.fillStyle = `rgba(${T}, 0.92)`
       for (const n of SN) {
         ctx.beginPath()
         ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2)
@@ -356,7 +359,21 @@ export function HeroBackground() {
       raf = requestAnimationFrame(start)
     })
 
-    // Window resize listener (simpler & more reliable than ResizeObserver on canvas)
+    // ResizeObserver: re-setup whenever the parent container resizes
+    // (handles cases where double-rAF fires before layout is finalised)
+    let roTimer = 0
+    const ro = new ResizeObserver(() => {
+      clearTimeout(roTimer)
+      roTimer = window.setTimeout(() => {
+        cancelAnimationFrame(raf)
+        setup()
+        draw()
+      }, 60)
+    })
+    const parent = canvas.parentElement
+    if (parent) ro.observe(parent)
+
+    // Window resize listener (covers viewport changes not caught by RO)
     const onResize = () => {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
@@ -368,6 +385,8 @@ export function HeroBackground() {
 
     return () => {
       cancelAnimationFrame(raf)
+      clearTimeout(roTimer)
+      ro.disconnect()
       window.removeEventListener("resize", onResize)
     }
   }, [])

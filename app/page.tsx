@@ -118,50 +118,53 @@ export default function LandingPage() {
       </header>
 
       <div className="pt-[80px] md:pt-24 overflow-x-hidden bg-background">
-        <section
-          ref={heroRef}
-          data-hn-hero
-          className="relative isolate max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:py-[380px] md:pt-[200px] md:pb-[300px]"
-          style={{ "--scroll-rotation": `${scrollRotation}deg`, "--glow-opacity": glowOpacity } as React.CSSProperties}
-        >
-          <div className="absolute inset-0 z-0 pointer-events-none">
+        {/* ── Hero: full-viewport-width canvas behind constrained text ── */}
+        <div className="relative overflow-hidden" style={{ minHeight: "clamp(480px, 72vh, 880px)" }}>
+          {/* Canvas fills full viewport width — NOT constrained to max-w-7xl */}
+          <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
             <HeroBackground />
           </div>
-
-          <div className="flex flex-col items-center gap-12 relative z-10">
-            <div className="text-center space-y-6">
-              <h1
-                className="hn-slogan-wrap text-5xl md:text-7xl font-bold text-foreground text-balance relative"
-                style={{ "--scroll-rotation": `${scrollRotation}deg` } as React.CSSProperties}
-              >
-                <span>
-                  Quantum <span className="text-primary">Digital Twins</span>
-                </span>
-              </h1>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-balance">
-                Simulate and optimize your data models with quantum, AI-enhanced.
-              </p>
-              <div className="flex gap-4 justify-center flex-wrap pt-4">
-                <Link href="/auth/login">
+          <section
+            ref={heroRef}
+            data-hn-hero
+            className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 md:pt-[200px] md:pb-[300px] z-10"
+            style={{ "--scroll-rotation": `${scrollRotation}deg`, "--glow-opacity": glowOpacity } as React.CSSProperties}
+          >
+            <div className="flex flex-col items-center gap-12">
+              <div className="text-center space-y-6">
+                <h1
+                  className="hn-slogan-wrap text-5xl md:text-7xl font-bold text-foreground text-balance relative"
+                  style={{ "--scroll-rotation": `${scrollRotation}deg` } as React.CSSProperties}
+                >
+                  <span>
+                    Quantum <span className="text-primary">Digital Twins</span>
+                  </span>
+                </h1>
+                <p className="text-xl text-muted-foreground max-w-2xl mx-auto text-balance">
+                  Simulate and optimize your data models with quantum, AI-enhanced.
+                </p>
+                <div className="flex gap-4 justify-center flex-wrap pt-4">
+                  <Link href="/auth/login">
+                    <Button
+                      size="lg"
+                      className="hn-cta bg-primary hover:bg-primary/90 text-lg px-8 transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 shadow-xl"
+                    >
+                      Platform <ArrowRight className="ml-2" size={20} />
+                    </Button>
+                  </Link>
                   <Button
                     size="lg"
-                    className="hn-cta bg-primary hover:bg-primary/90 text-lg px-8 transition-transform duration-300 hover:scale-105 hover:shadow-xl shadow-primary/30 shadow-xl"
+                    variant="outline"
+                    className="text-lg px-8 hover:shadow-lg transition-all duration-300 hover:scale-105 bg-secondary shadow-lg"
+                    onClick={() => setVideoModalOpen(true)}
                   >
-                    Platform <ArrowRight className="ml-2" size={20} />
+                    Watch Video
                   </Button>
-                </Link>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="text-lg px-8 hover:shadow-lg transition-all duration-300 hover:scale-105 bg-secondary shadow-lg"
-                  onClick={() => setVideoModalOpen(true)}
-                >
-                  Watch Video
-                </Button>
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
 
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 relative z-10">
           <div className="relative overflow-hidden">

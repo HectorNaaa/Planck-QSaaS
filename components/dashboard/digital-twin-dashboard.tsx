@@ -329,7 +329,7 @@ export function DigitalTwinDashboard({
         {!isHidden('dtdashboard.chart.backend') && (
         <Card className="p-5 shadow-lg bg-secondary">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-sm font-semibold text-foreground">Backend Selection</h3>
+            <h3 className="text-sm font-semibold text-foreground">Compute Route</h3>
             <Button variant="ghost" size="sm" onClick={() => downloadChart(backRef, "backends.png")}>
               <Download size={14} />
             </Button>
@@ -481,7 +481,7 @@ export function DigitalTwinDashboard({
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-secondary z-10">
                 <tr className="border-b border-border">
-                  {["Src", "Algorithm", "Name", "Digital Twin", "Status", "Backend", "Qubits", "Shots", "Runtime", "Time", ""].map((h) => (
+                  {["Src", "Model", "Name", "Twin", "Status", "Compute Route", "Quantum Res.", "Sampling Budget", "Sim. Time", "Time", ""].map((h) => (
                     <th key={h} className="text-left py-2 px-2 text-muted-foreground font-medium whitespace-nowrap">{h}</th>
                   ))}
                 </tr>

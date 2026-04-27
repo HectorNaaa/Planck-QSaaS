@@ -30,7 +30,10 @@ export default function TemplatesPage() {
 
   return (
     <div className="p-8 space-y-8 px-0">
-      <PageHeader title="Quantum Templates" description="Explore pre-built quantum cases and circuits." />
+      <div className="space-y-1">
+        <PageHeader title="Quantum Model Templates" description="Choose a quantum compute model for your digital twin simulation." />
+        <p className="text-xs text-muted-foreground px-0 mt-1">Each template is a quantum algorithm reframed as a compute model. Select one to pre-load it in the Twin Simulator.</p>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 justify-items-center">
         {QUANTUM_TEMPLATES.filter((t) => !isHidden(`templates.${t.id}`)).map((template) => (
@@ -54,7 +57,12 @@ export default function TemplatesPage() {
               >
                 {/* Header with title and info button - top aligned */}
                 <div className="absolute top-0 left-0 right-0 flex items-start justify-between p-4">
-                  <h3 className="text-xl font-bold text-foreground">{template.name}</h3>
+                  <div>
+                    <h3 className="text-xl font-bold text-foreground">{template.name}</h3>
+                    {(template as any).useCaseLabel && (
+                      <span className="text-[11px] text-primary/80 font-medium">{(template as any).useCaseLabel}</span>
+                    )}
+                  </div>
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
