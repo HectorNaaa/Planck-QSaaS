@@ -55,7 +55,7 @@ export interface SyntheticModeContextType {
 // ─── Defaults ────────────────────────────────────────────────────────────────
 
 export const DEFAULT_SYNTHETIC_PARAMS: SyntheticParams = {
-  intervalSecs: 2,
+  intervalSecs: 4,
   minInputs: 1,
   maxInputs: 1000,
   algorithm: "Grover",
@@ -207,7 +207,18 @@ export function SyntheticModeProvider({
           inputData: data,
         }),
       })
-      const simData = simRes.ok ? await simRes.json() : null
+      let simData: any = null
+      if (simRes.ok) {
+        simData = await simRes.json()
+      } else if (simRes.status === 429) {
+        // Rate-limited — skip this tick silently; next interval will retry
+        setError("Rate limited — waiting for next interval. Try increasing the interval above 4 s.")
+        return
+      } else {
+        const errText = await simRes.text().catch(() => "")
+        setError(`Simulation error (HTTP ${simRes.status})${errText ? ": " + errText.slice(0, 120) : ""}`)
+        return
+      }
 
       if (!simData?.success) {
         setError(simData?.error ?? "Simulation returned no result")

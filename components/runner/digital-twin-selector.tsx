@@ -65,12 +65,13 @@ export function DigitalTwinSelector({ selectedTwinId, onSelect }: DigitalTwinSel
   }
 
   return (
-    <Card className="p-5 shadow-lg">
+    <Card className="p-5 shadow-lg border border-primary/15">
+      <div className="flex items-center gap-2 mb-3">
+        <h3 className="text-base font-semibold text-foreground">Digital Twin</h3>
+        <span className="ml-auto text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-medium">Step 1</span>
+      </div>
       <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-semibold text-foreground">Digital Twin</h3>
-          <p className="text-xs text-muted-foreground">Optional — organise runs under a named twin</p>
-        </div>
+        <p className="text-xs text-muted-foreground">Optional — organise runs under a named twin</p>
         <div className="flex items-center gap-2">
           <Button
             onClick={() => { setIsCreating(true); setIsExpanded(true) }}

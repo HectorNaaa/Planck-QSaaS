@@ -124,8 +124,13 @@ export default function RunnerPage() {
   const { dtMode } = useDigitalTwinMode()
   // Shared live mode — synced with dashboard via sessionStorage + BroadcastChannel
   const [sdkMode, setLiveEnabled] = useLiveMode(isGuest)
-  const { isRunning: syntheticRunning, lastRow: synthLastRow } = useSyntheticMode()
-  const [syntheticMode, setSyntheticMode] = useState(false)
+  const { isRunning: syntheticRunning, lastRow: synthLastRow, stop: stopSynthetic } = useSyntheticMode()
+  const [syntheticMode, setSyntheticMode] = useState(() => {
+    if (typeof sessionStorage !== "undefined") {
+      return sessionStorage.getItem("synth_panel_open") === "1"
+    }
+    return false
+  })
 
   // ── Storage limit tracking (50 MB cap) ──────────────────────────────────
   const STORAGE_CAP_BYTES = 50 * 1024 * 1024
@@ -143,6 +148,16 @@ export default function RunnerPage() {
   }
 
   useEffect(() => { refreshStorageEstimate() }, [])
+
+  // Persist syntheticMode panel state across tab navigation
+  useEffect(() => {
+    try { sessionStorage.setItem("synth_panel_open", syntheticMode ? "1" : "0") } catch {}
+  }, [syntheticMode])
+
+  // Auto-show panel when context is still running (e.g. after navigating back to runner)
+  useEffect(() => {
+    if (syntheticRunning) setSyntheticMode(true)
+  }, [syntheticRunning])
 
   // ── SDK live: periodic polling fallback ────────────────────────────────────
   // SSE only sees rows written to the SAME Vercel lambda instance. SDK calls
@@ -1110,12 +1125,18 @@ const adaptiveShots = calculateAdaptiveShots({
         </div>
       )}
 
-      {/* ── Scenario Setup Panel ─────────────────────────────────────────── */}
+      {/* ── Step 1: Digital Twin ─────────────────────────────────────────── */}
+      <DigitalTwinSelector
+        selectedTwinId={selectedDigitalTwinId}
+        onSelect={setSelectedDigitalTwinId}
+      />
+
+      {/* ── Step 2: System & Scenario ────────────────────────────────────── */}
       <Card className="p-5 shadow-lg border border-primary/15">
         <div className="flex items-center gap-2 mb-4">
           <Layers size={16} className="text-primary" />
           <h2 className="text-base font-semibold text-foreground">System &amp; Scenario</h2>
-          <span className="ml-auto text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-medium">Step 1</span>
+          <span className="ml-auto text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-medium">Step 2</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Digital Twin / System Label */}
@@ -1405,79 +1426,88 @@ const adaptiveShots = calculateAdaptiveShots({
         </Card>
       )}
 
-      {/* Synthetic Data mode toggle */}
-      <div className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
-        syntheticMode ? "border-[#7ab5ac]/40 bg-[#7ab5ac]/5" : "border-border bg-secondary/40"
-      }`}>
-        <div className="flex items-center gap-3">
-          <FlaskConical size={18} className={syntheticMode ? "text-[#7ab5ac]" : "text-muted-foreground"} />
-          <div>
-            <p className="text-sm font-medium text-foreground">Synthetic Data mode</p>
-            <p className="text-xs text-muted-foreground">
-              {syntheticMode
-                ? "Generating synthetic telemetry locally and feeding the quantum pipeline automatically."
-                : "Enable to run parametrized synthetic data without writing code or using the remote SDK."}
-            </p>
-          </div>
+      {/* ── Step 3: Simulation Mode ──────────────────────────────────────── */}
+      <Card className="p-5 shadow-lg border border-primary/15">
+        <div className="flex items-center gap-2 mb-4">
+          <Zap size={16} className="text-primary" />
+          <h2 className="text-base font-semibold text-foreground">Simulation Mode</h2>
+          <span className="ml-auto text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-medium">Step 3</span>
         </div>
-        <button
-          role="switch"
-          aria-checked={syntheticMode}
-          onClick={() => setSyntheticMode((v) => !v)}
-          className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7ab5ac] ${
-            syntheticMode ? "bg-[#7ab5ac]" : "bg-muted"
-          }`}
-        >
-          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-            syntheticMode ? "translate-x-6" : "translate-x-1"
-          }`} />
-        </button>
-      </div>
-
-      {/* SDK / Intensive-use mode toggle */}
-      <div className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
-        sdkMode ? "border-primary/40 bg-primary/5" : "border-border bg-secondary/40"
-      }`}>
-        <div className="flex items-center gap-3">
-          <Radio size={18} className={sdkMode ? "text-primary" : "text-muted-foreground"} />
-          <div>
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-medium text-foreground">SDK / Live mode</p>
-              {sdkMode && (
-                <span className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                  liveConnected ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
-                }`}>
-                  {liveConnected ? <Wifi size={10} /> : <WifiOff size={10} />}
-                  {liveConnected ? "Connected" : "Connecting…"}
-                </span>
-              )}
+        <p className="text-xs text-muted-foreground mb-4">Choose how to run your scenario — synthesise data automatically, stream from your SDK, or configure a manual execution below.</p>
+        <div className="space-y-3">
+          {/* Synthetic Data mode toggle */}
+          <div className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
+            syntheticMode ? "border-[#7ab5ac]/40 bg-[#7ab5ac]/5" : "border-border bg-secondary/40"
+          }`}>
+            <div className="flex items-center gap-3">
+              <FlaskConical size={18} className={syntheticMode ? "text-[#7ab5ac]" : "text-muted-foreground"} />
+              <div>
+                <p className="text-sm font-medium text-foreground">Synthetic Data mode</p>
+                <p className="text-xs text-muted-foreground">
+                  {syntheticMode
+                    ? "Generating synthetic telemetry locally and feeding the quantum pipeline automatically."
+                    : "Enable to run parametrized synthetic data without writing code or using the remote SDK."}
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {sdkMode
-                ? "Results update in near real-time from SDK jobs. Upload and editing are disabled."
-                : "Enable to receive live results from notebook/script SDK calls."}
-            </p>
+            <button
+              role="switch"
+              aria-checked={syntheticMode}
+              onClick={() => {
+                const next = !syntheticMode
+                setSyntheticMode(next)
+                if (!next && syntheticRunning) stopSynthetic()
+              }}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7ab5ac] ${
+                syntheticMode ? "bg-[#7ab5ac]" : "bg-muted"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                syntheticMode ? "translate-x-6" : "translate-x-1"
+              }`} />
+            </button>
+          </div>
+
+          {/* SDK / Intensive-use mode toggle */}
+          <div className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
+            sdkMode ? "border-primary/40 bg-primary/5" : "border-border bg-secondary/40"
+          }`}>
+            <div className="flex items-center gap-3">
+              <Radio size={18} className={sdkMode ? "text-primary" : "text-muted-foreground"} />
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-foreground">SDK / Live mode</p>
+                  {sdkMode && (
+                    <span className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                      liveConnected ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                    }`}>
+                      {liveConnected ? <Wifi size={10} /> : <WifiOff size={10} />}
+                      {liveConnected ? "Connected" : "Connecting…"}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {sdkMode
+                    ? "Results update in near real-time from SDK jobs. Upload and editing are disabled."
+                    : "Enable to receive live results from notebook/script SDK calls."}
+                </p>
+              </div>
+            </div>
+            <button
+              role="switch"
+              aria-checked={sdkMode}
+              onClick={() => setLiveEnabled(!sdkMode)}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                sdkMode ? "bg-primary" : "bg-muted"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                sdkMode ? "translate-x-6" : "translate-x-1"
+              }`} />
+            </button>
           </div>
         </div>
-        <button
-          role="switch"
-          aria-checked={sdkMode}
-          onClick={() => setLiveEnabled(!sdkMode)}
-          className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-            sdkMode ? "bg-primary" : "bg-muted"
-          }`}
-        >
-          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-            sdkMode ? "translate-x-6" : "translate-x-1"
-          }`} />
-        </button>
-      </div>
-
-      {/* Digital Twin Selector — always visible */}
-      <DigitalTwinSelector
-        selectedTwinId={selectedDigitalTwinId}
-        onSelect={setSelectedDigitalTwinId}
-      />
+      </Card>
 
       {/* ── Synthetic Data runner panel ───────────────────────────────── */}
       {syntheticMode && <SyntheticDataRunner />}
@@ -1526,8 +1556,8 @@ const adaptiveShots = calculateAdaptiveShots({
         </Card>
       )}
 
-      {/* ── Manual-mode setup sections (hidden in SDK / live mode) ────────── */}
-      {!sdkMode && (
+      {/* ── Manual-mode setup sections (hidden in SDK / live mode and synthetic mode) ────────── */}
+      {!sdkMode && !syntheticMode && (
         <div className="space-y-4">
           <div>
             <label htmlFor="execution-name" className="block text-sm font-medium text-foreground mb-2">
@@ -1566,8 +1596,8 @@ const adaptiveShots = calculateAdaptiveShots({
         </div>
       )}
 
-      {/* Mobile pipeline — hidden in SDK/live mode */}
-      {!sdkMode && (
+      {/* Mobile pipeline — hidden in SDK/live mode and synthetic mode */}
+      {!sdkMode && !syntheticMode && (
       <div className="lg:hidden space-y-6">
         {!isHidden('runner.database_uploader') && (
         <DatabaseUploader
@@ -1651,7 +1681,7 @@ const adaptiveShots = calculateAdaptiveShots({
       <div className={`grid grid-cols-1 gap-6 ${!sdkMode ? "lg:grid-cols-3" : ""}`}>
         <div className={`space-y-6 ${!sdkMode ? "lg:col-span-2" : ""}`}>
           {/* Execution Pipeline — manual mode only */}
-          {!sdkMode && (
+          {!sdkMode && !syntheticMode && (
           <Card className="p-6 shadow-lg bg-card px-4 py-4">
             <h2 className="text-2xl font-bold text-foreground mb-4">Simulation Pipeline</h2>
             {!dataUploaded ? (
@@ -1744,32 +1774,6 @@ const adaptiveShots = calculateAdaptiveShots({
             )}
           </Card>
           )} {/* end !sdkMode pipeline */}
-
-          {/* Digital Twin Dashboard — always visible by default, shows execution history.
-              BroadcastChannel inside useLiveExecutions auto-appends new runs instantly. */}
-          {!isHidden('runner.digital_twin_dashboard') && (
-            <div className="space-y-3">
-              <div className="flex justify-end">
-                <Button
-                  onClick={handleClearResults}
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-2 text-muted-foreground hover:text-destructive hover:border-destructive/40"
-                >
-                  <Trash2 size={14} />
-                  Clear previous results
-                </Button>
-              </div>
-              <DigitalTwinDashboard
-                key={`dt-${clearKey}`}
-                liveEnabled={false}
-                apiKey={null}
-                digitalTwinId={selectedDigitalTwinId}
-                initialRows={sdkMode ? liveRows : dtHistoryRows}
-                title={selectedDigitalTwinId ? "Selected Digital Twin" : "Simulations — All Scenarios"}
-              />
-            </div>
-          )}
 
           {/* Execution results — always shown in SDK mode; shown after a manual run otherwise */}
           {(results || sdkMode) ? (
@@ -1940,7 +1944,7 @@ const adaptiveShots = calculateAdaptiveShots({
         </div>
 
         {/* Right column: pipeline settings — manual mode only */}
-        {!sdkMode && (
+        {!sdkMode && !syntheticMode && (
         <div className="hidden lg:block space-y-6">
           {!isHidden('runner.database_uploader') && (
           <DatabaseUploader
@@ -2009,7 +2013,7 @@ const adaptiveShots = calculateAdaptiveShots({
       </div>
 
       {/* Run / Save / Reset — manual mode only */}
-      {!sdkMode && (
+      {!sdkMode && !syntheticMode && (
       <div className="hidden lg:flex justify-center gap-3 pt-6 border-border border-t-2">
         <Button onClick={handleReset} variant="outline" className="flex items-center gap-2 bg-secondary">
           <RotateCcw size={18} />
@@ -2038,6 +2042,31 @@ const adaptiveShots = calculateAdaptiveShots({
         </Button>
       </div>
       )} {/* end !sdkMode run buttons */}
+
+      {/* ── Simulations — All Scenarios (bottom, like the main dashboard) ── */}
+      {!isHidden('runner.digital_twin_dashboard') && (
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <Button
+              onClick={handleClearResults}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 text-muted-foreground hover:text-destructive hover:border-destructive/40"
+            >
+              <Trash2 size={14} />
+              Clear previous results
+            </Button>
+          </div>
+          <DigitalTwinDashboard
+            key={`dt-${clearKey}`}
+            liveEnabled={false}
+            apiKey={null}
+            digitalTwinId={selectedDigitalTwinId}
+            initialRows={sdkMode ? liveRows : dtHistoryRows}
+            title={selectedDigitalTwinId ? "Selected Digital Twin" : "Simulations — All Scenarios"}
+          />
+        </div>
+      )}
     </div>
   )
 }
