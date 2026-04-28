@@ -1538,7 +1538,7 @@ const adaptiveShots = calculateAdaptiveShots({
               type="text"
               value={executionName}
               onChange={(e) => setExecutionName(e.target.value)}
-              placeholder={`e.g., "${systemType || circuitName} ${scenarioVariant}"`}
+              placeholder={`e.g., "${systemType || circuitName} ${scenarioType}"`}
               className="w-full px-4 py-2 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <p className="text-xs text-muted-foreground mt-1">Optional label for this simulation run</p>
