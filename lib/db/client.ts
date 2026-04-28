@@ -124,6 +124,17 @@ export const Executions = {
     circuit_data?: string
     result?: string
     error?: string
+    // Scenario / batch metadata
+    scenario_id?: string | null
+    scenario_name?: string | null
+    scenario_type?: string | null
+    objective?: string | null
+    risk_tolerance?: string | null
+    batch_id?: string | null
+    batch_index?: number | null
+    batch_size?: number | null
+    strategy?: string | null
+    compute_route?: string | null
   }) => {
     const id = randomUUID()
     const stmt = db.prepare(`
@@ -131,8 +142,11 @@ export const Executions = {
         id, user_id, circuit_id, circuit_name, algorithm, execution_type,
         backend, status, success_rate, runtime_ms, qubits_used, shots,
         error_mitigation, backend_selected, backend_reason, backend_hint,
-        backend_metadata, backend_assigned_at, circuit_data, result, error
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        backend_metadata, backend_assigned_at, circuit_data, result, error,
+        scenario_id, scenario_name, scenario_type, objective, risk_tolerance,
+        batch_id, batch_index, batch_size, strategy, compute_route
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     const result = stmt.run(
       id,
@@ -155,7 +169,18 @@ export const Executions = {
       data.backend_assigned_at || null,
       data.circuit_data || null,
       data.result || null,
-      data.error || null
+      data.error || null,
+      // Scenario / batch metadata
+      data.scenario_id || null,
+      data.scenario_name || null,
+      data.scenario_type || null,
+      data.objective || null,
+      data.risk_tolerance || null,
+      data.batch_id || null,
+      data.batch_index ?? null,
+      data.batch_size ?? null,
+      data.strategy || null,
+      data.compute_route || null,
     )
     return { id, changes: result.changes }
   },

@@ -11,7 +11,7 @@ import { ExpectedResults } from "@/components/runner/expected-results"
 import { CircuitResults } from "@/components/runner/circuit-results"
 import { SyntheticDataRunner } from "@/components/runner/synthetic-data-runner"
 import { useSyntheticMode } from "@/contexts/synthetic-mode-context"
-import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff, Trash2, Brain, FlaskConical, ChevronDown, Settings2, Target, Layers } from "lucide-react"
+import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff, Trash2, Brain, FlaskConical, ChevronDown, Settings2, Target, Layers, AlertTriangle, TrendingUp, Zap, Shield, BarChart3 } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import type { BuiltCircuit } from "@/lib/circuit-builder"
 
@@ -109,8 +109,15 @@ export default function RunnerPage() {
   // ── Scenario Setup state ─────────────────────────────────────────────────
   const [systemType, setSystemType] = useState<string>("Custom")
   const [scenarioName, setScenarioName] = useState<string>("")
-  const [scenarioVariant, setScenarioVariant] = useState<"Baseline" | "Scenario A" | "Scenario B">("Baseline")
-  const [scenarioObjective, setScenarioObjective] = useState<string>("efficiency")
+  const [scenarioType, setScenarioType] = useState<"Baseline" | "Stress test" | "Optimization" | "Risk analysis" | "Custom">("Baseline")
+  const [scenarioObjective, setScenarioObjective] = useState<"minimize_runtime" | "maximize_reliability" | "minimize_cost" | "maximize_accuracy" | "balanced">("balanced")
+  const [riskTolerance, setRiskTolerance] = useState<"conservative" | "balanced" | "aggressive">("balanced")
+  const [executionStrategy, setExecutionStrategy] = useState<"single" | "batch" | "compare">("single")
+  const [batchSize, setBatchSize] = useState<1 | 3 | 5 | 10>(1)
+  // Batch run state
+  const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null)
+  const [batchResults, setBatchResults] = useState<any[]>([])
+  const [currentBatchId, setCurrentBatchId] = useState<string | null>(null)
 
   const isGuest = useIsGuest()
   const { isHidden } = useUIPreferences()
@@ -608,8 +615,6 @@ const adaptiveShots = calculateAdaptiveShots({
         body: JSON.stringify({
           qasm: transpileData.transpiledQASM,
           shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
-          // In auto mode, send "auto" so the server policy engine selects the backend
-          // (sending a specific backend name is treated as a manual override and bypasses orchestration)
           backend: executionType === "auto" ? "auto" : backend,
           errorMitigation,
           circuitName: executionName || `${circuitName} Execution`,
@@ -618,6 +623,13 @@ const adaptiveShots = calculateAdaptiveShots({
           qubits,
           targetLatency,
           inputData: uploadedData,
+          // Scenario / batch metadata
+          scenarioId: currentBatchId ? `${currentBatchId}-scenario` : `scenario-${Date.now()}`,
+          scenarioName: scenarioName || `${systemType} · ${scenarioType}`,
+          scenarioType,
+          objective: scenarioObjective,
+          riskTolerance,
+          strategy: executionStrategy,
         }),
       })
 
@@ -901,6 +913,9 @@ const adaptiveShots = calculateAdaptiveShots({
     setSelectedAlgorithm(null)
     setTargetLatency(null)
     setMlRecommendation(null)
+    setBatchResults([])
+    setBatchProgress(null)
+    setCurrentBatchId(null)
     clearLiveRows()
     sessionStorage.removeItem("runner_state")
     sessionStorage.removeItem("selectedAlgorithm")
@@ -908,12 +923,165 @@ const adaptiveShots = calculateAdaptiveShots({
 
   const handleClearResults = useCallback(() => {
     setResults(null)
+    setBatchResults([])
+    setBatchProgress(null)
     clearLiveRows()
     setInitialLiveRows([])
     setDtHistoryRows([])
     setClearKey((k) => k + 1)
     if (typeof sessionStorage !== "undefined") sessionStorage.setItem("runner_results_cleared", "1")
   }, [clearLiveRows])
+
+  // ── Batch run handler ────────────────────────────────────────────────────
+  const handleBatchRun = useCallback(async () => {
+    if (isGuest) {
+      alert("Create a free account or sign in to run simulations.")
+      return
+    }
+    if (storageUsedBytes >= STORAGE_CAP_BYTES) {
+      alert("Storage limit reached (50 MB). Delete some execution history in Settings → Execution History & Storage to free space.")
+      return
+    }
+    const total = executionStrategy === "single" ? 1 : batchSize
+    const bId = `batch-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
+    setCurrentBatchId(bId)
+    setBatchResults([])
+    setBatchProgress({ current: 0, total })
+    setIsRunning(true)
+
+    const collected: any[] = []
+    try {
+      for (let i = 0; i < total; i++) {
+        setBatchProgress({ current: i + 1, total })
+        if (typeof sessionStorage !== "undefined") sessionStorage.removeItem("runner_results_cleared")
+
+        const transpileResponse = await fetch("/api/quantum/transpile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            qasm: circuitCode,
+            backend: executionType === "auto" ? "auto" : backend,
+            errorMitigation,
+          }),
+        })
+        const transpileData = await transpileResponse.json()
+        if (!transpileData.success) throw new Error("Transpilation failed")
+
+        // Map risk tolerance → backend hint for auto-routing
+        let backendHint = executionType === "auto" ? "auto" : backend
+        if (executionType === "auto") {
+          if (riskTolerance === "conservative") backendHint = "hpc_gpu"
+          else if (riskTolerance === "aggressive") backendHint = "quantum_qpu"
+        }
+
+        const simulateResponse = await fetch("/api/quantum/simulate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            qasm: transpileData.transpiledQASM,
+            shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
+            backend: backendHint,
+            errorMitigation,
+            circuitName: executionName || `${circuitName} ${total > 1 ? `Run ${i + 1}/${total}` : ""}`.trim(),
+            algorithm: circuitName,
+            executionType,
+            qubits,
+            targetLatency,
+            inputData: uploadedData,
+            scenarioId: `${bId}-scenario`,
+            scenarioName: scenarioName || `${systemType} · ${scenarioType}`,
+            scenarioType,
+            objective: scenarioObjective,
+            riskTolerance,
+            batchId: total > 1 ? bId : null,
+            batchIndex: total > 1 ? i : null,
+            batchSize: total > 1 ? total : null,
+            strategy: executionStrategy,
+          }),
+        })
+        const simulateData = await simulateResponse.json()
+        if (!simulateData.success) {
+          if (simulateData.storage_limit_exceeded) throw new Error(`Storage limit reached.`)
+          throw new Error("Simulation failed")
+        }
+
+        const digitalTwinResponse = await fetch("/api/quantum/digital-twin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            algorithm: circuitName,
+            inputData: uploadedData,
+            circuitInfo: { qubits, depth: circuitData?.depth || 0, gates: circuitData?.gates || [], qasm: circuitCode },
+            executionResults: { counts: simulateData.counts, shots: simulateData.total_shots || shots, success_rate: simulateData.successRate, runtime_ms: simulateData.runtime, execution_id: simulateData.execution_id },
+            backendConfig: { backend: simulateData.backend || backend, error_mitigation: simulateData.error_mitigation || errorMitigation, transpiled: true, noise_model: backend === "quantum_qpu" ? "realistic" : "ideal" },
+          }),
+        })
+        const digitalTwinData = await digitalTwinResponse.json()
+
+        const runResult = {
+          success_rate: simulateData.successRate,
+          runtime_ms: simulateData.runtime,
+          qubits_used: qubits,
+          total_shots: simulateData.total_shots || shots || 1024,
+          backend: simulateData.backend ?? backend,
+          fidelity: simulateData.fidelity,
+          counts: simulateData.counts,
+          error_mitigation: simulateData.error_mitigation || errorMitigation,
+          ml_tuning: simulateData.ml_tuning || null,
+          backendReason: simulateData.backendReason || null,
+          batchIndex: i,
+          batchId: bId,
+          ...(digitalTwinData.success ? { digital_twin: digitalTwinData.digital_twin } : {}),
+        }
+        collected.push(runResult)
+        setBatchResults([...collected])
+
+        // Update displayed results with the latest run
+        if (simulateData.backend && executionType === "auto") setBackend(simulateData.backend as any)
+        setResults(runResult)
+
+        // Persist to localStorage
+        try {
+          const execRow = resultToRow(
+            { ...runResult, _liveJobId: simulateData.execution_id || `batch-${bId}-${i}` },
+            {
+              circuitName: executionName || `${circuitName} ${total > 1 ? `Run ${i + 1}/${total}` : ""}`.trim(),
+              shots: runResult.total_shots,
+              qubits,
+              backend: simulateData.backend || backend,
+              errorMitigation: simulateData.error_mitigation || errorMitigation,
+              digitalTwinId: selectedDigitalTwinId,
+              qasm: circuitCode || null,
+            },
+          )
+          const raw = localStorage.getItem("planck_exec_cache")
+          const existing: any[] = raw ? JSON.parse(raw) : []
+          const updated = [execRow, ...existing.filter((r: any) => r.id !== execRow.id)].slice(0, 500)
+          localStorage.setItem("planck_exec_cache", JSON.stringify(updated))
+          broadcastExecution(execRow)
+          setDtHistoryRows((prev) => {
+            const next = [...prev.filter((r) => r.id !== execRow.id), execRow]
+            next.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+            return next.slice(-500)
+          })
+        } catch { /* non-fatal */ }
+
+        // Small delay between runs to avoid rate limiting
+        if (i < total - 1) await new Promise((resolve) => setTimeout(resolve, 3200))
+      }
+      refreshStorageEstimate()
+    } catch (error) {
+      alert(`Error: ${error instanceof Error ? error.message : "Unknown error"}`)
+    } finally {
+      setIsRunning(false)
+      setBatchProgress(null)
+    }
+  }, [
+    circuitCode, backend, qubits, autoShots, shots, errorMitigation, executionName, circuitName,
+    executionType, targetLatency, storageUsedBytes, STORAGE_CAP_BYTES, uploadedData, circuitData,
+    selectedDigitalTwinId, systemType, scenarioName, scenarioType, scenarioObjective, riskTolerance,
+    executionStrategy, batchSize, isGuest,
+  ])
 
   return (
     <div className="p-8 space-y-8 px-0">
@@ -949,16 +1117,16 @@ const adaptiveShots = calculateAdaptiveShots({
           <h2 className="text-base font-semibold text-foreground">System &amp; Scenario</h2>
           <span className="ml-auto text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-medium">Step 1</span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* System Type */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Digital Twin / System Label */}
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">System Type</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Digital Twin / System</label>
             <select
               value={systemType}
               onChange={(e) => setSystemType(e.target.value)}
               className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              {["Mobility", "Energy", "Finance", "Logistics", "Materials", "Custom"].map((s) => (
+              {["Mobility", "Energy", "Finance", "Logistics", "Materials", "Healthcare", "Custom"].map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
@@ -974,21 +1142,21 @@ const adaptiveShots = calculateAdaptiveShots({
               className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
-          {/* Scenario Variant */}
+          {/* Scenario Type */}
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Variant</label>
-            <div className="flex gap-1.5">
-              {(["Baseline", "Scenario A", "Scenario B"] as const).map((v) => (
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Scenario Type</label>
+            <div className="flex flex-wrap gap-1.5">
+              {(["Baseline", "Stress test", "Optimization", "Risk analysis", "Custom"] as const).map((v) => (
                 <button
                   key={v}
-                  onClick={() => setScenarioVariant(v)}
-                  className={`flex-1 py-2 px-1 rounded-md text-xs font-medium transition-colors ${
-                    scenarioVariant === v
+                  onClick={() => setScenarioType(v)}
+                  className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                    scenarioType === v
                       ? "bg-primary text-primary-foreground"
                       : "bg-secondary text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {v === "Baseline" ? "Base" : v === "Scenario A" ? "A" : "B"}
+                  {v}
                 </button>
               ))}
             </div>
@@ -996,38 +1164,246 @@ const adaptiveShots = calculateAdaptiveShots({
           {/* Objective */}
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-              <Target size={11} />Objective
+              <Target size={11} /> Objective
             </label>
             <select
               value={scenarioObjective}
-              onChange={(e) => setScenarioObjective(e.target.value)}
+              onChange={(e) => setScenarioObjective(e.target.value as any)}
               className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              {[
-                { value: "efficiency", label: "Optimize efficiency" },
-                { value: "latency", label: "Reduce latency" },
-                { value: "cost", label: "Minimize cost" },
-                { value: "reliability", label: "Maximize reliability" },
-                { value: "routing", label: "Optimize routing" },
-                { value: "risk", label: "Minimize risk" },
-              ].map(({ value, label }) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
+              <option value="minimize_runtime">Minimize runtime</option>
+              <option value="maximize_reliability">Maximize reliability</option>
+              <option value="minimize_cost">Minimize cost</option>
+              <option value="maximize_accuracy">Maximize accuracy</option>
+              <option value="balanced">Balanced</option>
             </select>
           </div>
+          {/* Risk Tolerance */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+              <Shield size={11} /> Risk Tolerance
+            </label>
+            <div className="flex gap-1.5">
+              {(["conservative", "balanced", "aggressive"] as const).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRiskTolerance(r)}
+                  className={`flex-1 py-2 px-1 rounded-md text-xs font-medium transition-colors capitalize ${
+                    riskTolerance === r
+                      ? r === "conservative" ? "bg-blue-600 text-white"
+                        : r === "aggressive" ? "bg-orange-600 text-white"
+                        : "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {r === "conservative" ? "🛡 Conserv." : r === "balanced" ? "⚖ Balanced" : "⚡ Aggressive"}
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Execution Strategy */}
+          <div>
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+              <BarChart3 size={11} /> Execution Strategy
+            </label>
+            <div className="flex gap-1.5">
+              {([
+                { v: "single" as const, label: "Single run" },
+                { v: "batch" as const, label: "Batch" },
+                { v: "compare" as const, label: "Compare" },
+              ] as const).map(({ v, label }) => (
+                <button
+                  key={v}
+                  onClick={() => {
+                    setExecutionStrategy(v)
+                    if (v === "single") setBatchSize(1)
+                    else if ((v === "batch" || v === "compare") && batchSize === 1) setBatchSize(3)
+                  }}
+                  className={`flex-1 py-2 px-1 rounded-md text-xs font-medium transition-colors ${
+                    executionStrategy === v
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
+
+        {/* Batch size selector — visible in batch/compare mode */}
+        {(executionStrategy === "batch" || executionStrategy === "compare") && (
+          <div className="mt-4 flex items-center gap-3">
+            <span className="text-xs font-medium text-muted-foreground">Number of runs:</span>
+            {([1, 3, 5, 10] as const).map((n) => (
+              <button
+                key={n}
+                onClick={() => setBatchSize(n)}
+                className={`w-10 h-8 rounded-md text-sm font-semibold transition-colors ${
+                  batchSize === n ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground hover:bg-secondary/70"
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Scenario summary badge */}
         {(scenarioName || systemType !== "Custom") && (
-          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="w-2 h-2 rounded-full bg-primary inline-block" />
-            <span>
-              <span className="font-medium text-foreground">{systemType}</span>
-              {scenarioName ? ` · ${scenarioName}` : ""}
-              {" · "}<span className="capitalize">{scenarioVariant}</span>
-              {" · "}<span className="capitalize">{scenarioObjective}</span>
-            </span>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span className="w-2 h-2 rounded-full bg-primary inline-block flex-shrink-0" />
+            <span className="font-medium text-foreground">{systemType}</span>
+            {scenarioName && <span>· {scenarioName}</span>}
+            <span>· {scenarioType}</span>
+            <span>· {scenarioObjective.replace("_", " ")}</span>
+            <span>· {riskTolerance}</span>
+            {executionStrategy !== "single" && <span className="text-primary font-medium">· {batchSize} runs</span>}
           </div>
         )}
       </Card>
+
+      {/* ── Risk-aware insight layer ────────────────────────────────────────── */}
+      {(() => {
+        const insights: string[] = []
+        if (riskTolerance === "conservative") insights.push("🛡 Conservative strategy selected: prioritizing stability over runtime. Auto-routing will prefer Quantum-inspired HPC.")
+        else if (riskTolerance === "aggressive") insights.push("⚡ Aggressive strategy selected: faster route with higher variability. Auto-routing may select Quantum QPU.")
+        if (scenarioObjective === "minimize_runtime" && riskTolerance === "conservative") insights.push("⚠ Note: minimize runtime and conservative risk may conflict — consider balanced strategy.")
+        if (scenarioObjective === "maximize_reliability") insights.push("Reliability objective active: error mitigation will be prioritized.")
+        if (executionStrategy === "batch" && batchSize >= 5) insights.push(`Batch mode: ${batchSize} simulations will run sequentially and be compared after completion.`)
+        if (batchResults.length >= 2) {
+          const avgSuccess = batchResults.reduce((s, r) => s + (r.success_rate || 0), 0) / batchResults.length
+          const maxSuccess = Math.max(...batchResults.map((r) => r.success_rate || 0))
+          const minSuccess = Math.min(...batchResults.map((r) => r.success_rate || 0))
+          const variance = maxSuccess - minSuccess
+          if (variance > 15) insights.push(`⚠ This batch shows high variability (${variance.toFixed(1)}pp spread). Consider conservative routing for more stable results.`)
+          else insights.push(`✓ Batch variability is low (${variance.toFixed(1)}pp). Results are stable across runs.`)
+          if (batchResults.length > 1) {
+            const baseline = batchResults[0]
+            const best = batchResults.reduce((a, b) => (b.success_rate > a.success_rate ? b : a))
+            if (best.runtime_ms && baseline.runtime_ms && best.runtime_ms < baseline.runtime_ms) {
+              const pct = (((baseline.runtime_ms - best.runtime_ms) / baseline.runtime_ms) * 100).toFixed(1)
+              insights.push(`Best run improved runtime by ${pct}% compared to the first run.`)
+            }
+          }
+        }
+        if (insights.length === 0) return null
+        return (
+          <div className="space-y-2">
+            {insights.map((msg, i) => (
+              <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-lg border border-border bg-secondary/30 text-xs text-muted-foreground">
+                <span className="mt-0.5 flex-shrink-0 w-1.5 h-1.5 rounded-full bg-primary" />
+                {msg}
+              </div>
+            ))}
+          </div>
+        )
+      })()}
+
+      {/* ── Batch progress indicator ─────────────────────────────────────── */}
+      {batchProgress && (
+        <Card className="p-4 border border-primary/30 bg-primary/5">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Loader2 size={14} className="text-primary animate-spin" />
+              <span className="text-sm font-semibold text-foreground">
+                Running simulation {batchProgress.current} of {batchProgress.total}
+              </span>
+            </div>
+            <span className="text-xs text-muted-foreground">{Math.round((batchProgress.current / batchProgress.total) * 100)}%</span>
+          </div>
+          <div className="w-full bg-secondary rounded-full h-1.5">
+            <div
+              className="bg-primary h-1.5 rounded-full transition-all duration-300"
+              style={{ width: `${(batchProgress.current / batchProgress.total) * 100}%` }}
+            />
+          </div>
+          {batchResults.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-2">
+              Last: {batchResults[batchResults.length - 1]?.success_rate?.toFixed(1)}% success · {batchResults[batchResults.length - 1]?.runtime_ms}ms
+            </p>
+          )}
+        </Card>
+      )}
+
+      {/* ── Batch results comparison ─────────────────────────────────────── */}
+      {batchResults.length >= 2 && !batchProgress && (
+        <Card className="p-5 border border-border shadow">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 size={15} className="text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">Scenario Output · Batch Comparison</h3>
+            <span className="ml-auto text-xs text-muted-foreground">{batchResults.length} runs</span>
+          </div>
+          {/* Summary metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            {(() => {
+              const avgSuccess = batchResults.reduce((s, r) => s + (r.success_rate || 0), 0) / batchResults.length
+              const avgRuntime = batchResults.reduce((s, r) => s + (r.runtime_ms || 0), 0) / batchResults.length
+              const best = batchResults.reduce((a, b) => (b.success_rate > a.success_rate ? b : a))
+              const fastest = batchResults.reduce((a, b) => (b.runtime_ms < a.runtime_ms ? b : a))
+              return (
+                <>
+                  <div className="text-center px-3 py-2 rounded-lg bg-secondary/40">
+                    <p className="text-xs text-muted-foreground">Avg Reliability</p>
+                    <p className="text-lg font-bold text-foreground">{avgSuccess.toFixed(1)}%</p>
+                  </div>
+                  <div className="text-center px-3 py-2 rounded-lg bg-secondary/40">
+                    <p className="text-xs text-muted-foreground">Avg Runtime</p>
+                    <p className="text-lg font-bold text-foreground">{Math.round(avgRuntime)}ms</p>
+                  </div>
+                  <div className="text-center px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <p className="text-xs text-muted-foreground">Best Reliability</p>
+                    <p className="text-lg font-bold text-green-600 dark:text-green-400">{best.success_rate?.toFixed(1)}%</p>
+                    <p className="text-[10px] text-muted-foreground">Run {best.batchIndex + 1}</p>
+                  </div>
+                  <div className="text-center px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <p className="text-xs text-muted-foreground">Fastest Run</p>
+                    <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{fastest.runtime_ms}ms</p>
+                    <p className="text-[10px] text-muted-foreground">Run {fastest.batchIndex + 1}</p>
+                  </div>
+                </>
+              )
+            })()}
+          </div>
+          {/* Runs table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-muted-foreground text-left border-b border-border">
+                  <th className="pb-2 pr-3 font-medium">Run</th>
+                  <th className="pb-2 pr-3 font-medium">Compute Route</th>
+                  <th className="pb-2 pr-3 font-medium">Reliability</th>
+                  <th className="pb-2 pr-3 font-medium">Runtime</th>
+                  <th className="pb-2 font-medium">Sampling</th>
+                </tr>
+              </thead>
+              <tbody>
+                {batchResults.map((r, i) => {
+                  const routeLabel = r.backend === "quantum_inspired_gpu" ? "QI-GPU"
+                    : r.backend === "hpc_gpu" ? "HPC"
+                    : r.backend === "quantum_qpu" ? "QPU"
+                    : r.backend || "—"
+                  const maxSuccess = Math.max(...batchResults.map((x) => x.success_rate || 0))
+                  const isBest = r.success_rate === maxSuccess
+                  return (
+                    <tr key={i} className={`border-b border-border/50 ${isBest ? "font-semibold" : ""}`}>
+                      <td className="py-1.5 pr-3 text-foreground flex items-center gap-1">
+                        {isBest && <span className="text-[10px] text-green-500">★</span>}
+                        {i + 1}
+                      </td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">{routeLabel}</td>
+                      <td className="py-1.5 pr-3" style={{ color: "#7ab5ac" }}>{r.success_rate?.toFixed(1)}%</td>
+                      <td className="py-1.5 pr-3 text-muted-foreground">{r.runtime_ms}ms</td>
+                      <td className="py-1.5 text-muted-foreground">{r.total_shots}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       {/* Synthetic Data mode toggle */}
       <div className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
@@ -1252,19 +1628,19 @@ const adaptiveShots = calculateAdaptiveShots({
             Save
           </Button>
           <Button
-            onClick={handleRunCircuit}
+            onClick={handleBatchRun}
             disabled={isRunning}
             className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2"
           >
             {isRunning ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
-                Simulating…
+                {batchProgress ? `Run ${batchProgress.current}/${batchProgress.total}…` : "Simulating…"}
               </>
             ) : (
               <>
                 <Play size={18} />
-                Simulate scenario
+                {executionStrategy !== "single" ? `Simulate ${batchSize} runs` : "Simulate scenario"}
               </>
             )}
           </Button>
@@ -1644,19 +2020,19 @@ const adaptiveShots = calculateAdaptiveShots({
           Save
         </Button>
         <Button
-          onClick={handleRunCircuit}
+          onClick={handleBatchRun}
           disabled={isRunning}
           className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2"
         >
           {isRunning ? (
             <>
               <Loader2 className="h-5 w-5 animate-spin" />
-              Simulating…
+              {batchProgress ? `Run ${batchProgress.current}/${batchProgress.total}…` : "Simulating…"}
             </>
           ) : (
             <>
               <Play size={18} />
-              Simulate scenario
+              {executionStrategy !== "single" ? `Simulate ${batchSize} runs` : "Simulate scenario"}
             </>
           )}
         </Button>

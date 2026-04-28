@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { ChevronDown, Download, Brain, TrendingUp, Lightbulb, Info } from "lucide-react"
+import { useUIPreferences } from "@/contexts/ui-preferences-context"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { MetricGauge, LinearMetric } from "@/components/ui/metric-gauge"
@@ -61,10 +62,11 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
   const [isExpanded, setIsExpanded] = useState(true)
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false)
   const [showDigitalTwinDetails, setShowDigitalTwinDetails] = useState(false)
+  const { isHidden } = useUIPreferences()
 
   const backendNames: Record<string, string> = {
-    quantum_inspired_gpu: "Quantum Inspired GPU",
-    hpc_gpu: "HPC GPU",
+    quantum_inspired_gpu: "Quantum-inspired GPU",
+    hpc_gpu: "Quantum-inspired HPC",
     quantum_qpu: "Quantum QPU",
   }
 
@@ -115,7 +117,7 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setIsExpanded(!isExpanded)}>
-          <h2 className="text-2xl font-bold text-foreground">Execution Dashboard</h2>
+          <h2 className="text-2xl font-bold text-foreground">Scenario Output</h2>
           <ChevronDown size={24} className={`text-primary transition-transform duration-300 ${isExpanded ? "rotate-180" : ""}`} />
         </div>
         {onDownload && results && (
@@ -144,7 +146,7 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
                 <span className="text-3xl font-bold" style={{ color: "#7ab5ac" }}>{qubitsUsed}</span>
                 <span className="text-[10px] text-muted-foreground">/ 30</span>
               </div>
-              <p className="text-xs text-muted-foreground font-medium">Qubits Used</p>
+              <p className="text-xs text-muted-foreground font-medium">Quantum Resources</p>
             </div>
 
             {/* 3. Performance speedometer */}
@@ -177,10 +179,10 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
           {/* ── Quick stat cards ─────────────────────────────── */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: "Success Rate", value: `${successRate}%`,  flash: srFlash      },
-              { label: "Total Shots",  value: `${totalShots}`,    flash: shotsFlash   },
-              { label: "Backend",      value: results ? (backendNames[backend] ?? backend) : "—", flash: "" },
-              { label: "Runtime",      value: `${runtimeMs}ms`,  flash: runtimeFlash  },
+              { label: "Success Rate",     value: `${successRate}%`,  flash: srFlash      },
+              { label: "Sampling Budget",  value: `${totalShots}`,    flash: shotsFlash   },
+              { label: "Compute Route",    value: results ? (backendNames[backend] ?? backend) : "—", flash: "" },
+              { label: "Runtime",          value: `${runtimeMs}ms`,  flash: runtimeFlash  },
             ].map(({ label, value, flash }) => (
               <div key={label} className={`p-3 bg-secondary/50 rounded-lg border border-border text-center ${flash}`}>
                 <p className="text-xs text-muted-foreground mb-1">{label}</p>
@@ -190,7 +192,7 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
           </div>
 
           {/* ── Technical Details (collapsible) ─────────────── */}
-          <div>
+          {!isHidden('display.technical_execution') && <div>
             <Button
               onClick={() => setShowTechnicalDetails(!showTechnicalDetails)}
               variant="outline"
@@ -207,7 +209,7 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
             {showTechnicalDetails && (
               <div className="mt-3 space-y-3 pl-2 border-l-2 border-border">
                 <div className="p-3 bg-secondary/30 rounded-lg border border-border">
-                  <p className="text-xs font-semibold text-foreground mb-1">Backend</p>
+                  <p className="text-xs font-semibold text-foreground mb-1">Compute Route</p>
                   <p className="text-xs text-muted-foreground font-medium">{backendNames[results?.backend ?? backend] ?? (results?.backend ?? backend)}</p>
                   {results?.backendReason && (
                     <p className="text-xs text-muted-foreground mt-1">
@@ -240,11 +242,11 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
                   <p className="text-xs font-semibold text-foreground mb-2">Execution Details</p>
                   <div className="grid grid-cols-2 gap-1.5 text-xs">
                     {[
-                      ["Runtime",  `${runtimeMs}ms`      ],
-                      ["Qubits",   `${qubitsUsed}`        ],
-                      ["Shots",    `${totalShots}`        ],
-                      ["Success",  `${successRate}%`      ],
-                      ["Fidelity", `${fidelity}%`         ],
+                      ["Runtime",            `${runtimeMs}ms`      ],
+                      ["Quantum Resources",  `${qubitsUsed}`        ],
+                      ["Sampling Budget",    `${totalShots}`        ],
+                      ["Success",            `${successRate}%`      ],
+                      ["Fidelity",           `${fidelity}%`         ],
                     ].map(([k, v]) => (
                       <div key={k}>
                         <span className="text-muted-foreground">{k}: </span>
@@ -255,7 +257,7 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
                 </div>
               </div>
             )}
-          </div>
+          </div>}
 
           {/* ── Digital Twin Insights (collapsible) ─────────── */}
           {hasDT && (
@@ -351,7 +353,7 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
           )}
 
           {/* ── Measurement Probabilities ─────────────────────── */}
-          <div>
+          {!isHidden('display.quantum_probabilities') && <div>
             <p className="text-sm font-medium text-foreground mb-3">Measurement Probabilities</p>
             <div className="space-y-1.5 max-h-80 overflow-auto">
               {measurementData.map((item, idx) => (
@@ -371,7 +373,7 @@ export function CircuitResults({ backend, results, qubits, onDownload, isLive }:
                 </div>
               ))}
             </div>
-          </div>
+          </div>}
 
         </div>
       )}

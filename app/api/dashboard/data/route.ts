@@ -30,6 +30,17 @@ function toClientRow(r: any) {
       backend_reason: parsed.backend_reason    ?? null,
       ml_tuning:      parsed.ml_tuning         ?? null,
     } : null,
+    // Scenario fields
+    scenario_id:      r.scenario_id      ?? null,
+    scenario_name:    r.scenario_name    ?? null,
+    scenario_type:    r.scenario_type    ?? null,
+    objective:        r.objective        ?? null,
+    risk_tolerance:   r.risk_tolerance   ?? null,
+    batch_id:         r.batch_id         ?? null,
+    batch_index:      r.batch_index      ?? null,
+    batch_size:       r.batch_size       ?? null,
+    strategy:         r.strategy         ?? null,
+    compute_route:    r.compute_route    ?? null,
   }
 }
 

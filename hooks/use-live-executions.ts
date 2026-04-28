@@ -30,6 +30,17 @@ export interface ExecutionRow {
   digital_twin_id: string | null
   shots: number
   error_mitigation: string | null
+  // Scenario / batch metadata
+  scenario_id?: string | null
+  scenario_name?: string | null
+  scenario_type?: string | null
+  objective?: string | null
+  risk_tolerance?: string | null
+  batch_id?: string | null
+  batch_index?: number | null
+  batch_size?: number | null
+  strategy?: string | null
+  compute_route?: string | null
   circuit_data: {
     source?: string
     fidelity?: number | null

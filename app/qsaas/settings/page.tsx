@@ -1036,6 +1036,14 @@ export default function SettingsPage() {
                   <Item key={t.id} prefKey={`templates.${t.id}`} label={t.name} />
                 ))}
               </Section>
+
+              <Section id="display" label="Display Preferences — Quantum Details">
+                <Item prefKey="display.quantum_probabilities"   label="Show quantum probabilities (hidden by default)" />
+                <Item prefKey="display.technical_execution"     label="Show technical execution details" />
+                <Item prefKey="display.circuit_internals"       label="Show circuit / model internals (QASM, gate list)" />
+                <Item prefKey="display.backend_diagnostics"     label="Show compute route diagnostics" />
+                <Item prefKey="display.scenario_comparison"     label="Show scenario comparison table" />
+              </Section>
             </div>
           )
         })()}

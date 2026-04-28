@@ -132,6 +132,27 @@ export function initializeDatabase() {
   if (!colNames.has('ui_preferences')) {
     db.exec("ALTER TABLE profiles ADD COLUMN ui_preferences TEXT DEFAULT NULL")
   }
+
+  // ── Scenario / batch metadata columns ─────────────────────────────────────
+  const execCols = db.pragma('table_info(executions)') as { name: string }[]
+  const execColNames = new Set(execCols.map((c) => c.name))
+  const scenarioCols: { name: string; def: string }[] = [
+    { name: 'scenario_id',    def: 'TEXT DEFAULT NULL' },
+    { name: 'scenario_name',  def: 'TEXT DEFAULT NULL' },
+    { name: 'scenario_type',  def: 'TEXT DEFAULT NULL' },
+    { name: 'objective',      def: 'TEXT DEFAULT NULL' },
+    { name: 'risk_tolerance', def: 'TEXT DEFAULT NULL' },
+    { name: 'batch_id',       def: 'TEXT DEFAULT NULL' },
+    { name: 'batch_index',    def: 'INTEGER DEFAULT NULL' },
+    { name: 'batch_size',     def: 'INTEGER DEFAULT NULL' },
+    { name: 'strategy',       def: 'TEXT DEFAULT NULL' },
+    { name: 'compute_route',  def: 'TEXT DEFAULT NULL' },
+  ]
+  for (const col of scenarioCols) {
+    if (!execColNames.has(col.name)) {
+      db.exec(`ALTER TABLE executions ADD COLUMN ${col.name} ${col.def}`)
+    }
+  }
 }
 
 // Initialize database automatically on import

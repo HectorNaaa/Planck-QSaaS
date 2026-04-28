@@ -63,6 +63,21 @@ export async function POST(request: NextRequest) {
     const predictedBackend = body.predictedBackend ? validateBackend(body.predictedBackend) : null
     const predictedFidelity = body.predictedFidelity ? Math.max(0, Math.min(1, Number(body.predictedFidelity))) : null
 
+    // Scenario / batch metadata (sanitized)
+    const scenarioId: string | null = typeof body.scenarioId === "string" && body.scenarioId.length > 0 && body.scenarioId.length <= 64 ? body.scenarioId : null
+    const scenarioName: string | null = typeof body.scenarioName === "string" && body.scenarioName.length > 0 ? body.scenarioName.slice(0, 120) : null
+    const VALID_SCENARIO_TYPES = new Set(["Baseline", "Stress test", "Optimization", "Risk analysis", "Custom"])
+    const scenarioType: string | null = typeof body.scenarioType === "string" && VALID_SCENARIO_TYPES.has(body.scenarioType) ? body.scenarioType : null
+    const VALID_OBJECTIVES = new Set(["minimize_runtime", "maximize_reliability", "minimize_cost", "maximize_accuracy", "balanced"])
+    const objective: string | null = typeof body.objective === "string" && VALID_OBJECTIVES.has(body.objective) ? body.objective : null
+    const VALID_RISK = new Set(["conservative", "balanced", "aggressive"])
+    const riskTolerance: string | null = typeof body.riskTolerance === "string" && VALID_RISK.has(body.riskTolerance) ? body.riskTolerance : null
+    const batchId: string | null = typeof body.batchId === "string" && body.batchId.length > 0 && body.batchId.length <= 64 ? body.batchId : null
+    const batchIndex: number | null = Number.isInteger(body.batchIndex) && body.batchIndex >= 0 ? body.batchIndex : null
+    const batchSize: number | null = Number.isInteger(body.batchSize) && body.batchSize > 0 && body.batchSize <= 50 ? body.batchSize : null
+    const VALID_STRATEGIES = new Set(["single", "batch", "compare"])
+    const strategy: string | null = typeof body.strategy === "string" && VALID_STRATEGIES.has(body.strategy) ? body.strategy : null
+
     // Validate QASM code
     const qasmValidation = validateQASM(qasm)
     if (!qasmValidation.valid) {
@@ -215,6 +230,16 @@ export async function POST(request: NextRequest) {
         reasoning: mlRecommendation.reasoning,
         based_on_executions: mlRecommendation.basedOnExecutions,
       } : null,
+      // Scenario metadata embedded in circuit_data for backwards-compat
+      scenario_id: scenarioId,
+      scenario_name: scenarioName,
+      scenario_type: scenarioType,
+      objective,
+      risk_tolerance: riskTolerance,
+      batch_id: batchId,
+      batch_index: batchIndex,
+      batch_size: batchSize,
+      strategy,
     })
     const { id: executionId } = Executions.create({
       user_id: userId,
@@ -233,6 +258,17 @@ export async function POST(request: NextRequest) {
       backend_hint: backend === "auto" ? null : backend,
       circuit_data: circuitDataJson,
       result: JSON.stringify(results.counts),
+      // Scenario / batch fields
+      scenario_id: scenarioId,
+      scenario_name: scenarioName,
+      scenario_type: scenarioType,
+      objective,
+      risk_tolerance: riskTolerance,
+      batch_id: batchId,
+      batch_index: batchIndex,
+      batch_size: batchSize,
+      strategy,
+      compute_route: effectiveBackend,
     })
 
     // ML recording disabled (no Supabase). Non-critical, skip.
@@ -258,6 +294,10 @@ export async function POST(request: NextRequest) {
         reasoning: mlRecommendation.reasoning,
         based_on_executions: mlRecommendation.basedOnExecutions,
       } : null,
+      scenario_id: scenarioId,
+      scenario_name: scenarioName,
+      batch_id: batchId,
+      batch_index: batchIndex,
     })
   } catch (error) {
     const safeError = createSafeErrorResponse(error, "Failed to simulate circuit")

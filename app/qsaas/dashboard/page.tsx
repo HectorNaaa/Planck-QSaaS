@@ -438,6 +438,89 @@ export default function DashboardPage() {
         </Link>
       </div>
 
+      {/* ── Scenario & Batch table ──────────────────────────────────────────── */}
+      {allRows.length > 0 && (() => {
+        // Build scenario groups from rows (group by scenario_name + scenario_type, or batch_id)
+        const grouped = new Map<string, typeof allRows>()
+        for (const row of allRows) {
+          const key = row.batch_id || row.scenario_name || "unclassified"
+          const arr = grouped.get(key) || []
+          arr.push(row)
+          grouped.set(key, arr)
+        }
+        const entries = Array.from(grouped.entries())
+          .sort(([, a], [, b]) => new Date(b[0].created_at).getTime() - new Date(a[0].created_at).getTime())
+          .slice(0, 20)
+        const routeLabel = (r: string | null) =>
+          r === "quantum_inspired_gpu" ? "QI-GPU"
+          : r === "hpc_gpu" ? "HPC"
+          : r === "quantum_qpu" ? "QPU"
+          : r || "—"
+        return (
+          <div>
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Scenario Overview</h3>
+            <div className="overflow-x-auto rounded-lg border border-border">
+              <table className="w-full text-xs">
+                <thead className="bg-secondary/50">
+                  <tr className="text-muted-foreground text-left">
+                    <th className="px-3 py-2 font-medium">Scenario</th>
+                    <th className="px-3 py-2 font-medium">Type</th>
+                    <th className="px-3 py-2 font-medium">Objective</th>
+                    <th className="px-3 py-2 font-medium">Risk</th>
+                    <th className="px-3 py-2 font-medium">Compute Route</th>
+                    <th className="px-3 py-2 font-medium">Runs</th>
+                    <th className="px-3 py-2 font-medium">Avg Reliability</th>
+                    <th className="px-3 py-2 font-medium">Avg Runtime</th>
+                    <th className="px-3 py-2 font-medium">Best Run</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {entries.map(([key, rows]) => {
+                    const completed = rows.filter((r) => r.status === "completed" || r.status === "saved")
+                    const n = completed.length
+                    const avgSuccess = n > 0 ? completed.reduce((s, r) => s + (r.success_rate || 0), 0) / n : 0
+                    const avgRuntime = n > 0 ? completed.reduce((s, r) => s + (r.runtime_ms || 0), 0) / n : 0
+                    const best = completed.reduce((a, b) => (b.success_rate > a.success_rate ? b : a), completed[0])
+                    const rep = rows[0]  // representative row
+                    const isUnclassified = key === "unclassified"
+                    const objective = (rep.objective || "—").replace("_", " ")
+                    const risk = rep.risk_tolerance || (isUnclassified ? "—" : "balanced")
+                    const route = routeLabel(rep.backend_selected)
+                    const scenLabel = isUnclassified
+                      ? "Unclassified simulations"
+                      : rep.scenario_name || rep.batch_id?.slice(0, 16) || key.slice(0, 24)
+                    return (
+                      <tr key={key} className="border-t border-border hover:bg-secondary/20 transition-colors">
+                        <td className="px-3 py-2 text-foreground font-medium max-w-[160px] truncate">
+                          {scenLabel}
+                          {isUnclassified && <span className="ml-1 text-[10px] text-muted-foreground">(legacy)</span>}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{rep.scenario_type || "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground capitalize">{objective}</td>
+                        <td className="px-3 py-2">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            risk === "conservative" ? "bg-blue-500/15 text-blue-400"
+                            : risk === "aggressive" ? "bg-orange-500/15 text-orange-400"
+                            : risk === "—" ? "text-muted-foreground" : "bg-secondary text-muted-foreground"
+                          }`}>
+                            {capitalize(risk)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{route}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{rows.length}</td>
+                        <td className="px-3 py-2 font-semibold" style={{ color: "#7ab5ac" }}>{n > 0 ? `${avgSuccess.toFixed(1)}%` : "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{n > 0 ? `${Math.round(avgRuntime)}ms` : "—"}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{best ? `${best.success_rate?.toFixed(1)}%` : "—"}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Active tab content — Simulation History */}
       {!loading && <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Simulation History</h3>}
       {loading ? (
@@ -455,4 +538,9 @@ export default function DashboardPage() {
       )}
     </div>
   )
+}
+
+function capitalize(s: string) {
+  if (!s || s === "—") return s
+  return s.charAt(0).toUpperCase() + s.slice(1)
 }

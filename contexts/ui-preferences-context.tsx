@@ -10,15 +10,21 @@ export interface UIPreferencesContextType {
   loading: boolean
 }
 
+/** Keys that are hidden by default (user must opt-in to show them) */
+const HIDDEN_BY_DEFAULT = new Set([
+  "display.quantum_probabilities",
+  "display.circuit_internals",
+])
+
 const UIPreferencesContext = createContext<UIPreferencesContextType>({
-  hidden: new Set(),
-  isHidden: () => false,
+  hidden: HIDDEN_BY_DEFAULT,
+  isHidden: (key) => HIDDEN_BY_DEFAULT.has(key),
   toggle: () => {},
   loading: false,
 })
 
 export function UIPreferencesProvider({ children }: { children: ReactNode }) {
-  const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const [hidden, setHidden] = useState<Set<string>>(HIDDEN_BY_DEFAULT)
   const [loading, setLoading] = useState(true)
   const isGuest = useIsGuest()
 
@@ -29,7 +35,16 @@ export function UIPreferencesProvider({ children }: { children: ReactNode }) {
     }
     fetch("/api/user/preferences", { credentials: "include" })
       .then((r) => (r.ok ? r.json() : { hidden: [] }))
-      .then((d) => setHidden(new Set(Array.isArray(d?.hidden) ? d.hidden : [])))
+      .then((d) => {
+        const serverHidden: string[] = Array.isArray(d?.hidden) ? d.hidden : []
+        // If server has never saved preferences, treat hidden-by-default keys as hidden
+        // (don't override with empty array)
+        if (serverHidden.length === 0) {
+          setHidden(HIDDEN_BY_DEFAULT)
+        } else {
+          setHidden(new Set(serverHidden))
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [isGuest])
