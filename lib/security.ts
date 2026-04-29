@@ -250,15 +250,15 @@ export function validateInputData(data: any): { valid: boolean; error?: string; 
     return { valid: false, error: 'Input data must be an array or object' }
   }
   
-  // Check size
+  // Check size (10MB max — generous for large synthetic / SDK datasets)
   const dataString = JSON.stringify(data)
-  if (dataString.length > 1024 * 1024) { // 1MB
-    return { valid: false, error: 'Input data too large (max 1MB)' }
+  if (dataString.length > 10 * 1024 * 1024) {
+    return { valid: false, error: 'Input data too large (max 10MB)' }
   }
   
-  // Check array length
-  if (Array.isArray(data) && data.length > 10000) {
-    return { valid: false, error: 'Input data array too large (max 10,000 elements)' }
+  // Check array length (100,000 elements max)
+  if (Array.isArray(data) && data.length > 100_000) {
+    return { valid: false, error: 'Input data array too large (max 100,000 elements)' }
   }
   
   return { valid: true, data }

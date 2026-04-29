@@ -164,7 +164,11 @@ export function SyntheticModeProvider({
       p.minInputs + Math.random() * (p.maxInputs - p.minInputs + 1),
     )
     const qubits = qubitsFromInputs(nInputs)
-    const data = Array.from({ length: nInputs }, () => Math.random() * 10_000)
+    // Cap data sent to API at 50,000 elements so we never hit payload/element limits
+    // even when the user configures extreme input ranges. The qubit count is still
+    // derived from the full nInputs so the circuit complexity reflects the real scale.
+    const apiInputCount = Math.min(nInputs, 50_000)
+    const data = Array.from({ length: apiInputCount }, () => Math.random() * 10_000)
 
     const iterIndex = iterRef.current
 
@@ -179,7 +183,7 @@ export function SyntheticModeProvider({
           qubits,
           shots: 1024,
           errorMitigation: "auto",
-          dataMetadata: { structure: "array", dimensions: 1, size: nInputs },
+          dataMetadata: { structure: "array", dimensions: 1, size: nInputs, sampledFrom: nInputs !== apiInputCount ? nInputs : undefined },
         }),
       })
       const genData = genRes.ok ? await genRes.json() : null
