@@ -12,7 +12,7 @@ const store = new Map<string, RateLimitStore>()
 
 const MAX_TOKENS = 1
 const REFILL_RATE = 3000 // 3 seconds in ms
-const MAX_PAYLOAD_SIZE = 10 * 1024 * 1024 // 10MB
+const MAX_PAYLOAD_SIZE = 1_000 * 1024 * 1024 // 1GB
 
 /**
  * Check if a request should be rate limited
