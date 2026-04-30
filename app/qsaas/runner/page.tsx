@@ -125,6 +125,8 @@ export default function RunnerPage() {
   // Shared live mode — synced with dashboard via sessionStorage + BroadcastChannel
   const [sdkMode, setLiveEnabled] = useLiveMode(isGuest)
   const { isRunning: syntheticRunning, lastRow: synthLastRow, stop: stopSynthetic } = useSyntheticMode()
+  // Pending mode-switch requiring confirmation (null = no dialog)
+  const [pendingModeSwitch, setPendingModeSwitch] = useState<"sdk" | "synthetic" | null>(null)
   const [syntheticMode, setSyntheticMode] = useState(() => {
     if (typeof sessionStorage !== "undefined") {
       return sessionStorage.getItem("synth_panel_open") === "1"
@@ -1495,6 +1497,11 @@ const adaptiveShots = calculateAdaptiveShots({
               role="switch"
               aria-checked={syntheticMode}
               onClick={() => {
+                if (!syntheticMode && sdkMode) {
+                  // SDK is on — ask before switching
+                  setPendingModeSwitch("synthetic")
+                  return
+                }
                 const next = !syntheticMode
                 setSyntheticMode(next)
                 if (!next && syntheticRunning) stopSynthetic()
@@ -1537,7 +1544,14 @@ const adaptiveShots = calculateAdaptiveShots({
             <button
               role="switch"
               aria-checked={sdkMode}
-              onClick={() => setLiveEnabled(!sdkMode)}
+              onClick={() => {
+                if (!sdkMode && syntheticMode) {
+                  // Synthetic is on — ask before switching
+                  setPendingModeSwitch("sdk")
+                  return
+                }
+                setLiveEnabled(!sdkMode)
+              }}
               className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                 sdkMode ? "bg-primary" : "bg-muted"
               }`}
@@ -2066,6 +2080,83 @@ const adaptiveShots = calculateAdaptiveShots({
             initialRows={sdkMode ? liveRows : dtHistoryRows}
             title={selectedDigitalTwinId ? "Selected Digital Twin" : "Simulations — All Scenarios"}
           />
+        </div>
+      )}
+
+      {/* ── Scenario Output — Digital Twin panel (convergence / reliability) ── */}
+      {results && (
+        <Card className="p-5 shadow-lg border border-border">
+          <div className="flex items-center gap-2 mb-4">
+            <Brain size={16} className="text-primary" />
+            <h2 className="text-base font-semibold text-foreground">Scenario Output</h2>
+          </div>
+          <DigitalTwinPanel
+            algorithm={circuitName || results.algorithm || "vqe"}
+            inputData={uploadedData}
+            circuitInfo={{
+              qubits: results.qubits_used ?? qubits,
+              depth: circuitData?.depth || 0,
+              gates: circuitData?.gates || [],
+              qasm: circuitCode || "",
+            }}
+            executionResults={{
+              counts: results.counts || {},
+              shots: results.total_shots || shots || 1024,
+              success_rate: results.success_rate || 0,
+              runtime_ms: results.runtime_ms || 0,
+            }}
+            backendConfig={{
+              backend: results.backend_selected ?? results.backend ?? backend,
+              error_mitigation: results.error_mitigation || errorMitigation,
+              transpiled: true,
+            }}
+            showDominantStates={showDominantStates}
+          />
+        </Card>
+      )}
+
+      {/* ── Mode-switch confirmation modal ───────────────────────────────── */}
+      {pendingModeSwitch && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+                <span className="text-amber-500 font-bold text-sm">!</span>
+              </div>
+              <h3 className="text-base font-semibold text-foreground">Switch simulation mode?</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-5">
+              {pendingModeSwitch === "sdk"
+                ? "Switching to SDK / Live mode will stop the active Synthetic Data loop."
+                : "Switching to Synthetic Data mode will disconnect the SDK / Live stream."}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPendingModeSwitch(null)}
+                className="flex-1 px-4 py-2 rounded-lg border border-border bg-secondary text-foreground text-sm font-medium hover:bg-secondary/70 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (pendingModeSwitch === "sdk") {
+                    // Stop synthetic, enable SDK
+                    if (syntheticRunning) stopSynthetic()
+                    setSyntheticMode(false)
+                    setLiveEnabled(true)
+                  } else {
+                    // Stop SDK, enable synthetic
+                    setLiveEnabled(false)
+                    setSyntheticMode(true)
+                  }
+                  setPendingModeSwitch(null)
+                }}
+                className="flex-1 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                Switch mode
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
