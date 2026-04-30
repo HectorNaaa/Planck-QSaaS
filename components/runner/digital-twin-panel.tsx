@@ -161,7 +161,7 @@ export function DigitalTwinPanel({
       </div>
 
       {/* Primary Metrics Dashboard */}
-      <div className="grid grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-3 gap-6 mb-6 justify-items-center">
         <MetricGauge 
           value={successGaugeValue} 
           label="Success Rate" 
@@ -183,7 +183,7 @@ export function DigitalTwinPanel({
       </div>
 
       {/* Secondary Metrics */}
-      <div className="grid grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-5 gap-4 mb-6 justify-items-center">
         <LevelIndicator 
           level={digitalTwin.performanceMetrics.executionSpeed as any} 
           label="Speed" 

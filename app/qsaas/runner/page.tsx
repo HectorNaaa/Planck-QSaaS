@@ -1316,6 +1316,101 @@ const adaptiveShots = calculateAdaptiveShots({
         )}
       </Card>
 
+      {/* ── Step 3: Simulation Mode ──────────────────────────────────────── */}
+      <Card className="p-5 shadow-lg border border-primary/15">
+        <div className="flex items-center gap-2 mb-4">
+          <Zap size={16} className="text-primary" />
+          <h2 className="text-base font-semibold text-foreground">Simulation Mode</h2>
+          <span className="ml-auto text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-medium">Step 3</span>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">Choose how to run your scenario — synthesise data automatically, stream from your SDK, or configure a manual execution below.</p>
+        <div className="space-y-3">
+          {/* Synthetic Data mode toggle */}
+          <div className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
+            syntheticMode ? "border-[#7ab5ac]/40 bg-[#7ab5ac]/5" : "border-border bg-secondary/40"
+          }`}>
+            <div className="flex items-center gap-3">
+              <FlaskConical size={18} className={syntheticMode ? "text-[#7ab5ac]" : "text-muted-foreground"} />
+              <div>
+                <p className="text-sm font-medium text-foreground">Synthetic Data mode</p>
+                <p className="text-xs text-muted-foreground">
+                  {syntheticMode
+                    ? "Generating synthetic telemetry locally and feeding the quantum pipeline automatically."
+                    : "Enable to run parametrized synthetic data without writing code or using the remote SDK."}
+                </p>
+              </div>
+            </div>
+            <button
+              role="switch"
+              aria-checked={syntheticMode}
+              onClick={() => {
+                if (!syntheticMode && sdkMode) {
+                  // SDK is on — ask before switching
+                  setPendingModeSwitch("synthetic")
+                  return
+                }
+                const next = !syntheticMode
+                setSyntheticMode(next)
+                if (!next && syntheticRunning) stopSynthetic()
+              }}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7ab5ac] ${
+                syntheticMode ? "bg-[#7ab5ac]" : "bg-muted"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                syntheticMode ? "translate-x-6" : "translate-x-1"
+              }`} />
+            </button>
+          </div>
+
+          {/* SDK / Intensive-use mode toggle */}
+          <div className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
+            sdkMode ? "border-primary/40 bg-primary/5" : "border-border bg-secondary/40"
+          }`}>
+            <div className="flex items-center gap-3">
+              <Radio size={18} className={sdkMode ? "text-primary" : "text-muted-foreground"} />
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-foreground">SDK / Live mode</p>
+                  {sdkMode && (
+                    <span className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                      liveConnected ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+                    }`}>
+                      {liveConnected ? <Wifi size={10} /> : <WifiOff size={10} />}
+                      {liveConnected ? "Connected" : "Connecting…"}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {sdkMode
+                    ? "Results update in near real-time from SDK jobs. Upload and editing are disabled."
+                    : "Enable to receive live results from notebook/script SDK calls."}
+                </p>
+              </div>
+            </div>
+            <button
+              role="switch"
+              aria-checked={sdkMode}
+              onClick={() => {
+                if (!sdkMode && syntheticMode) {
+                  // Synthetic is on — ask before switching
+                  setPendingModeSwitch("sdk")
+                  return
+                }
+                setLiveEnabled(!sdkMode)
+              }}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                sdkMode ? "bg-primary" : "bg-muted"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                sdkMode ? "translate-x-6" : "translate-x-1"
+              }`} />
+            </button>
+          </div>
+        </div>
+      </Card>
+
       {/* ── Risk-aware insight layer ────────────────────────────────────────── */}
       {(() => {
         const insights: string[] = []
@@ -1468,101 +1563,6 @@ const adaptiveShots = calculateAdaptiveShots({
           </div>
         </Card>
       )}
-
-      {/* ── Step 3: Simulation Mode ──────────────────────────────────────── */}
-      <Card className="p-5 shadow-lg border border-primary/15">
-        <div className="flex items-center gap-2 mb-4">
-          <Zap size={16} className="text-primary" />
-          <h2 className="text-base font-semibold text-foreground">Simulation Mode</h2>
-          <span className="ml-auto text-[11px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-medium">Step 3</span>
-        </div>
-        <p className="text-xs text-muted-foreground mb-4">Choose how to run your scenario — synthesise data automatically, stream from your SDK, or configure a manual execution below.</p>
-        <div className="space-y-3">
-          {/* Synthetic Data mode toggle */}
-          <div className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
-            syntheticMode ? "border-[#7ab5ac]/40 bg-[#7ab5ac]/5" : "border-border bg-secondary/40"
-          }`}>
-            <div className="flex items-center gap-3">
-              <FlaskConical size={18} className={syntheticMode ? "text-[#7ab5ac]" : "text-muted-foreground"} />
-              <div>
-                <p className="text-sm font-medium text-foreground">Synthetic Data mode</p>
-                <p className="text-xs text-muted-foreground">
-                  {syntheticMode
-                    ? "Generating synthetic telemetry locally and feeding the quantum pipeline automatically."
-                    : "Enable to run parametrized synthetic data without writing code or using the remote SDK."}
-                </p>
-              </div>
-            </div>
-            <button
-              role="switch"
-              aria-checked={syntheticMode}
-              onClick={() => {
-                if (!syntheticMode && sdkMode) {
-                  // SDK is on — ask before switching
-                  setPendingModeSwitch("synthetic")
-                  return
-                }
-                const next = !syntheticMode
-                setSyntheticMode(next)
-                if (!next && syntheticRunning) stopSynthetic()
-              }}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7ab5ac] ${
-                syntheticMode ? "bg-[#7ab5ac]" : "bg-muted"
-              }`}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                syntheticMode ? "translate-x-6" : "translate-x-1"
-              }`} />
-            </button>
-          </div>
-
-          {/* SDK / Intensive-use mode toggle */}
-          <div className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
-            sdkMode ? "border-primary/40 bg-primary/5" : "border-border bg-secondary/40"
-          }`}>
-            <div className="flex items-center gap-3">
-              <Radio size={18} className={sdkMode ? "text-primary" : "text-muted-foreground"} />
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-medium text-foreground">SDK / Live mode</p>
-                  {sdkMode && (
-                    <span className={`flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                      liveConnected ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
-                    }`}>
-                      {liveConnected ? <Wifi size={10} /> : <WifiOff size={10} />}
-                      {liveConnected ? "Connected" : "Connecting…"}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {sdkMode
-                    ? "Results update in near real-time from SDK jobs. Upload and editing are disabled."
-                    : "Enable to receive live results from notebook/script SDK calls."}
-                </p>
-              </div>
-            </div>
-            <button
-              role="switch"
-              aria-checked={sdkMode}
-              onClick={() => {
-                if (!sdkMode && syntheticMode) {
-                  // Synthetic is on — ask before switching
-                  setPendingModeSwitch("sdk")
-                  return
-                }
-                setLiveEnabled(!sdkMode)
-              }}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                sdkMode ? "bg-primary" : "bg-muted"
-              }`}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
-                sdkMode ? "translate-x-6" : "translate-x-1"
-              }`} />
-            </button>
-          </div>
-        </div>
-      </Card>
 
       {/* ── Synthetic Data runner panel ───────────────────────────────── */}
       {syntheticMode && <SyntheticDataRunner />}
