@@ -219,7 +219,13 @@ class PlanckUser:
         qubits: Optional[int] = None,
         digital_twin_id: Optional[str] = None,
         build_options: Optional[CircuitBuildOptions] = None,
-        wait: bool = True
+        wait: bool = True,
+        # ── Scenario / Digital-Twin metadata ──────────────────────────────
+        scenario_name: Optional[str] = None,
+        scenario_type: Optional[str] = None,
+        objective: Optional[str] = None,
+        risk_tolerance: Optional[str] = None,
+        execution_strategy: Optional[str] = None,
     ) -> ExecutionResult:
         """
         Generate and execute a parametric quantum circuit from input data.
@@ -230,19 +236,27 @@ class PlanckUser:
         max qubit count, angle scaling, or layer count.
 
         Args:
-            data:             Input data (list, dict, or file path to CSV/JSON).
-            algorithm:        'vqe' | 'grover' | 'qaoa' | 'bell' | 'shor'.
-            shots:            Measurement shots (auto-tuned by RL when None).
-            backend:          'auto' | 'quantum_inspired_gpu' | 'hpc_gpu' | 'quantum_qpu'.
-            error_mitigation: 'auto' | 'none' | 'low' | 'medium' | 'high'.
-            circuit_name:     Optional label for the execution log.
-            target_latency:   Latency hint in ms (affects backend selection).
-            qubits:           Qubit hint — builder may exceed if data requires it.
-            digital_twin_id:  ID of a digital twin to link this execution to.
+            data:               Input data (list, dict, or file path to CSV/JSON).
+            algorithm:          'vqe' | 'grover' | 'qaoa' | 'bell' | 'shor'.
+            shots:              Measurement shots (auto-tuned by RL when None).
+            backend:            'auto' | 'quantum_inspired_gpu' | 'hpc_gpu' | 'quantum_qpu'.
+            error_mitigation:   'auto' | 'none' | 'low' | 'medium' | 'high'.
+            circuit_name:       Optional label for the execution log.
+            target_latency:     Latency hint in ms (affects backend selection).
+            qubits:             Qubit hint — builder may exceed if data requires it.
+            digital_twin_id:    ID of a digital twin to link this execution to.
                 Pass None, 0, or '' to leave unlinked (default).
                 Use list_digital_twins() to see available IDs.
-            build_options:    Fine-grained parametric hints (CircuitBuildOptions).
-            wait:             Block until execution completes (default: True).
+            build_options:      Fine-grained parametric hints (CircuitBuildOptions).
+            wait:               Block until execution completes (default: True).
+            scenario_name:      Optional human-readable label for this scenario
+                                (e.g. 'Peak Load 2026').
+            scenario_type:      One of 'Baseline' | 'Stress test' | 'Optimization' |
+                                'Risk analysis' | 'Custom'.
+            objective:          One of 'minimize_runtime' | 'maximize_reliability' |
+                                'minimize_cost' | 'maximize_accuracy' | 'balanced'.
+            risk_tolerance:     One of 'conservative' | 'balanced' | 'aggressive'.
+            execution_strategy: One of 'single' | 'batch' | 'compare'.
 
         Returns:
             ExecutionResult with counts, fidelity, and ML tuning metadata.
@@ -319,6 +333,12 @@ class PlanckUser:
             "gateCount": circuit.gate_count,
             "targetLatency": target_latency,
             "digitalTwinId": digital_twin_id,
+            # Scenario / Digital-Twin metadata (all optional)
+            "scenarioName": self._sanitize_string(scenario_name, 200) if scenario_name else None,
+            "scenarioType": scenario_type or None,
+            "objective": objective or None,
+            "riskTolerance": risk_tolerance or None,
+            "strategy": execution_strategy or None,
         }
         
         response = self._request("POST", "simulate", payload)

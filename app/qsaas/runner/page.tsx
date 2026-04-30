@@ -1163,41 +1163,70 @@ const adaptiveShots = calculateAdaptiveShots({
               className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
-          {/* Scenario Type */}
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Scenario Type</label>
-            <div className="flex flex-wrap gap-1.5">
-              {(["Baseline", "Stress test", "Optimization", "Risk analysis", "Custom"] as const).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setScenarioType(v)}
-                  className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
-                    scenarioType === v
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {v}
-                </button>
-              ))}
+          {/* Scenario Type + Objective */}
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5">Scenario Type</label>
+              <div className="flex flex-wrap gap-1.5">
+                {(["Baseline", "Stress test", "Optimization", "Risk analysis", "Custom"] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setScenarioType(v)}
+                    className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                      scenarioType === v
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                <Target size={11} /> Objective
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {([
+                  { v: "minimize_runtime" as const, label: "Min. Runtime" },
+                  { v: "maximize_reliability" as const, label: "Max. Reliability" },
+                  { v: "minimize_cost" as const, label: "Min. Cost" },
+                  { v: "maximize_accuracy" as const, label: "Max. Accuracy" },
+                  { v: "balanced" as const, label: "Balanced" },
+                ]).map(({ v, label }) => (
+                  <button
+                    key={v}
+                    onClick={() => setScenarioObjective(v)}
+                    className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                      scenarioObjective === v
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-          {/* Objective */}
+          {/* Target Latency */}
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-              <Target size={11} /> Objective
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+              Target Latency <span className="text-muted-foreground/60">(Optional)</span>
             </label>
-            <select
-              value={scenarioObjective}
-              onChange={(e) => setScenarioObjective(e.target.value as any)}
-              className="w-full px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value="minimize_runtime">Minimize runtime</option>
-              <option value="maximize_reliability">Maximize reliability</option>
-              <option value="minimize_cost">Minimize cost</option>
-              <option value="maximize_accuracy">Maximize accuracy</option>
-              <option value="balanced">Balanced</option>
-            </select>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={targetLatency || ""}
+                onChange={(e) => setTargetLatency(e.target.value ? Number(e.target.value) : null)}
+                placeholder="e.g., 1000"
+                className="flex-1 px-3 py-2 rounded-md border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <span className="text-sm font-medium text-muted-foreground">ms</span>
+            </div>
           </div>
           {/* Risk Tolerance */}
           <div>
@@ -1346,6 +1375,18 @@ const adaptiveShots = calculateAdaptiveShots({
             </p>
           )}
         </Card>
+      )}
+
+      {/* ── Benchmarks dashboard (SDK / Synthetic mode) — above Scenario Output ── */}
+      {(sdkMode || syntheticMode) && !isHidden('runner.digital_twin_dashboard') && (
+        <DigitalTwinDashboard
+          key={`dt-top-${clearKey}`}
+          liveEnabled={false}
+          apiKey={null}
+          digitalTwinId={selectedDigitalTwinId}
+          initialRows={sdkMode ? liveRows : dtHistoryRows}
+          title={selectedDigitalTwinId ? "Selected Digital Twin" : "Simulations — All Scenarios"}
+        />
       )}
 
       {/* ── Batch results comparison ─────────────────────────────────────── */}
@@ -1554,46 +1595,6 @@ const adaptiveShots = calculateAdaptiveShots({
             </div>
           )}
         </Card>
-      )}
-
-      {/* ── Manual-mode setup sections (hidden in SDK / live mode and synthetic mode) ────────── */}
-      {!sdkMode && !syntheticMode && (
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="execution-name" className="block text-sm font-medium text-foreground mb-2">
-              Simulation Name (Optional)
-            </label>
-            <input
-              id="execution-name"
-              type="text"
-              value={executionName}
-              onChange={(e) => setExecutionName(e.target.value)}
-              placeholder={`e.g., "${systemType || circuitName} ${scenarioType}"`}
-              className="w-full px-4 py-2 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <p className="text-xs text-muted-foreground mt-1">Optional label for this simulation run</p>
-          </div>
-
-          <div className="mt-4">
-            <label htmlFor="target-latency" className="block text-sm font-medium text-foreground mb-2">
-              Target Latency (Optional)
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                id="target-latency"
-                type="number"
-                min="0"
-                step="1"
-                value={targetLatency || ""}
-                onChange={(e) => setTargetLatency(e.target.value ? Number(e.target.value) : null)}
-                placeholder="e.g., 1000"
-                className="flex-1 px-4 py-2 rounded-md border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <span className="text-sm font-medium text-muted-foreground">ms</span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">QPU requires &gt;=500ms. Below that falls back to HPC.</p>
-          </div>
-        </div>
       )}
 
       {/* Mobile pipeline — hidden in SDK/live mode and synthetic mode */}
