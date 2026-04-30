@@ -165,16 +165,19 @@ export function DigitalTwinPanel({
         <MetricGauge 
           value={successGaugeValue} 
           label="Success Rate" 
+          unit="%"
           size="md"
         />
         <MetricGauge 
           value={runtimeGaugeValue} 
           label="Performance" 
+          unit="%"
           size="md"
         />
         <MetricGauge 
           value={qubitUtilization} 
           label="Qubit Usage" 
+          unit="%"
           size="md"
         />
       </div>

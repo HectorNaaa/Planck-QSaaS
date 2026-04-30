@@ -2058,31 +2058,6 @@ const adaptiveShots = calculateAdaptiveShots({
       </div>
       )} {/* end !sdkMode run buttons */}
 
-      {/* ── Simulations — All Scenarios (bottom, like the main dashboard) ── */}
-      {!isHidden('runner.digital_twin_dashboard') && (
-        <div className="space-y-3">
-          <div className="flex justify-end">
-            <Button
-              onClick={handleClearResults}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2 text-muted-foreground hover:text-destructive hover:border-destructive/40"
-            >
-              <Trash2 size={14} />
-              Clear previous results
-            </Button>
-          </div>
-          <DigitalTwinDashboard
-            key={`dt-${clearKey}`}
-            liveEnabled={false}
-            apiKey={null}
-            digitalTwinId={selectedDigitalTwinId}
-            initialRows={sdkMode ? liveRows : dtHistoryRows}
-            title={selectedDigitalTwinId ? "Selected Digital Twin" : "Simulations — All Scenarios"}
-          />
-        </div>
-      )}
-
       {/* ── Scenario Output — Digital Twin panel (convergence / reliability) ── */}
       {results && (
         <Card className="p-5 shadow-lg border border-border">
@@ -2113,6 +2088,31 @@ const adaptiveShots = calculateAdaptiveShots({
             showDominantStates={showDominantStates}
           />
         </Card>
+      )}
+
+      {/* ── Simulations — All Scenarios (bottom, like the main dashboard) ── */}
+      {!isHidden('runner.digital_twin_dashboard') && (
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <Button
+              onClick={handleClearResults}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 text-muted-foreground hover:text-destructive hover:border-destructive/40"
+            >
+              <Trash2 size={14} />
+              Clear previous results
+            </Button>
+          </div>
+          <DigitalTwinDashboard
+            key={`dt-${clearKey}`}
+            liveEnabled={false}
+            apiKey={null}
+            digitalTwinId={selectedDigitalTwinId}
+            initialRows={sdkMode ? liveRows : dtHistoryRows}
+            title={selectedDigitalTwinId ? "Selected Digital Twin" : "Simulations — All Scenarios"}
+          />
+        </div>
       )}
 
       {/* ── Mode-switch confirmation modal ───────────────────────────────── */}
