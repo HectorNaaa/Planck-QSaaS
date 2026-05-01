@@ -15,7 +15,7 @@
 
 "use client"
 
-import { useRef, useMemo, useState } from "react"
+import { useRef, useMemo, useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -75,7 +75,7 @@ function downloadChart(ref: any, name: string) {
 const baseChartOptions = (yLabel?: string) => ({
   responsive: true,
   maintainAspectRatio: false,
-  animation: { duration: 400 },
+  animation: { duration: 600 },
   interaction: { mode: "index" as const, intersect: false },
   plugins: {
     legend: { display: true, position: "top" as const, labels: { boxWidth: 10, font: { size: 11 } } },
@@ -131,6 +131,25 @@ export function DigitalTwinDashboard({
 
   const { isHidden } = useUIPreferences()
   const { dtMode } = useDigitalTwinMode()
+
+  // ── Flash animation for newly arrived rows ───────────────────────────────
+  // prevRowIdsRef starts as null so the initial seed never triggers a flash.
+  const prevRowIdsRef = useRef<Set<string> | null>(null)
+  const [flashRowIds, setFlashRowIds] = useState<Set<string>>(new Set())
+  useEffect(() => {
+    const currentIds = new Set(rows.map((r) => r.id))
+    if (prevRowIdsRef.current === null) {
+      // First paint — seed without flashing so existing history doesn't strobe
+      prevRowIdsRef.current = currentIds
+      return
+    }
+    const newIds = [...currentIds].filter((id) => !prevRowIdsRef.current!.has(id))
+    prevRowIdsRef.current = currentIds
+    if (newIds.length === 0) return
+    setFlashRowIds(new Set(newIds))
+    const t = setTimeout(() => setFlashRowIds(new Set()), 1200)
+    return () => clearTimeout(t)
+  }, [rows])
 
   // Limit chart to last 50 points for readability
   const chartRows = useMemo(() => rows.slice(-50), [rows])
@@ -488,7 +507,7 @@ export function DigitalTwinDashboard({
               </thead>
               <tbody>
                 {filteredRows.map((r) => (
-                  <tr key={r.id} className="border-b border-border/50 hover:bg-secondary/70 transition leading-none">
+                  <tr key={r.id} className={`border-b border-border/50 hover:bg-secondary/70 transition leading-none ${flashRowIds.has(r.id) ? "row-flash-in" : ""}`}>
                     <td className="py-1.5 px-2">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${r.circuit_data?.source === "sdk" ? "bg-blue-500/20 text-blue-400" : "bg-primary/15 text-primary"}`}>
                         {r.circuit_data?.source === "sdk" ? "SDK" : "UI"}

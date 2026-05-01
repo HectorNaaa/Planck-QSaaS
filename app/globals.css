@@ -136,6 +136,17 @@
   animation: stat-value-flash 0.25s ease-out;
 }
 
+/* ── Table row slide-in / flash when new data arrives ──────────────────────── */
+@keyframes row-flash-in {
+  0%   { background-color: rgba(87, 142, 126, 0.22); }
+  60%  { background-color: rgba(87, 142, 126, 0.08); }
+  100% { background-color: transparent; }
+}
+
+.row-flash-in {
+  animation: row-flash-in 1.2s ease-out forwards;
+}
+
 /* ── FAQ section dot-grid background ───────────────────────────────────────── */
 .faq-dot-grid {
   background-image: radial-gradient(circle, #578e7e 1px, transparent 1px);

@@ -197,19 +197,56 @@ export default function RunnerPage() {
   const [clearKey, setClearKey] = useState(0)
   const [dtHistoryRows, setDtHistoryRows] = useState<ExecutionRow[]>([])
 
-  // Load DTDashboard history from localStorage on mount (always, regardless of sdkMode)
+  /** Merge rows from any source into dtHistoryRows without duplicates. */
+  const mergeDtRows = useCallback((incoming: ExecutionRow[]) => {
+    if (!incoming.length) return
+    setDtHistoryRows((prev) => {
+      const ids = new Set(prev.map((r) => r.id))
+      const fresh = incoming.filter((r) => !ids.has(r.id))
+      if (fresh.length === 0) return prev
+      const merged = [...prev, ...fresh]
+      merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      return merged.slice(-500)
+    })
+  }, [])
+
+  // Load DTDashboard history from localStorage on mount + fetch server rows.
+  // Both sources are merged so Vercel cold-start DB wipes don't blank the charts.
   useEffect(() => {
     if (isGuest) return
     if (typeof sessionStorage !== "undefined" && sessionStorage.getItem("runner_results_cleared") === "1") return
+    // 1. Cache — immediate
     const cached = readExecCache()
     if (cached.length > 0) {
       setDtHistoryRows(
         [...cached]
           .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-          .slice(-200),
+          .slice(-500),
       )
     }
-  }, [isGuest])
+    // 2. Server — async fallback
+    fetch("/api/dashboard/data?timeRange=30d")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        const rows: ExecutionRow[] = data?.logs || []
+        if (rows.length) mergeDtRows(rows)
+      })
+      .catch(() => {})
+  }, [isGuest, mergeDtRows])
+
+  // Re-sync dtHistoryRows whenever the browser tab regains focus.
+  // This picks up rows that the dashboard (or another tab) wrote to cache
+  // while this page was in the background — the same pattern the dashboard uses.
+  useEffect(() => {
+    if (isGuest) return
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return
+      if (typeof sessionStorage !== "undefined" && sessionStorage.getItem("runner_results_cleared") === "1") return
+      mergeDtRows(readExecCache())
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => document.removeEventListener("visibilitychange", onVisible)
+  }, [isGuest, mergeDtRows])
 
   useEffect(() => {
     if (!sdkMode || isGuest) {
@@ -254,6 +291,17 @@ export default function RunnerPage() {
     apiKey: null, // session cookie handles auth for browser EventSource
     initialRows: initialLiveRows,
   })
+
+  // Single source of truth: merges SSE live rows (SDK mode) with cached/manual rows.
+  // Used by DTDashboard and ScenarioComparison so both modes always see the full history.
+  const allRunnerRows = useMemo<ExecutionRow[]>(() => {
+    if (liveRows.length === 0) return dtHistoryRows
+    const liveIds = new Set(liveRows.map((r) => r.id))
+    const extra = dtHistoryRows.filter((r) => !liveIds.has(r.id))
+    const merged = [...liveRows, ...extra]
+    merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+    return merged
+  }, [liveRows, dtHistoryRows])
 
   // When a synthetic row arrives, mirror it into local results state so CircuitResults updates
   useEffect(() => {
@@ -310,6 +358,21 @@ export default function RunnerPage() {
     if (latest.qubits_used) setQubits(latest.qubits_used)
     if (latest.algorithm)   setCircuitName(latest.algorithm)
     if (latest.backend_selected) setBackend(latest.backend_selected as any)
+
+    // Cache the incoming SDK row to localStorage so it survives page navigation.
+    // (Manual runs are cached in handleRunCircuit; SDK runs come via SSE and
+    //  need to be cached here separately.)
+    try {
+      const raw = localStorage.getItem("planck_exec_cache")
+      const existing: ExecutionRow[] = raw ? JSON.parse(raw) : []
+      if (!existing.some((r) => r.id === latest.id)) {
+        const updated = [latest, ...existing].slice(0, 500)
+        localStorage.setItem("planck_exec_cache", JSON.stringify(updated))
+      }
+    } catch { /* non-fatal */ }
+
+    // Keep dtHistoryRows in sync so non-SDK charts and ScenarioComparison stay current.
+    mergeDtRows([latest])
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveRows, sdkMode])
 
@@ -1803,8 +1866,8 @@ const adaptiveShots = calculateAdaptiveShots({
               )}
 
               {/* Scenario Comparison — shown when ≥ 2 completed runs exist.
-                  dtHistoryRows is updated after every single/batch/synthetic run. */}
-              <ScenarioComparison rows={dtHistoryRows} />
+                  allRunnerRows merges SDK liveRows + manual/cached history. */}
+              <ScenarioComparison rows={allRunnerRows} />
 
               {results && uploadedData && circuitCode && !isHidden('runner.digital_twin_panel') && (
                 <DigitalTwinPanel
@@ -2097,7 +2160,7 @@ const adaptiveShots = calculateAdaptiveShots({
             liveEnabled={false}
             apiKey={null}
             digitalTwinId={selectedDigitalTwinId}
-            initialRows={sdkMode ? liveRows : dtHistoryRows}
+            initialRows={allRunnerRows}
             title={selectedDigitalTwinId ? "Selected Digital Twin" : "Simulations — All Scenarios"}
           />
         </div>
