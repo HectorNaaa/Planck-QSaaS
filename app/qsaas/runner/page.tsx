@@ -29,6 +29,7 @@ interface CircuitData {
 import { selectOptimalBackend, calculateFidelity, estimateRuntime } from "@/lib/backend-selector"
 import { DigitalTwinPanel } from "@/components/runner/digital-twin-panel"
 import { DigitalTwinSelector } from "@/components/runner/digital-twin-selector"
+import { ScenarioComparison } from "@/components/runner/scenario-comparison"
 import { DigitalTwinDashboard } from "@/components/dashboard/digital-twin-dashboard"
 import { useLiveExecutions, type ExecutionRow } from "@/hooks/use-live-executions"
 import { useLiveMode, broadcastExecution } from "@/hooks/use-live-mode"
@@ -1800,6 +1801,10 @@ const adaptiveShots = calculateAdaptiveShots({
               {!isHidden('runner.circuit_results') && (
               <CircuitResults key={sdkMode ? "cr-live" : "static"} backend={backend} results={results} qubits={qubits} onDownload={handleDownloadResults} isLive={true} />
               )}
+
+              {/* Scenario Comparison — shown when ≥ 2 completed runs exist.
+                  dtHistoryRows is updated after every single/batch/synthetic run. */}
+              <ScenarioComparison rows={dtHistoryRows} />
 
               {results && uploadedData && circuitCode && !isHidden('runner.digital_twin_panel') && (
                 <DigitalTwinPanel
