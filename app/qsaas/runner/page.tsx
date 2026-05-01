@@ -1474,18 +1474,6 @@ const adaptiveShots = calculateAdaptiveShots({
         </Card>
       )}
 
-      {/* ── Benchmarks dashboard (SDK / Synthetic mode) — above Scenario Output ── */}
-      {(sdkMode || syntheticMode) && !isHidden('runner.digital_twin_dashboard') && (
-        <DigitalTwinDashboard
-          key={`dt-top-${clearKey}`}
-          liveEnabled={false}
-          apiKey={null}
-          digitalTwinId={selectedDigitalTwinId}
-          initialRows={sdkMode ? liveRows : dtHistoryRows}
-          title={selectedDigitalTwinId ? "Selected Digital Twin" : "Simulations — All Scenarios"}
-        />
-      )}
-
       {/* ── Batch results comparison ─────────────────────────────────────── */}
       {batchResults.length >= 2 && !batchProgress && (
         <Card className="p-5 border border-border shadow">
