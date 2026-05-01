@@ -1555,50 +1555,6 @@ const adaptiveShots = calculateAdaptiveShots({
       {/* ── Synthetic Data runner panel ───────────────────────────────── */}
       {syntheticMode && <SyntheticDataRunner />}
 
-      {/* ── SDK live feed panel ─────────────────────────────────────────── */}
-      {sdkMode && (
-        <Card className="p-5 border border-primary/20 bg-primary/5 shadow-md">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Radio size={16} className="text-primary" />
-              <h3 className="text-sm font-semibold text-foreground">Live SDK Feed</h3>
-              {liveConnected && (
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">{liveRows.length} job{liveRows.length !== 1 ? "s" : ""} received</p>
-          </div>
-
-          {liveRows.length === 0 ? (
-            <div className="flex items-center justify-center py-8 rounded-lg border border-dashed border-border bg-secondary/30">
-              <p className="text-sm text-muted-foreground">Waiting for SDK jobs… Run <code className="text-xs bg-secondary px-1.5 py-0.5 rounded">user.run(data)</code> from your notebook.</p>
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-56 overflow-y-auto">
-              {[...liveRows].reverse().map((row) => (
-                <div key={row.id} className={`flex items-center justify-between px-3 py-2 rounded-md border text-xs transition-colors ${
-                  row.id === (results as any)?._liveJobId ? "border-primary/40 bg-primary/10" : "border-border bg-secondary/30"
-                }`}>
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className={`flex-shrink-0 w-1.5 h-1.5 rounded-full ${row.status === "completed" ? "bg-primary" : row.status === "running" ? "bg-accent" : "bg-destructive"}`} />
-                    <span className="font-medium text-foreground truncate">{row.circuit_name || row.algorithm}</span>
-                    <span className="text-muted-foreground capitalize hidden sm:inline">{row.algorithm}</span>
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0 text-muted-foreground">
-                    <span>{row.qubits_used}q</span>
-                    <span>{row.runtime_ms}ms</span>
-                    <span className="font-medium" style={{ color: "#7ab5ac" }}>{row.success_rate?.toFixed(1)}%</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
-
       {/* Mobile pipeline — hidden in SDK/live mode and synthetic mode */}
       {!sdkMode && !syntheticMode && (
       <div className="lg:hidden space-y-6">
