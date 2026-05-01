@@ -35,9 +35,6 @@ export function ScenarioComparison({ rows }: ScenarioComparisonProps) {
     latest,
     runtimeDelta,
     reliabilityDelta,
-    avgSuccessRate,
-    avgRuntime,
-    computeRoute,
     rowCount,
   } = data
 
@@ -110,22 +107,6 @@ export function ScenarioComparison({ rows }: ScenarioComparisonProps) {
           </p>
           <p className="text-xs text-muted-foreground">baseline → latest</p>
         </Card>
-      </div>
-
-      {/* Avg metrics summary strip */}
-      <div className="grid grid-cols-3 gap-3 mt-3">
-        <div className="p-3 bg-secondary/40 rounded-lg text-center border border-border">
-          <p className="text-[10px] text-muted-foreground mb-0.5">Avg Reliability</p>
-          <p className="text-sm font-bold text-foreground">{avgSuccessRate.toFixed(1)}%</p>
-        </div>
-        <div className="p-3 bg-secondary/40 rounded-lg text-center border border-border">
-          <p className="text-[10px] text-muted-foreground mb-0.5">Avg Runtime</p>
-          <p className="text-sm font-bold text-foreground">{Math.round(avgRuntime)}ms</p>
-        </div>
-        <div className="p-3 bg-secondary/40 rounded-lg text-center border border-border">
-          <p className="text-[10px] text-muted-foreground mb-0.5">Compute Route</p>
-          <p className="text-sm font-bold text-foreground">{routeLabel(computeRoute)}</p>
-        </div>
       </div>
     </div>
   )

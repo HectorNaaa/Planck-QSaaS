@@ -76,6 +76,13 @@ function readExecCache(): ExecutionRow[] {
   }
 }
 
+/** Write rows back to localStorage — mirrors dashboard's writeExecCache. */
+function writeExecCache(rows: ExecutionRow[]) {
+  try {
+    localStorage.setItem("planck_exec_cache", JSON.stringify(rows.slice(0, 500)))
+  } catch { /* localStorage full or unavailable — fail silently */ }
+}
+
 export default function RunnerPage() {
   const [isRunning, setIsRunning] = useState(false)
   const [executionName, setExecutionName] = useState("")
@@ -211,11 +218,12 @@ export default function RunnerPage() {
   }, [])
 
   // Load DTDashboard history from localStorage on mount + fetch server rows.
-  // Both sources are merged so Vercel cold-start DB wipes don't blank the charts.
+  // Mirrors dashboard's loadAll(): server rows take priority, cache fills gaps,
+  // merged result is written back to localStorage so future mounts are instant.
   useEffect(() => {
     if (isGuest) return
     if (typeof sessionStorage !== "undefined" && sessionStorage.getItem("runner_results_cleared") === "1") return
-    // 1. Cache — immediate
+    // 1. Cache — show immediately while server fetch is in-flight
     const cached = readExecCache()
     if (cached.length > 0) {
       setDtHistoryRows(
@@ -224,15 +232,25 @@ export default function RunnerPage() {
           .slice(-500),
       )
     }
-    // 2. Server — async fallback
+    // 2. Server — fetch full history, merge with cache, write back (same as dashboard)
     fetch("/api/dashboard/data?timeRange=30d")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        const rows: ExecutionRow[] = data?.logs || []
-        if (rows.length) mergeDtRows(rows)
+        const serverRows: ExecutionRow[] = data?.logs || []
+        if (!serverRows.length) return
+        // Server rows take priority; cache fills rows the server lost (cold-start wipes)
+        const cachedRows = readExecCache()
+        const serverIds = new Set(serverRows.map((r) => r.id))
+        const extra = cachedRows.filter((r) => !serverIds.has(r.id))
+        const merged = [...serverRows, ...extra]
+        merged.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+        const capped = merged.slice(-500)
+        // Write merged data back so the next mount/visibility check is instant
+        writeExecCache(capped)
+        setDtHistoryRows(capped)
       })
       .catch(() => {})
-  }, [isGuest, mergeDtRows])
+  }, [isGuest])
 
   // Re-sync dtHistoryRows whenever the browser tab regains focus.
   // This picks up rows that the dashboard (or another tab) wrote to cache
