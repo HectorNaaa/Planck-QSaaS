@@ -11,7 +11,7 @@ import { ExpectedResults } from "@/components/runner/expected-results"
 import { CircuitResults } from "@/components/runner/circuit-results"
 import { SyntheticDataRunner } from "@/components/runner/synthetic-data-runner"
 import { useSyntheticMode } from "@/contexts/synthetic-mode-context"
-import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff, Trash2, Brain, FlaskConical, ChevronDown, Settings2, Target, Layers, AlertTriangle, TrendingUp, Zap, Shield, BarChart3 } from "lucide-react"
+import { Save, Play, RotateCcw, Download, Loader2, Radio, Wifi, WifiOff, Trash2, Brain, FlaskConical, ChevronDown, Settings2, Target, Layers, AlertTriangle, TrendingUp, Zap, Shield, BarChart3, Info, X } from "lucide-react"
 import { PageHeader } from "@/components/page-header"
 import type { BuiltCircuit } from "@/lib/circuit-builder"
 
@@ -112,6 +112,7 @@ export default function RunnerPage() {
   const [scenarioType, setScenarioType] = useState<"Baseline" | "Stress test" | "Optimization" | "Risk analysis" | "Custom">("Baseline")
   const [scenarioObjective, setScenarioObjective] = useState<"minimize_runtime" | "maximize_reliability" | "minimize_cost" | "maximize_accuracy" | "balanced">("balanced")
   const [riskTolerance, setRiskTolerance] = useState<"conservative" | "balanced" | "aggressive">("balanced")
+  const [showRiskInfo, setShowRiskInfo] = useState(false)
   const [executionStrategy, setExecutionStrategy] = useState<"single" | "batch" | "compare">("single")
   const [batchSize, setBatchSize] = useState<1 | 3 | 5 | 10>(1)
   // Batch run state
@@ -1231,15 +1232,44 @@ const adaptiveShots = calculateAdaptiveShots({
             </div>
           </div>
           {/* Risk Tolerance */}
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
-              <Shield size={11} /> Risk Tolerance
+          <div className="relative">
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1.5">
+              Risk Tolerance
+              <button
+                onClick={() => setShowRiskInfo((v) => !v)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Risk tolerance info"
+              >
+                <Info size={11} />
+              </button>
             </label>
+            {showRiskInfo && (
+              <div className="absolute z-50 left-0 top-6 w-72 rounded-lg border border-border bg-popover shadow-lg p-3 text-xs space-y-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-semibold text-foreground text-[11px] uppercase tracking-wide">Risk Tolerance</span>
+                  <button onClick={() => setShowRiskInfo(false)} title="Close" className="text-muted-foreground hover:text-foreground"><X size={12} /></button>
+                </div>
+                <div className="space-y-2">
+                  <div>
+                    <p className="font-semibold text-blue-500 mb-0.5">Conservative</p>
+                    <p className="text-muted-foreground leading-relaxed">Routes to <strong>QI-HPC</strong>. Maximises stability and reproducibility at the cost of speed. Best for safety-critical or financial scenarios where variance must be minimised.</p>
+                  </div>
+                  <div className="border-t border-border pt-2">
+                    <p className="font-semibold text-primary mb-0.5">Balanced</p>
+                    <p className="text-muted-foreground leading-relaxed">Auto-selects the optimal backend via RL routing. Trades off runtime and reliability dynamically. Suitable for general-purpose simulations.</p>
+                  </div>
+                  <div className="border-t border-border pt-2">
+                    <p className="font-semibold text-orange-500 mb-0.5">Aggressive</p>
+                    <p className="text-muted-foreground leading-relaxed">Routes to <strong>Quantum QPU</strong>. Maximum performance with higher result variance. Recommended for exploratory or research-grade workloads.</p>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex gap-1.5">
               {(["conservative", "balanced", "aggressive"] as const).map((r) => (
                 <button
                   key={r}
-                  onClick={() => setRiskTolerance(r)}
+                  onClick={() => { setRiskTolerance(r); setShowRiskInfo(false) }}
                   className={`flex-1 py-2 px-1 rounded-md text-xs font-medium transition-colors capitalize ${
                     riskTolerance === r
                       ? r === "conservative" ? "bg-blue-600 text-white"
@@ -1248,10 +1278,19 @@ const adaptiveShots = calculateAdaptiveShots({
                       : "bg-secondary text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {r === "conservative" ? "🛡 Conserv." : r === "balanced" ? "⚖ Balanced" : "⚡ Aggressive"}
+                  {r === "conservative" ? "Conserv." : r === "balanced" ? "Balanced" : "Aggressive"}
                 </button>
               ))}
             </div>
+            {riskTolerance === "conservative" && (
+              <p className="mt-1.5 text-[10px] text-blue-400">Routes to QI-HPC · Stability priority · Low variance</p>
+            )}
+            {riskTolerance === "balanced" && (
+              <p className="mt-1.5 text-[10px] text-primary">RL auto-routing · Runtime/reliability balance</p>
+            )}
+            {riskTolerance === "aggressive" && (
+              <p className="mt-1.5 text-[10px] text-orange-400">Routes to QPU · Max performance · Higher variance</p>
+            )}
           </div>
           {/* Execution Strategy */}
           <div>
