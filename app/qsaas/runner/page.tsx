@@ -853,7 +853,7 @@ const adaptiveShots = calculateAdaptiveShots({
         runtime: estimateRuntime(Math.pow(2, qubits), true),
       },
       hpc_gpu: {
-        name: "HPC GPU",
+        name: "QI-HPC GPU",
         fidelity: calculateFidelity("hpc_gpu", qubits, circuitData?.gates.length || 20),
         runtime: estimateRuntime(Math.pow(2, qubits), true) * 0.7,
       },
@@ -1528,7 +1528,7 @@ const adaptiveShots = calculateAdaptiveShots({
               <tbody>
                 {batchResults.map((r, i) => {
                   const routeLabel = r.backend === "quantum_inspired_gpu" ? "QI-GPU"
-                    : r.backend === "hpc_gpu" ? "HPC"
+                    : r.backend === "hpc_gpu" ? "QI-HPC"
                     : r.backend === "quantum_qpu" ? "QPU"
                     : r.backend || "—"
                   const maxSuccess = Math.max(...batchResults.map((x) => x.success_rate || 0))
@@ -1746,7 +1746,7 @@ const adaptiveShots = calculateAdaptiveShots({
                       <span className="font-medium">Automatic backend selection system based on Reinforcement Learning selected: </span>
                       <span className="font-bold" style={{ color: "#7ab5ac" }}>
                         {(
-                          { quantum_inspired_gpu: "Quantum Inspired GPU", hpc_gpu: "HPC GPU", quantum_qpu: "Quantum QPU" } as Record<string, string>
+                          { quantum_inspired_gpu: "Quantum Inspired GPU", hpc_gpu: "QI-HPC GPU", quantum_qpu: "Quantum QPU" } as Record<string, string>
                         )[results.backend] ?? results.backend}
                       </span>
                       <span className="font-medium"> as best choice.</span>

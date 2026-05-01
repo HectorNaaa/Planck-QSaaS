@@ -61,7 +61,7 @@ const backendNum: Record<string, number> = {
   quantum_qpu: 3,
 }
 const backendLabel = (b: string | null) =>
-  b === "quantum_qpu" ? "QPU" : b === "hpc_gpu" ? "HPC" : "QI-GPU"
+  b === "quantum_qpu" ? "QPU" : b === "hpc_gpu" ? "QI-HPC" : "QI-GPU"
 
 function downloadChart(ref: any, name: string) {
   if (!ref.current) return
@@ -132,8 +132,8 @@ export function DigitalTwinDashboard({
   const { isHidden } = useUIPreferences()
   const { dtMode } = useDigitalTwinMode()
 
-  // Limit chart to last 80 points for readability
-  const chartRows = useMemo(() => rows.slice(-80), [rows])
+  // Limit chart to last 50 points for readability
+  const chartRows = useMemo(() => rows.slice(-50), [rows])
   const labels = useMemo(() => chartRows.map((_, i) => `#${i + 1}`), [chartRows])
 
   // ── Unique digital twin IDs present in the loaded rows ───────────────────
