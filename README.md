@@ -1,829 +1,364 @@
-﻿# Planck-QSaaS — Internal Repository Documentation
+﻿# Planck-QSaaS — Internal Platform Documentation
 
-> **Private — Planck Technologies**
-> Hybrid Quantum Digital Twins · SaaS Platform · Internal Monorepo
+> **Repositorio interno — Planck Technologies**
+> Hybrid Quantum Digital Twins SaaS · Uso exclusivo interno del equipo
 
 <img width="2669" height="585" alt="Planck QSaaS Banner" src="https://github.com/user-attachments/assets/beea1cff-1c81-481a-a95e-e47b2f834d85" />
 
 ---
 
-## Table of Contents
+## ¿Qué es este repositorio?
 
-1. [What is Planck-QSaaS?](#1-what-is-planck-qsaas)
-2. [Architecture at a Glance](#2-architecture-at-a-glance)
-3. [Tech Stack](#3-tech-stack)
-4. [Repository Structure](#4-repository-structure)
-5. [Authentication & Authorization Flow](#5-authentication--authorization-flow)
-6. [Database Architecture](#6-database-architecture)
-7. [Quantum Execution Pipeline](#7-quantum-execution-pipeline)
-8. [Digital Twins System](#8-digital-twins-system)
-9. [ML & C++ Native Layer](#9-ml--c-native-layer)
-10. [API Reference](#10-api-reference)
-11. [Python SDK](#11-python-sdk)
-12. [Billing & Pricing Plans](#12-billing--pricing-plans)
-13. [Deployment (Vercel)](#13-deployment-vercel)
-14. [Local Development](#14-local-development)
-15. [Environment Variables](#15-environment-variables)
-16. [Subsystem Dependencies Map](#16-subsystem-dependencies-map)
-17. [Security Model](#17-security-model)
+Este es el repositorio del producto principal de Planck Technologies. Contiene todo el código de la plataforma web, la API, la lógica de backend, y el SDK de Python que publicamos en PyPI. Es un monorepo: vive todo junto, no hay servicios separados.
+
+El producto es una plataforma SaaS que permite a investigadores, ingenieros y empresas ejecutar circuitos cuánticos sobre sus propios datos sin necesidad de conocer QASM, sin gestionar hardware cuántico, y sin reescribir su stack tecnológico. El usuario sube un dataset, elige un algoritmo cuántico, y recibe resultados en segundos junto con un "digital twin" — un gemelo digital que modela el comportamiento cuántico de ese sistema a lo largo del tiempo.
 
 ---
 
-## 1. What is Planck-QSaaS?
+## Índice
 
-Planck-QSaaS is the **production SaaS platform** for Planck Technologies. It exposes quantum computing infrastructure as an easy-to-use web application and REST API, removing the need for researchers, engineers and companies to manage their own quantum hardware or simulators.
-
-**Core value propositions:**
-
-- **Hybrid Digital Twins** — every circuit execution optionally generates a digital twin insight: a structured JSON blob capturing fidelity, probability distributions, gate statistics, and recommendations. Users can create named digital twins (e.g., `battery-optimizer-v2`) and track their performance over time across different datasets.
-- **No-code circuit generation** — upload any dataset (CSV, JSON, numeric arrays). The platform auto-parses it, derives a circuit topology, and runs the appropriate quantum algorithm. No QASM knowledge required.
-- **Parametric QASM 2.0** — all circuits are generated deterministically from the uploaded data profile. Same data → same circuit. No randomness, no hardcoded gate sequences.
-- **Adaptive backend selection** — the system selects the best execution backend (simulator tier) based on the circuit size, user quota, latency policy, and available capacity. Policies are auditable.
-- **Real-time dashboard** — Server-Sent Events (SSE) stream new execution rows to the dashboard as they complete. Charts update live.
-- **Python SDK** — zero-dependency client library (`planck_sdk`) for embedding quantum workflows in Python notebooks, scripts, and pipelines. Published to PyPI.
-- **GDPR-ready** — users can delete all their execution history and account data from the settings page. Soft-delete semantics propagate to the localStorage cache.
-
-**Contact:** hello@plancktechnologies.xyz
-
----
-
-## 2. Architecture at a Glance
-
-```
-┌────────────────────────────────────────────────────────────────────┐
-│                        Next.js 16 App (Vercel)                     │
-│                                                                    │
-│  ┌─────────────┐   ┌──────────────────┐   ┌────────────────────┐  │
-│  │  Landing /  │   │  Auth pages      │   │  QSaaS app         │  │
-│  │  Marketing  │   │  /auth/login     │   │  /qsaas/...        │  │
-│  │  app/page   │   │  /auth/sign-up   │   │  runner, dashboard │  │
-│  └─────────────┘   │  /auth/callback  │   │  billing, settings │  │
-│                    └──────────────────┘   └─────────┬──────────┘  │
-│                                                     │              │
-│  ┌──────────────────────────────────────────────────▼───────────┐ │
-│  │                    API Routes (/api/...)                      │ │
-│  │   /api/quantum/simulate   /api/quantum/stream (SSE)          │ │
-│  │   /api/quantum/generate-circuit  /api/quantum/transpile      │ │
-│  │   /api/quantum/visualize  /api/quantum/digital-twin          │ │
-│  │   /api/quantum/ml-recommend  /api/quantum/assistant          │ │
-│  │   /api/auth/signup  /api/user/...  /api/dashboard/data       │ │
-│  └──────────────────────────┬───────────────────────────────────┘ │
-│                             │                                      │
-│  ┌──────────────────────────▼───────────────────────────────────┐ │
-│  │                     lib/ (Core Logic)                        │ │
-│  │  circuit-builder  circuit-utils  backend-policy  security    │ │
-│  │  auth-utils  api-auth  rate-limiter  qasm-processor          │ │
-│  │  db/init  db/client  ml/cpp-ml-engine  constants             │ │
-│  └──────────────────────────┬───────────────────────────────────┘ │
-│                             │                                      │
-│  ┌──────────────────────────▼───────────────────────────────────┐ │
-│  │                  SQLite (better-sqlite3)                      │ │
-│  │            /tmp/planck.db  (ephemeral on Vercel)             │ │
-│  │    users · profiles · circuits · executions · api_keys       │ │
-│  └──────────────────────────────────────────────────────────────┘ │
-└────────────────────────────────────────────────────────────────────┘
-
-         ┌──────────────────────────────────────────────┐
-         │     External integrations (planned/partial)  │
-         │  C++ native binaries (generate_circuit.cpp)  │
-         │  Python SDK (planck_sdk on PyPI)              │
-         │  Stripe (billing, not yet wired)              │
-         │  OpenAI (quantum assistant via ai SDK)        │
-         └──────────────────────────────────────────────┘
-```
+1. [Producto: qué hace el usuario](#1-producto-qué-hace-el-usuario)
+2. [Arquitectura general](#2-arquitectura-general)
+3. [La aplicación web](#3-la-aplicación-web)
+4. [La API cuántica](#4-la-api-cuántica)
+5. [El motor de lógica (lib/)](#5-el-motor-de-lógica-lib)
+6. [La capa nativa en C++](#6-la-capa-nativa-en-c)
+7. [Los Digital Twins](#7-los-digital-twins)
+8. [El sistema de autenticación](#8-el-sistema-de-autenticación)
+9. [La base de datos](#9-la-base-de-datos)
+10. [El SDK de Python](#10-el-sdk-de-python)
+11. [Dashboard en tiempo real](#11-dashboard-en-tiempo-real)
+12. [El asistente de IA](#12-el-asistente-de-ia)
+13. [Billing y planes](#13-billing-y-planes)
+14. [Despliegue en Vercel](#14-despliegue-en-vercel)
+15. [Desarrollo local](#15-desarrollo-local)
+16. [Variables de entorno](#16-variables-de-entorno)
+17. [Seguridad](#17-seguridad)
 
 ---
 
-## 3. Tech Stack
+## 1. Producto: qué hace el usuario
 
-| Layer | Technology | Version / Notes |
-|---|---|---|
-| Framework | **Next.js** App Router | 16.1.6 |
-| Runtime | **React** | 19.2.1 |
-| Language | **TypeScript** | strict mode |
-| Database | **SQLite** via `better-sqlite3` | ephemeral on Vercel `/tmp` |
-| Styling | **Tailwind CSS** + `shadcn/ui` | Radix UI primitives |
-| Auth | **JWT** (custom, `jose`) + cookie | 7-day expiry, self-healing |
-| AI | **Vercel AI SDK** + OpenAI | quantum circuit assistant |
-| Charts | **Chart.js** + `react-chartjs-2` | execution dashboards |
-| Animations | **Lottie**, Tailwind animations | landing page |
-| Package manager | **pnpm** | |
-| Deployment | **Vercel** | `vercel.json` configured |
-| Testing | **Vitest** | `__tests__/` directory |
-| Native layer | **C++17** (g++ / clang++) | circuit generation + transpilation |
-| Python SDK | **planck_sdk** (PyPI) | zero-dependency |
+El flujo completo desde el punto de vista del usuario es el siguiente:
 
----
+El usuario se registra en la plataforma con su email. Opcionalmente puede generar una API key desde los ajustes si quiere usar el SDK de Python en lugar de la interfaz web.
 
-## 4. Repository Structure
+Una vez dentro, accede al **Runner** — el núcleo del producto. Ahí sube un dataset: puede ser un CSV con datos de sensores, una tabla de optimización, datos de proteínas, datos financieros, o cualquier array numérico. La plataforma analiza automáticamente el dataset y deriva un perfil de datos: cuántos qubits necesita el circuito, qué profundidad tendrá, qué ángulos de rotación se usarán. No hay que configurar nada de esto a mano.
 
-```
-Repo/
-├── app/                    # Next.js App Router pages and API routes
-│   ├── page.tsx            # Public landing page (marketing)
-│   ├── layout.tsx          # Root layout (providers, fonts, analytics)
-│   ├── globals.css         # Global CSS reset + Tailwind base
-│   ├── auth/               # Unauthenticated auth pages
-│   │   ├── login/          # Login page
-│   │   ├── sign-up/        # Registration with phone/email
-│   │   └── oauth-callback/ # OAuth redirect handler
-│   ├── qsaas/              # Protected SaaS application shell
-│   │   ├── layout.tsx      # Sidebar + mobile nav layout
-│   │   ├── dashboard/      # Digital twin live dashboard
-│   │   ├── runner/         # Circuit runner (upload → run → results)
-│   │   ├── billing/        # Subscription plans UI
-│   │   ├── settings/       # Account, API keys, preferences
-│   │   └── templates/      # Algorithm template browser
-│   ├── api/                # Next.js API Route handlers
-│   │   ├── quantum/        # All quantum operations (see §10)
-│   │   ├── auth/           # Signup, logout
-│   │   ├── dashboard/      # Dashboard stats endpoint
-│   │   ├── user/           # Profile CRUD
-│   │   └── request-utils/  # JWT/guest extraction
-│   ├── privacy/            # Privacy policy page
-│   └── terms/              # Terms of service page
-├── components/             # Shared React components
-│   ├── ui/                 # shadcn/ui primitives (Button, Card, Dialog…)
-│   ├── layout/             # App shell (sidebar, mobile nav, protected route)
-│   ├── runner/             # Circuit runner panels (uploader, results, DT…)
-│   ├── dashboard/          # Live charts + digital twin dashboard
-│   └── (root)              # Landing page components (hero, pricing, FAQ…)
-├── contexts/               # React Context providers
-├── hooks/                  # Custom React hooks
-├── lib/                    # Server-side core logic (never imported by client)
-│   ├── db/                 # SQLite schema, ORM-style client
-│   ├── ml/                 # C++ ML engine wrapper
-│   ├── types/              # Shared TypeScript interfaces
-│   └── utils/              # Misc helpers
-├── scripts/                # C++ source files (native layer)
-│   ├── generate_circuit.cpp
-│   └── transpile_circuit.cpp
-├── sdk/python/             # Python client SDK (planck_sdk)
-├── styles/                 # Additional CSS (globals mirror)
-├── public/                 # Static assets (images, icons)
-├── __tests__/              # Vitest integration tests
-├── next.config.mjs         # Next.js config (Turbopack, unoptimized images)
-├── vercel.json             # Vercel deployment config (DB_DIR=/tmp)
-├── tsconfig.json           # TypeScript config (strict, path aliases)
-└── vitest.config.ts        # Vitest config
-```
+A continuación el usuario elige el algoritmo cuántico que más se adapta a su problema — VQE para optimización de energía, QAOA para optimización combinatoria, Grover para búsqueda, QFT para análisis de señales, Shor para factorización, o Bell como test de entrelazamiento. También puede ajustar parámetros avanzados como el número de shots (mediciones), la estrategia de mitigación de errores, o dar una pista sobre qué backend prefiere.
 
-### 4.1 `app/` — Next.js App Router
+Al ejecutar, la plataforma genera el circuito cuántico parametrizado en QASM 2.0 a partir de los datos del usuario, lo optimiza, selecciona el backend más adecuado, y devuelve los resultados: distribución de probabilidades de los qubits, tasa de éxito, fidelidad, tiempo de ejecución, y el backend que se utilizó.
 
-The app directory follows the Next.js App Router convention. Every folder with a `page.tsx` is a route. Layouts at each level wrap their children.
+Si el usuario tiene activado el modo Digital Twin, la plataforma además genera un insight estructurado del gemelo digital: análisis de puertas cuánticas utilizadas, distribución detallada de resultados, recomendaciones para el siguiente run, y cómo ha evolucionado la fidelidad respecto a ejecuciones anteriores.
 
-#### `app/page.tsx` — Landing Page
+El **Dashboard** muestra toda esta historia en tiempo real: gráficas de latencia, distribución de backends usados, tasa de éxito a lo largo del tiempo, y una tabla de todas las ejecuciones. Se actualiza en vivo según llegan nuevos resultados sin necesidad de recargar la página.
 
-The public marketing page. Renders hero, features, pricing (`components/pricing-section.tsx`), FAQ, and footer. Forces light theme on mount. No auth required.
-
-**Dependencies:** `components/pricing-section`, `components/faq-section`, `components/hero-background`, `components/footer`, `contexts/language-context`
-
-#### `app/auth/` — Authentication Pages
-
-| Route | Purpose |
-|---|---|
-| `/auth/login` | Email + password login form. Sets `auth-token` JWT cookie. |
-| `/auth/sign-up` | Multi-step registration: email → password → phone → OTP. Calls `POST /api/auth/signup`. |
-| `/auth/oauth-callback` | Handles OAuth redirect and mints a session cookie. |
-
-**Key dependency:** `lib/auth-utils.ts` for JWT generation, `lib/db/client.ts` for user creation.
-
-#### `app/qsaas/` — Protected Application Shell
-
-The main SaaS product. The `layout.tsx` wraps everything in `<MainLayout>` which renders the sidebar (desktop) and bottom navigation (mobile). Access is guarded by `components/layout/protected-route.tsx`.
-
-##### `app/qsaas/runner/page.tsx` — Circuit Runner
-
-The most complex page in the application. Full workflow:
-
-1. **Upload** a dataset (CSV or JSON via `<DatabaseUploader>`)
-2. **Auto-parse** — `<AutoParser>` calls `analyzeInputData()` from `lib/circuit-builder.ts` to derive a `DataProfile` (qubits, angles, depth)
-3. **Configure** — choose algorithm (`<CircuitSettings>`), shots, error mitigation, backend hint (`<ExecutionSettings>`)
-4. **Select digital twin** — optionally associate the run with a named digital twin (`<DigitalTwinSelector>`)
-5. **Run** — `POST /api/quantum/simulate`; response includes fidelity, counts, success rate, runtime
-6. **View results** — `<CircuitResults>` shows raw counts; `<DigitalTwinPanel>` shows the DT insight; `<ScenarioComparison>` compares multiple runs side by side
-7. **Live dashboard** — `<DigitalTwinDashboard>` at the bottom of the runner shows SSE-streamed execution history in real time
-
-**Key dependencies:** `lib/circuit-builder`, `lib/backend-selector`, `hooks/use-live-executions`, `hooks/use-live-mode`, `contexts/digital-twin-mode-context`, `contexts/synthetic-mode-context`
-
-##### `app/qsaas/dashboard/page.tsx` — Digital Twin Dashboard
-
-Four summary stat cards (total runs, avg success rate, avg runtime, avg qubits) plus one `<DigitalTwinDashboard>` tab per digital twin.
-
-Live data flows:
-- On mount: fetches `/api/dashboard/data` for aggregate stats and `/api/quantum/executions` for the full history
-- SSE via `useLiveExecutions` appends new rows in real time
-- `localStorage` cache `planck_exec_cache` (up to 100 rows) survives Vercel cold-start DB wipes
-
-##### `app/qsaas/billing/page.tsx` — Billing
-
-Static plan comparison: Starter ($29/mo), Professional ($99/mo), Enterprise (custom). Stripe scaffolded but not yet wired.
-
-##### `app/qsaas/settings/page.tsx` — Settings
-
-- Update display name, organization, country, occupation
-- Generate / revoke API keys (v0.9 format: 64-char hex)
-- Toggle dark/light theme, language, digital twin mode
-- Delete individual execution rows or clear all history (propagates to `localStorage` cache)
-- Delete account (cascades to all user data in SQLite)
-
-##### `app/qsaas/templates/` — Algorithm Templates
-
-Browses `QUANTUM_TEMPLATES` from `lib/constants.ts`. Clicking "Use Template" routes to the runner with that algorithm pre-selected.
+Desde **Settings** el usuario puede gestionar su perfil, generar o revocar API keys, cambiar el idioma y tema de la interfaz, y borrar todo su historial de ejecuciones (o su cuenta entera, cumpliendo GDPR).
 
 ---
 
-### 4.2 `components/`
+## 2. Arquitectura general
 
-#### `components/ui/` — Primitive UI Library
+La plataforma es una aplicación Next.js desplegada en Vercel. No hay microservicios: todo corre dentro de la misma aplicación. Las API routes de Next.js actúan como el backend, y las páginas de React actúan como el frontend. La base de datos es SQLite a través de `better-sqlite3`, que en Vercel vive en el directorio temporal `/tmp`.
 
-`shadcn/ui` components built on Radix UI. Button, Card, Dialog, Select, Tabs, Toast, Tooltip, and ~40 more primitives. Never edit directly.
+Esta elección de SQLite en lugar de Postgres es intencional para la fase actual: permite desplegar sin infraestructura de base de datos externa, abarata el coste, y el sistema de "self-healing" que construimos compensa la volatilidad del filesystem efímero de Vercel.
 
-#### `components/layout/`
+El sistema tiene tres capas de lógica que conviene entender:
 
-| File | Purpose |
-|---|---|
-| `main-layout.tsx` | Top-level authenticated shell. Renders Sidebar (desktop) / MobileBottomNav (mobile). |
-| `sidebar.tsx` | Navigation links, user info, logout button. Responsive collapsible. |
-| `mobile-bottom-nav.tsx` | 5-icon bottom tab bar for mobile viewports. |
-| `protected-route.tsx` | Checks `auth-token` cookie via `GET /api/request-utils`. Redirects to login if absent/expired. |
-| `mode-status-banner.tsx` | Top-of-screen banner: Live / Synthetic / Guest mode indicator. |
+**Capa de presentación** — Todo lo que vive en `app/` y `components/`. Las páginas de React que el usuario ve. Los formularios, gráficas, paneles de resultados, el asistente de IA. Esta capa nunca toca la base de datos directamente, solo llama a la API.
 
-#### `components/runner/`
+**Capa de API** — Todo lo que vive en `app/api/`. Son los route handlers de Next.js que reciben las peticiones HTTP, autentican al usuario, validan los inputs, coordinan la lógica de negocio, y devuelven respuestas JSON. Esta capa delega toda la lógica compleja a `lib/`.
 
-| File | Purpose |
-|---|---|
-| `database-uploader.tsx` | Drag-and-drop / file picker for CSV and JSON uploads. Validates size (<1MB) and format. |
-| `autoparser.tsx` | Calls `analyzeInputData()`. Displays the derived DataProfile (qubits, features, data scale, suggested algorithm). |
-| `circuit-settings.tsx` | Algorithm selector, custom circuit name. |
-| `execution-settings.tsx` | Shots slider, error mitigation picker, backend hint selector, DT mode toggle. |
-| `circuit-results.tsx` | Raw measurement counts as a bar chart + fidelity/success badges. |
-| `digital-twin-panel.tsx` | Displays the digital twin insight: probability distributions, gate analysis, recommendations. |
-| `digital-twin-selector.tsx` | Create/select a named digital twin. Stored per-user. |
-| `expected-results.tsx` | Optional: user defines expected qubit probabilities to compare against actual counts. |
-| `results-panel.tsx` | Aggregated view combining circuit results + DT insight. |
-| `scenario-comparison.tsx` | Side-by-side comparison of past runs for the same digital twin. |
-| `synthetic-data-runner.tsx` | Synthetic mode: generates datasets internally (no file upload needed) and runs the full pipeline. |
+**Capa de lógica de negocio** — Todo lo que vive en `lib/`. Aquí está el corazón de la plataforma: el generador de circuitos, el selector de backends, la autenticación JWT, los wrappers de la base de datos, el limitador de tasa, la validación de seguridad, y el motor de ML. Esta capa nunca es importada desde componentes del cliente — solo desde API routes y Server Components.
 
-#### `components/dashboard/`
-
-| File | Purpose |
-|---|---|
-| `digital-twin-dashboard.tsx` | Live execution dashboard for one digital twin. Three Chart.js charts (latency trend, backend distribution, success rate) + runs table. Subscribes to SSE via `useLiveExecutions`. |
-| `execution-charts.tsx` | Individual chart components. Accept `ExecutionRow[]` as props. |
-
-#### Root-level components (landing page)
-
-| File | Purpose |
-|---|---|
-| `hero-background.tsx` / `hero-animation.tsx` | Canvas/CSS animated quantum-inspired background. |
-| `interactive-qubit.tsx` | Animated Bloch-sphere-style qubit graphic. |
-| `pricing-section.tsx` | Three pricing cards with feature lists and CTA buttons. |
-| `faq-section.tsx` | Accordion FAQ powered by `@radix-ui/react-accordion`. |
-| `quantum-assistant.tsx` | Floating AI chat widget (Vercel AI SDK + OpenAI). |
-| `quantum-loading-screen.tsx` | Full-screen loading animation during initial app hydration. |
-| `guest-banner.tsx` | Top banner for unauthenticated users. Exposes `useIsGuest()` hook. |
-| `theme-provider.tsx` | `next-themes` wrapper. |
-| `language-selector.tsx` | Dropdown to switch app language. |
-| `page-header.tsx` | Reusable page title + description header inside the QSaaS app. |
-| `error-boundary.tsx` | React error boundary wrapping critical sections. |
+Adicionalmente existe una **capa nativa en C++** (`scripts/`) para las operaciones más intensivas computacionalmente, como la generación de circuitos para datasets masivos o la transpilación de puertas.
 
 ---
 
-### 4.3 `contexts/`
+## 3. La aplicación web
 
-React Context providers. All persist state to `localStorage` where relevant.
+### La landing page
 
-| File | Key State | Where Used |
-|---|---|---|
-| `digital-twin-mode-context.tsx` | `dtMode: boolean` — toggles DT insight generation on/off | Runner, Settings |
-| `synthetic-mode-context.tsx` | `syntheticMode: boolean` — real-data vs synthetic-data execution mode | Runner |
-| `language-context.tsx` | `language`, `t()` translation function | Landing, Auth, Runner |
-| `ui-preferences-context.tsx` | `compactMode`, `showAdvanced`, etc. — persisted UI preferences | Settings, Runner |
+La landing page pública (`app/page.tsx`) es el punto de entrada para visitantes. Contiene el hero animado con el fondo cuántico, la sección de features, los precios, las FAQs, y el footer. Fuerza el tema claro al cargar porque es la cara pública del producto.
 
----
+El componente de **Quantum Assistant** también está disponible en la landing como un chat flotante — permite a visitantes explorar capacidades del producto sin registrarse.
 
-### 4.4 `hooks/`
+### El shell autenticado
 
-| File | Purpose | Dependencies |
-|---|---|---|
-| `use-live-executions.ts` | Opens an `EventSource` to `/api/quantum/stream`. Appends new `ExecutionRow` objects as they arrive via SSE. Deduplicates by `id`. | `lib/types/` |
-| `use-live-mode.ts` | Manages live mode state (SSE connected vs. disconnected). Exposes `broadcastExecution()` to manually push a row after a manual simulation run. | `use-live-executions.ts` |
-| `use-mobile.ts` | Returns `true` if `window.innerWidth < 768px`. Used by `main-layout.tsx`. | — |
+Todo lo que está bajo `/qsaas/` es la aplicación protegida. El layout de esta sección (`app/qsaas/layout.tsx`) envuelve todas las páginas en el shell principal: el sidebar en desktop con los enlaces de navegación, y la barra de pestañas inferior en móvil.
 
----
+Cuando un usuario que no está autenticado intenta acceder a cualquier ruta bajo `/qsaas/`, el componente `ProtectedRoute` detecta la ausencia de la cookie `auth-token` y lo redirige al login automáticamente.
 
-### 4.5 `lib/` — Server-Side Core Logic
+### El Runner
 
-Everything here runs **server-side only** (API routes or Server Components). Never import from `lib/` in client components.
+El Runner (`app/qsaas/runner/`) es la página más compleja del producto. Está construida como una secuencia de paneles que el usuario recorre:
 
-#### `lib/db/`
+El panel de **carga de datos** acepta archivos CSV y JSON por drag-and-drop. Valida el tamaño (máximo 1MB) y el formato antes de enviarlo al servidor. Una vez cargado, el **AutoParser** analiza la estructura del dataset y muestra al usuario cuántos qubits derivó, cuántas features encontró, qué escala de datos tiene (pequeño, medio, grande, masivo), y qué algoritmo recomienda.
 
-| File | Responsibility |
-|---|---|
-| `init.ts` | Creates all SQLite tables on first request. Runs auto-migrations to add missing columns. Sets `PRAGMA foreign_keys = ON`. |
-| `client.ts` | ORM-style typed wrappers: `Users`, `Profiles`, `Circuits`, `Executions`, `ApiKeys`. All queries are parameterised (no string interpolation). |
+El panel de **configuración** permite al usuario elegir el algoritmo, nombrar el circuito, ajustar el número de shots, seleccionar la estrategia de mitigación de errores, y elegir si quiere asociar esta ejecución a un Digital Twin específico.
 
-**Schema:** `users` → `profiles` (1:1) → `circuits` (1:N) → `executions` (1:N) → `api_keys` (1:N)
+Cuando el usuario ejecuta, los resultados aparecen en el panel de **resultados del circuito** (distribución de probabilidades como gráfico de barras, badges de fidelidad y tasa de éxito) y opcionalmente en el panel del **Digital Twin** con el insight completo.
 
-#### `lib/auth-utils.ts`
+El **Scenario Comparison** al final del runner permite comparar dos runs anteriores del mismo twin lado a lado — útil para validar mejoras entre versiones de un modelo.
 
-JWT generation and verification using `jose`.
+### El Dashboard
 
-Key functions:
-- `generateJWT(userId, email, profileData)` → 7-day JWT
-- `verifyJWT(token)` → decoded payload or throws
-- `hashPassword(plain)` → SHA-256 hex
-- `selfHealFromJWT(payload)` → recreates `users`/`profiles` rows from JWT payload (critical for Vercel cold-start survivability)
+El Dashboard (`app/qsaas/dashboard/`) muestra el historial de ejecuciones agrupado por Digital Twin. Cuatro tarjetas de resumen (total de runs, tasa de éxito media, tiempo de ejecución medio, qubits medios usados), y debajo una pestaña por cada digital twin que el usuario ha creado.
 
-#### `lib/api-auth.ts`
+Cada pestaña renderiza el `DigitalTwinDashboard` con tres gráficas en tiempo real y una tabla de ejecuciones recientes. La actualización en tiempo real se consigue mediante SSE (Server-Sent Events): el cliente mantiene una conexión abierta con `/api/quantum/stream` y el servidor envía nuevas filas según se van completando ejecuciones.
 
-`authenticateRequest(request)` resolves a `userId` from:
-1. `x-api-key` header → `ApiKeys.findByKey()` in SQLite
-2. `auth-token` cookie → `verifyJWT()`
+### Settings
 
-Returns `{ userId, authMethod }` or throws 401.
+La página de ajustes gestiona todo el perfil del usuario: nombre, organización, país, ocupación. También es donde se gestionan las API keys: el usuario puede generar una nueva key (formato v0.9: 64 caracteres hexadecimales), copiarla al portapapeles, y revocarla. Una vez cerrada la ventana, la key no vuelve a mostrarse — está almacenada hasheada en la base de datos pero la plataforma hace un trick inteligente: guarda la key también en el JWT para poder mostrarla sin hacer una query de base de datos.
 
-#### `lib/circuit-builder.ts`
-
-**Core circuit intelligence.** Converts raw data into a fully parametric QASM 2.0 circuit.
-
-Public API:
-- `analyzeInputData(data, opts?)` → `DataProfile` (qubits, depth, gateCount, angles, featureCount, dataScale)
-- `buildCircuit(algorithm, profile, opts?)` → `BuiltCircuit` (qasm string + metadata)
-
-Data-scale tiers:
-- `small` (<1K): full feature embedding, standard textbook ansatz
-- `medium` (<50K): sampled statistics, compact entanglement layers
-- `large` (<10M): log-compressed qubits, amplitude encoding
-- `massive` (≥10M): maximum qubit compression, repeated amplitude layers
-
-Supported algorithms: `vqe`, `qaoa`, `grover`, `shor`, `bell`, `qft`
-
-#### `lib/circuit-utils.ts`
-
-Utilities derived from a `DataProfile`:
-- `extractQubits(profile)` → adaptive qubit count
-- `calculateAdaptiveShots(profile)` → base 512 + bonuses for qubits/depth/gates
-- `selectErrorMitigation(profile)` → `none` | `readout` | `zne` | `pec`
-
-#### `lib/backend-policy.ts`
-
-Backend selection with three auditable policies:
-- `latency_first` (default): prioritises lowest latency backend
-- `cost_first`: prioritises cheapest backend with sufficient capacity
-- `capacity_first`: prioritises backend with most available qubit headroom
-
-Returns a `BackendDecision` with `backend`, `reason`, `policy` — fully auditable.
-
-#### `lib/backend-selector.ts`
-
-Low-level backend primitives:
-- `selectOptimalBackend(circuit, hint?)` → backend name string
-- `calculateFidelity(circuit, backend)` → estimated fidelity [0,1]
-- `estimateRuntime(circuit, backend, shots)` → runtime in ms
-
-#### `lib/qasm-processor.ts`
-
-Facade coordinating circuit generation:
-1. For small/medium data: calls TypeScript `buildCircuit()` directly
-2. For large/massive data or `useNative=true`: spawns `generate_circuit` C++ binary via `child_process.spawn`
-3. Transpilation: routes through `transpile_circuit` C++ binary or TS fallback
-
-#### `lib/security.ts`
-
-All input validation and sanitization:
-- `validateApiKey(key)` — regex check (v0.9: 64-char hex)
-- `validateQASM(qasm)` — injection pattern detection, size check (10B–100KB)
-- `validateInputData(data)` — structure check, max 1MB, max 10K elements
-- `sanitizeString(s)` — HTML entity encoding + SQL/XSS pattern removal
-- `createSafeErrorResponse(err)` — strips stack traces and internal paths
-- `validateRequestHeaders(req)` — CORS and expected header validation
-
-#### `lib/rate-limiter.ts`
-
-Token-bucket rate limiter: 1 token per 3 seconds per user. In-memory (resets on cold start). Returns HTTP 429 on excess.
-
-#### `lib/constants.ts`
-
-`QUANTUM_TEMPLATES` array (Bell, Grover, Shor, VQE, QAOA, QFT) with metadata, plus pricing plan definitions and algorithm category mappings.
-
-#### `lib/ml/cpp-ml-engine.ts`
-
-TypeScript wrapper around the C++ reinforcement learning engine:
-- `vectorizeFeatures(CircuitFeatures)` → normalized feature vector (TS fallback on Vercel)
-- `recommendParams(features, history)` → `MLRecommendation` (shots, backend, mitigation + confidence)
-- `recordExecution(result)` → appends to mega-table for future learning
+La opción de "Clear all execution history" borra las ejecuciones tanto del servidor como del caché local de `localStorage`. Si el usuario decide borrar su cuenta, todos sus datos desaparecen en cascada de la base de datos.
 
 ---
 
-### 4.6 `scripts/` — C++ Native Binaries
+## 4. La API cuántica
 
-High-performance native layer. Invoked server-side via `child_process.spawn`.
+Todos los endpoints cuánticos viven bajo `app/api/quantum/`. Cada uno es un route handler de Next.js que corre en un Lambda de Vercel.
 
-| File | Purpose | Invoked by |
-|---|---|---|
-| `generate_circuit.cpp` | Reads a `DataProfile` JSON from stdin, emits optimised QASM 2.0 to stdout. ~10× faster than TypeScript for large/massive datasets. | `lib/qasm-processor.ts` |
-| `transpile_circuit.cpp` | Gate-level circuit optimisation: cancels adjacent inverse gates, reduces T-gate count, remaps qubits. | `app/api/quantum/transpile/route.ts` |
+**`/api/quantum/simulate`** es el endpoint principal. Recibe los datos del usuario, el algoritmo elegido, y los parámetros de ejecución. Por dentro: autentica la petición, valida los inputs, aplica rate limiting, genera el circuito QASM a partir de los datos, consulta al motor de ML para recomendaciones de parámetros, selecciona el backend óptimo, ejecuta la simulación, genera el insight del digital twin si procede, guarda la ejecución en la base de datos, y devuelve el resultado completo. Este endpoint hace mucho trabajo, pero cada responsabilidad está delegada a su módulo en `lib/`.
 
-**Compile:**
-```bash
-mkdir .dist
-g++ -O3 -std=c++17 -o .dist/generate_circuit scripts/generate_circuit.cpp
-g++ -O3 -std=c++17 -o .dist/transpile_circuit scripts/transpile_circuit.cpp
-```
+**`/api/quantum/stream`** es el endpoint SSE. Mantiene una conexión HTTP de larga duración (máximo 300 segundos) y cada 3 segundos comprueba si hay nuevas ejecuciones en la base de datos desde el timestamp que el cliente mandó. Si las hay, las serializa y las envía por el stream. El cliente las recibe y actualiza el dashboard en tiempo real sin reload.
 
-> On Vercel these binaries are not compiled. All paths fall back to TypeScript automatically.
+**`/api/quantum/generate-circuit`** permite generar el QASM de un circuito sin ejecutarlo — útil para inspección o para exportar el circuito y ejecutarlo en otro sistema.
 
----
+**`/api/quantum/transpile`** optimiza un circuito QASM existente. Cancela puertas inversas adyacentes, reduce la profundidad del circuito, y re-mapea qubits para mejorar la fidelidad. Para circuitos grandes usa el binario C++ compilado.
 
-### 4.7 `sdk/python/` — Python Client Library
+**`/api/quantum/visualize`** convierte un circuito QASM a un diagrama SVG renderizable en el navegador.
 
-Zero-dependency Python package. Uses only the standard library (`urllib`, `json`, `time`).
+**`/api/quantum/ml-recommend`** expone las recomendaciones del motor de ML sin ejecutar el circuito: dado un perfil de datos, devuelve los shots recomendados, el backend sugerido, la estrategia de mitigación de errores, y la confianza de la recomendación.
 
-```
-sdk/python/
-├── planck_sdk/
-│   ├── __init__.py      # Package entry-point, exposes PlanckUser
-│   ├── client.py        # PlanckUser class: run(), list_executions(), get_status()
-│   ├── circuit.py       # CircuitConfig dataclass
-│   ├── result.py        # ExecutionResult dataclass
-│   └── exceptions.py    # PlanckError, APIError, AuthError, RateLimitError
-├── examples/            # Jupyter notebooks + Python scripts
-├── setup.py             # PyPI packaging
-└── README.md            # SDK-specific documentation
-```
+**`/api/quantum/digital-twin`** genera el insight del gemelo digital para una ejecución completada. Analiza la distribución de resultados, el perfil de puertas, y el historial del twin para construir el JSON de insight.
 
-**SDK ↔ platform dependencies:**
-- `PlanckUser.run()` → `POST /api/quantum/simulate` (x-api-key auth)
-- `PlanckUser.list_executions()` → `GET /api/quantum/executions`
-- API keys managed in `lib/db/client.ts → ApiKeys` table
-- Auth validated in `lib/api-auth.ts`
+**`/api/quantum/assistant`** es el endpoint del asistente de IA. Usa streaming (Vercel AI SDK + OpenAI) para responder preguntas sobre computación cuántica, sugerir algoritmos, o explicar resultados.
 
 ---
 
-### 4.8 `styles/` & `public/`
+## 5. El motor de lógica (`lib/`)
 
-- `styles/globals.css` — Tailwind base + CSS variable definitions for the design system (light/dark tokens)
-- `public/images/` — logos, algorithm icons, design-mode assets. All images served statically (`unoptimized: true`)
+### Generación de circuitos
+
+El módulo `lib/circuit-builder.ts` es el corazón técnico de la plataforma. Su misión es convertir un dataset arbitrario en un circuito cuántico parametrizado determinista. "Determinista" es clave: el mismo dataset siempre produce el mismo circuito. No hay aleatoriedad.
+
+El proceso tiene dos fases. Primero `analyzeInputData()` analiza el dataset y extrae un "perfil de datos": cuántos qubits necesita el circuito (derivado del número de features y la escala del dataset), cuántas capas tendrá el ansatz, qué ángulos de rotación usarán las puertas (derivados de las estadísticas normalizadas de los datos), y en qué rango de escala está el dataset.
+
+La escala importa mucho porque determina la estrategia de construcción del circuito. Para datasets pequeños (menos de mil muestras) se usa embedding completo de features con un ansatz textbook estándar. Para datasets medianos (hasta 50K muestras) se usan estadísticas muestreadas con capas de entrelazamiento compactas. Para datasets grandes (hasta 10 millones) se usa compresión logarítmica de qubits con codificación de amplitud. Para datasets masivos (más de 10 millones) se aplica máxima compresión con capas de amplitud repetidas.
+
+La segunda fase, `buildCircuit()`, toma el perfil y genera el QASM 2.0 completo. Para algoritmos como VQE y QAOA construye un ansatz variacional con las rotaciones derivadas de los datos. Para Grover construye el oráculo y el diffuser basándose en el espacio de búsqueda implícito en el dataset. Para QFT aplica las rotaciones de Fourier adaptadas a la escala de datos.
+
+### Selección de backend
+
+`lib/backend-policy.ts` implementa tres políticas de selección de backend: `latency_first` (la por defecto) que prioriza el backend más rápido disponible, `cost_first` que prioriza el más barato con capacidad suficiente, y `capacity_first` que prioriza el que tiene más headroom de qubits. La decisión es completamente auditable: la respuesta siempre incluye qué política se aplicó y por qué se eligió ese backend.
+
+### Autenticación y JWT
+
+`lib/auth-utils.ts` gestiona toda la lógica de tokens. Los JWT duran 7 días y se renuevan en cada login. Contienen toda la información del perfil del usuario para que la mayoría de las peticiones no necesiten ir a la base de datos.
+
+Hay un mecanismo crítico llamado `selfHealFromJWT`: dado que SQLite en Vercel se borra en cada cold start, la plataforma reconstruye los registros del usuario en la base de datos desde el payload del JWT si detecta que no existen. Para que esto funcione, el JWT guarda un hash SHA-256 de la contraseña (no la contraseña en claro) — así se puede recrear el registro sin pedir la contraseña al usuario. Esto mantiene la sesión activa sin importar cuántas veces Vercel reinicie el Lambda.
+
+### Rate limiting
+
+`lib/rate-limiter.ts` implementa un token bucket en memoria: máximo 1 petición cada 3 segundos por usuario. Es per-Lambda (se resetea en cold starts), pero es suficiente para prevenir abusos accidentales. El SDK de Python cumple este límite automáticamente esperando 3 segundos entre llamadas.
+
+### Seguridad y validación
+
+`lib/security.ts` valida y sanitiza todos los inputs que llegan a la API. Detecta patrones de inyección en el QASM, limita el tamaño de los payloads, aplica encoding HTML a strings de usuario antes de persistirlos, y genera respuestas de error que no filtran información interna (stack traces, rutas del sistema, etc.). Todas las queries de SQLite usan prepared statements con parámetros, nunca interpolación de strings.
 
 ---
 
-### 4.9 `__tests__/`
+## 6. La capa nativa en C++
 
-| File | What it tests |
-|---|---|
-| `exec-cache-sdk-live.test.ts` | Integration: full SDK live execution flow + localStorage cache merge |
-| `execution-json-shape.test.ts` | Unit: JSON shape returned by `/api/quantum/simulate` matches the `ExecutionResult` contract |
+Para datasets muy grandes, el generador de circuitos TypeScript puede ser demasiado lento. Por eso existe una capa nativa en C++ (`scripts/`) que se invoca desde el servidor vía `child_process.spawn`.
+
+`generate_circuit.cpp` lee un perfil de datos en JSON desde stdin y escribe el QASM 2.0 optimizado en stdout. Es funcionalmente equivalente al generador TypeScript pero entre 5 y 10 veces más rápido para datasets masivos. El módulo `lib/qasm-processor.ts` decide automáticamente cuándo usar la versión C++ y cuándo usar la versión TypeScript según la escala del dataset.
+
+`transpile_circuit.cpp` aplica optimizaciones de puertas a un circuito QASM existente: cancela puertas inversas contiguas (como H seguido de H, que se anulan), reduce el recuento de puertas T (que son costosas en hardware cuántico real), y re-mapea qubits para minimizar errores de decoherencia.
+
+En el despliegue en Vercel, estos binarios no se compilan — la plataforma detecta su ausencia y cae automáticamente al path TypeScript. Para despliegues on-premise donde se compilen los binarios, el sistema los usa automáticamente.
+
+---
+
+## 7. Los Digital Twins
+
+Un Digital Twin en nuestra plataforma es una entidad nombrada que representa un sistema físico o computacional que el usuario quiere modelar con computación cuántica. Puede ser algo concreto como "optimizador-batería-v2", "simulación-proteína-BRCA1", o "flujo-logística-Q3".
+
+La idea es que un digital twin no es un circuito único — es una colección de ejecuciones sobre ese sistema a lo largo del tiempo, con datasets que van cambiando. El twin acumula historia: fidelidad en cada run, éxito, qubits usados, qué backend se eligió, qué distribución de probabilidades salió. Con esa historia, el sistema ML puede sugerir mejoras para el siguiente run.
+
+Técnicamente, cada ejecución en la base de datos lleva un `digital_twin_id` opcional. El campo `circuit_data` de esa ejecución almacena el JSON completo del insight del twin: distribución de probabilidades de los qubits, conteo de puertas por tipo, análisis de fidelidad, y recomendaciones generadas por el motor ML para la siguiente ejecución.
+
+En el dashboard, cada twin aparece como una pestaña propia con sus tres gráficas históricas y su tabla de runs. El usuario puede comparar dos runs del mismo twin en el Scenario Comparison del runner para validar si un cambio en el dataset o los parámetros mejoró el resultado.
+
+El contexto `DigitalTwinModeContext` gestiona globalmente si el modo twin está activo o no. Cuando está desactivado, las ejecuciones se guardan igualmente pero sin generar el insight del twin — útil cuando el usuario simplemente quiere ejecutar un circuito rápido sin overhead.
+
+---
+
+## 8. El sistema de autenticación
+
+La autenticación funciona exclusivamente con JWT y cookies. No hay Supabase, no hay Auth0, no hay dependencia externa de autenticación.
+
+Cuando un usuario se registra, se crea su registro en las tablas `users` y `profiles` de SQLite. Se genera un JWT que contiene toda la información del perfil y se almacena en una cookie `auth-token` con atributos `HttpOnly` y `Secure`. El usuario no tiene acceso directo al JWT desde JavaScript del cliente.
+
+En cada petición autenticada, el servidor extrae y verifica el JWT. Si el usuario tiene un perfil en la base de datos (lo normal) la petición continúa. Si la base de datos fue borrada por un cold start de Vercel, la función `selfHealFromJWT` recrea los registros a partir del payload del JWT antes de continuar — el usuario ni se entera.
+
+Para acceso programático (SDK de Python, llamadas directas a la API), el usuario usa una API key. Estas keys tienen el formato v0.9: 64 caracteres hexadecimales puros, sin prefijo. Se almacenan como texto plano en la tabla `api_keys` (la API key en sí no es un secreto que proteger en servidor, a diferencia de una contraseña — su función es identificar al usuario). En cada petición con `x-api-key`, el sistema busca la key en la tabla, recupera el `user_id` asociado, y trata la petición como autenticada para ese usuario.
+
+Para usuarios no autenticados, la plataforma tiene un "modo guest": pueden ver la landing page, el asistente de IA, y páginas de marketing, pero no pueden ejecutar circuitos ni acceder al dashboard.
+
+---
+
+## 9. La base de datos
+
+La plataforma usa SQLite a través de la librería `better-sqlite3`. Es una base de datos embebida, lo que significa que vive como un archivo en el filesystem, no como un proceso servidor separado. En Vercel, ese archivo vive en `/tmp` (efímero). En local, vive en `./.data/` (persistente).
+
+El esquema tiene cinco tablas principales:
+
+**users** es la tabla identidad central. Guarda email y hash de contraseña. Toda la demás información del usuario referencia esta tabla.
+
+**profiles** extiende `users` con información de perfil: nombre completo, organización, preferencia de tema, idioma, teléfono, país, ocupación. Es una relación 1:1 con `users` y se borra en cascada si el usuario se elimina.
+
+**circuits** guarda circuitos guardados por el usuario: el QASM, los metadatos, y el backend para el que fue diseñado. Un usuario puede guardar circuitos para reutilizarlos.
+
+**executions** es la tabla más importante. Cada ejecución cuántica genera una fila aquí. Guarda todo: el algoritmo usado, el backend seleccionado, cuántos qubits, cuántos shots, la tasa de éxito, el tiempo de ejecución, el motivo de selección del backend, los resultados en JSON, el error si lo hubo, y el insight del digital twin en el campo `circuit_data`. Esta tabla es la fuente de verdad para el dashboard y las gráficas.
+
+**api_keys** guarda las API keys de cada usuario. Se borran en cascada si el usuario se elimina.
+
+La tabla `executions` tiene índices en `user_id` (para listar el historial de un usuario) y en `circuit_id` (para buscar ejecuciones de un circuito concreto). Todas las foreign keys tienen `ON DELETE CASCADE` excepto `executions.circuit_id` que usa `SET NULL` — si un circuito se borra, las ejecuciones que hizo siguen existiendo en el historial, solo sin el circuito asociado.
+
+El módulo `lib/db/init.ts` crea todas las tablas al arrancar si no existen, y también ejecuta migraciones automáticas para añadir columnas nuevas a tablas existentes. Esto permite actualizar el esquema sin pérdida de datos incluso cuando el archivo SQLite de Vercel sobrevive entre deploys.
+
+---
+
+## 10. El SDK de Python
+
+El SDK (`sdk/python/`) es una librería Python publicada en PyPI bajo el nombre `planck_sdk`. Tiene cero dependencias externas — usa solo la standard library de Python (`urllib`, `json`, `time`). Esto lo hace instalable en cualquier entorno sin conflictos de dependencias, incluyendo Google Colab y Jupyter Notebooks.
+
+La clase central es `PlanckUser`. El usuario la instancia con su API key y a partir de ahí puede llamar a `run()` pasando su dataset como lista de números junto con el algoritmo y los parámetros de ejecución. El SDK construye el payload, espera el tiempo necesario entre llamadas para cumplir el rate limit, y devuelve un objeto `ExecutionResult` con todos los campos del resultado.
+
+El SDK también expone `list_executions()` para recuperar el historial, y clases de error diferenciadas: `AuthError` si la API key es inválida, `RateLimitError` si se envían demasiadas peticiones, `APIError` para el resto de errores del servidor.
+
+El objetivo del SDK es que un científico de datos pueda integrar Planck en su pipeline en pocas líneas, sin necesidad de saber nada de HTTP, JSON, o computación cuántica más allá de elegir el algoritmo.
+
+---
+
+## 11. Dashboard en tiempo real
+
+La actualización en tiempo real del dashboard es uno de los aspectos técnicamente más interesantes de la plataforma. Funciona mediante SSE (Server-Sent Events).
+
+Cuando el usuario abre el dashboard, el hook `useLiveExecutions` abre una conexión HTTP persistente con `/api/quantum/stream`. Esta conexión no se cierra: el servidor la mantiene abierta hasta 300 segundos. Cada 3 segundos, el servidor consulta la base de datos por nuevas ejecuciones desde el último timestamp que recibió del cliente. Si hay nuevas filas, las serializa y las envía por el stream como eventos. El cliente los recibe y los añade a la lista de ejecuciones sin recargar la página, actualizando las gráficas en tiempo real.
+
+Cuando el runner completa una ejecución manual (no vía SDK), el hook `useLiveMode` llama a `broadcastExecution()` para añadir la nueva fila directamente al estado local del dashboard sin esperar al siguiente ciclo del SSE. Esto hace que la actualización parezca instantánea.
+
+Hay un tercer mecanismo de persistencia: `localStorage`. El navegador guarda hasta 100 ejecuciones recientes en un caché local (`planck_exec_cache`). Cuando la base de datos de Vercel se borra por un cold start, el dashboard recupera estas filas del caché local y las mezcla con las filas que vengan del servidor (priorizando las del servidor). Esto da la ilusión de que el historial persiste indefinidamente aunque SQLite sea efímero.
+
+---
+
+## 12. El asistente de IA
+
+La plataforma incluye un asistente de IA (`components/quantum-assistant.tsx`) powered por OpenAI a través del Vercel AI SDK. El asistente responde en streaming — las respuestas aparecen palabra a palabra como en ChatGPT.
+
+El asistente está especializado en computación cuántica: puede explicar cómo funciona VQE, sugerir qué algoritmo usar para un problema concreto, interpretar los resultados de una ejecución, y guiar al usuario para sacar más partido a la plataforma. El endpoint backend es `/api/quantum/assistant`.
+
+El asistente está disponible tanto en la landing page (para visitantes no registrados) como dentro de la aplicación (para usuarios autenticados).
+
+---
+
+## 13. Billing y planes
+
+La página de billing (`app/qsaas/billing/`) muestra tres planes:
+
+**Starter** ($29/mes) para investigadores individuales o empresas que están evaluando la plataforma. Incluye 1.000 runs al mes y soporte de hasta 8 qubits.
+
+**Professional** ($99/mes) para equipos activos de investigación o ingeniería. 50.000 runs al mes y hasta 20 qubits.
+
+**Enterprise** (precio personalizado) para grandes organizaciones. Runs ilimitados, hasta 100 qubits, soporte dedicado, SSO y controles de seguridad avanzados. El CTA para este plan abre un email pre-rellenado a `hello@plancktechnologies.xyz`.
+
+Stripe está scaffoldeado en el código (las variables de entorno están comentadas en `.env.local`) pero no está conectado a flows de checkout reales todavía.
+
+---
+
+## 14. Despliegue en Vercel
+
+La plataforma se despliega en Vercel. El archivo `vercel.json` configura el proyecto: usa pnpm como gestor de paquetes, el framework es Next.js, y la variable `DB_DIR` se sobrescribe a `/tmp` en producción (donde SQLite crea su archivo de base de datos).
+
+Los despliegues automáticos desde Git están desactivados (`"deploymentEnabled": false` en `vercel.json`). Los deploys se hacen manualmente desde la CLI con `vercel deploy --prod`. Esto es intencional: queremos control sobre cuándo sube código nuevo a producción.
+
+La URL de producción es `https://plancktechnologies.xyz`. El alias se configura automáticamente en Vercel.
+
+El proceso de build usa Turbopack (el bundler nuevo de Vercel/Next.js) para compilaciones más rápidas. Las imágenes se sirven sin optimización de Vercel para no consumir cuota del plan.
+
+**Punto importante sobre la base de datos en producción:** Vercel no garantiza que el filesystem `/tmp` sobreviva entre invocaciones de Lambdas o entre deploys. Esto significa que la base de datos SQLite puede borrarse en cualquier momento. El sistema está diseñado para sobrevivir esto: el mecanismo de self-healing reconstruye los usuarios desde el JWT, el caché de `localStorage` recupera el historial de ejecuciones, y el esquema se recrea automáticamente en el arranque. Para el futuro, cuando la plataforma crezca, migraremos a una base de datos persistente como Postgres en Neon o PlanetScale, pero por ahora SQLite es más que suficiente y simplifica enormemente el desarrollo.
+
+---
+
+## 15. Desarrollo local
+
+Para arrancar el entorno de desarrollo:
 
 ```bash
-pnpm test
-```
-
----
-
-## 5. Authentication & Authorization Flow
-
-```
-Browser                        Server (API Routes)             SQLite
-  │                                  │                            │
-  │── POST /api/auth/signup ─────────▶                            │
-  │   { email, password, profile }   │── Users.create() ─────────▶
-  │                                  │── Profiles.create() ───────▶
-  │                                  │── generateJWT() ──────────┐│
-  │◀── Set-Cookie: auth-token ───────│◀──────────────────────────┘│
-  │                                  │                            │
-  │── Any authenticated request ─────▶                            │
-  │   Cookie: auth-token             │── verifyJWT() ─────────────│
-  │                                  │── selfHealFromJWT() ───────▶ (recreates rows on cold start)
-  │                                  │                            │
-  │── x-api-key: <64-char hex> ──────▶                            │
-  │   (SDK / programmatic access)    │── ApiKeys.findByKey() ─────▶
-```
-
-**Cold-start self-healing:** SQLite on Vercel lives in `/tmp` and is wiped on every cold start. `selfHealFromJWT()` in `lib/auth-utils.ts` re-creates `users` and `profiles` rows from the JWT payload (`ph` claim = SHA-256 password hash), keeping users logged in across deploys.
-
----
-
-## 6. Database Architecture
-
-**Tables:**
-
-```sql
-users          id | email (UNIQUE) | password_hash | created_at | updated_at
-profiles       id | user_id (FK→users) | full_name | organization | theme_preference
-               | language | phone | country | occupation | verified | stay_logged_in
-circuits       id | user_id (FK→users) | name | description | circuit_data | qasm | backend
-executions     id | user_id (FK→users) | circuit_id (FK→circuits, SET NULL on delete)
-               | circuit_name | algorithm | execution_type | backend | status
-               | success_rate | runtime_ms | qubits_used | shots | error_mitigation
-               | backend_selected | backend_reason | result | error | completed_at
-               | circuit_data (JSON: digital twin insights)
-api_keys       id | user_id (FK→users, CASCADE) | key (UNIQUE) | name | last_used | created_at
-```
-
-**Key design decisions:**
-- `executions.circuit_data` stores the full digital twin JSON blob, avoiding a separate `digital_twin_insights` table.
-- All `api_keys` cascade-delete when the user is deleted.
-- `executions.circuit_id` uses `SET NULL` (not CASCADE) so execution history is preserved even if a circuit template is deleted.
-- The DB is intentionally SQLite for simplicity. `lib/db/init.ts` handles schema drift on Vercel cold starts.
-
----
-
-## 7. Quantum Execution Pipeline
-
-```
-1. User uploads dataset (CSV/JSON) in the Runner
-        ↓
-2. AutoParser calls analyzeInputData() [lib/circuit-builder.ts]
-   → Derives: qubits, depth, angles, dataScale, featureCount
-        ↓
-3. User selects algorithm, shots, error mitigation, backend hint
-        ↓
-4. POST /api/quantum/simulate
-        ↓
-5. authenticateRequest() [lib/api-auth.ts]
-        ↓
-6. validateInputData() + validateQASM() [lib/security.ts]
-        ↓
-7. Rate-limit check [lib/rate-limiter.ts] (1 req / 3s per user)
-        ↓
-8. buildCircuit(algorithm, dataProfile) [lib/circuit-builder.ts]
-   → For large/massive data: spawns generate_circuit C++ binary
-        ↓
-9. CppMLEngine.recommendParams() [lib/ml/cpp-ml-engine.ts]
-   → Suggests optimal shots, backend, error mitigation
-        ↓
-10. selectOptimalBackend() [lib/backend-policy.ts]
-    → Applies latency_first / cost_first / capacity_first policy
-        ↓
-11. Execute circuit simulation (TypeScript simulator)
-    → Returns: counts, success_rate, runtime_ms, fidelity
-        ↓
-12. (If dtMode=true) POST /api/quantum/digital-twin
-    → Generates digital twin insight JSON
-        ↓
-13. Executions.create() [lib/db/client.ts]
-    → Persists full execution record to SQLite
-        ↓
-14. CppMLEngine.recordExecution() — logs to ML mega-table
-        ↓
-15. Response returned to client
-    → Runner updates UI, writes to localStorage cache
-    → SSE stream notifies dashboard of new row
-```
-
----
-
-## 8. Digital Twins System
-
-A **digital twin** is a named, persistent representation of a physical or computational system modelled with quantum circuits (e.g., `battery-optimizer`, `supply-chain-v2`, `protein-fold-model`).
-
-Each execution can be tagged with a digital twin ID. The platform tracks:
-- **Historical performance** across datasets (fidelity trend, success rate over time)
-- **Probability distributions** from measurement outcomes
-- **Gate analysis** (gate counts, circuit depth, T-gate fraction)
-- **ML Recommendations** for the next run
-
-Digital twins appear as tabs in the dashboard. The `circuit_data` JSON column in `executions` stores the per-run twin insight.
-
-**Key files:**
-- `components/runner/digital-twin-selector.tsx` — create/select twin in the runner
-- `components/runner/digital-twin-panel.tsx` — render twin insight after a run
-- `components/dashboard/digital-twin-dashboard.tsx` — historical view with live charts
-- `app/api/quantum/digital-twin/route.ts` — server-side insight generation
-- `contexts/digital-twin-mode-context.tsx` — toggle twin mode globally
-
----
-
-## 9. ML & C++ Native Layer
-
-### ML Recommendation System
-
-`lib/ml/cpp-ml-engine.ts` implements a lightweight RL-inspired recommendation system:
-
-1. **Feature vectorization**: converts `CircuitFeatures` (qubits, depth, gate count, algorithm, data complexity, user historical accuracy) into a normalized feature vector
-2. **Recommendation**: looks up past executions with similar feature vectors, suggests shots/backend/mitigation with a confidence score
-3. **Recording**: every completed execution is logged, improving future recommendations
-
-On Vercel the C++ binary path is bypassed — pure TypeScript heuristics are used. The C++ path is intended for self-hosted deployments.
-
-### C++ Circuit Generator (`scripts/generate_circuit.cpp`)
-
-Used for large (>50K samples) and massive (>10M samples) datasets. Reads a `DataProfile` JSON from stdin and outputs optimised QASM 2.0 to stdout. Compile with:
-
-```bash
-g++ -O3 -std=c++17 -o .dist/generate_circuit scripts/generate_circuit.cpp
-```
-
-### C++ Transpiler (`scripts/transpile_circuit.cpp`)
-
-Gate-level circuit optimisation: cancels adjacent inverse gates, reduces T-gate count, remaps qubits. Called via `/api/quantum/transpile`.
-
----
-
-## 10. API Reference
-
-All routes under `app/api/`. Auth via `x-api-key` header or `auth-token` cookie.
-
-### Quantum Operations
-
-| Method | Route | Description |
-|---|---|---|
-| `POST` | `/api/quantum/simulate` | Main execution endpoint. Returns full `ExecutionResult`. |
-| `POST` | `/api/quantum/generate-circuit` | Generate QASM from a `DataProfile`. |
-| `POST` | `/api/quantum/transpile` | Gate-optimise a QASM string (C++ binary or TS fallback). |
-| `POST` | `/api/quantum/visualize` | Convert QASM to an SVG circuit diagram. |
-| `POST` | `/api/quantum/ml-recommend` | ML-based shot/backend/mitigation recommendations. |
-| `POST` | `/api/quantum/digital-twin` | Generate a digital twin insight JSON for a completed execution. |
-| `POST` | `/api/quantum/assistant` | Streaming AI assistant (OpenAI via Vercel AI SDK). |
-| `GET` | `/api/quantum/executions` | List user's execution history (paginated). |
-| `GET` | `/api/quantum/stream` | SSE endpoint. Streams new rows since `?since=<ISO-timestamp>`. 300s timeout. |
-| `GET` | `/api/quantum/health` | Health check. Returns `{ status: "ok", db: "ok" }`. |
-
-### Authentication
-
-| Method | Route | Description |
-|---|---|---|
-| `POST` | `/api/auth/signup` | Create user + profile. Sets `auth-token` cookie. |
-| `POST` | `/api/auth/logout` | Clears `auth-token` and `planck_guest` cookies. |
-
-### User & Dashboard
-
-| Method | Route | Description |
-|---|---|---|
-| `GET/PUT` | `/api/user/profile` | Read or update the authenticated user's profile. |
-| `POST` | `/api/user/api-keys` | Generate a new API key. |
-| `DELETE` | `/api/user/api-keys` | Revoke an API key. |
-| `GET` | `/api/dashboard/data` | Aggregate execution stats for `?range=24h|7d|30d`. |
-| `GET` | `/api/request-utils` | Validate current session. Returns `{ userId, isGuest }`. |
-
----
-
-## 11. Python SDK
-
-```bash
-pip install planck_sdk
-```
-
-```python
-from planck_sdk import PlanckUser
-
-user = PlanckUser(api_key="<64-char-hex>", base_url="https://plancktechnologies.xyz")
-
-# Run with data
-result = user.run(data=[1.0, 2.5, 0.3], algorithm="qaoa", shots=1024)
-print(result.fidelity)       # float [0,1]
-print(result.success_rate)   # float [0,1]
-print(result.counts)         # {"00": 512, "11": 512}
-print(result.runtime_ms)     # int
-print(result.backend)        # str
-print(result.digital_twin)   # dict | None
-
-# List history
-executions = user.list_executions(limit=50)
-```
-
-**Error classes:** `PlanckError` (base), `APIError`, `AuthError` (invalid key), `RateLimitError` (429).
-
-The SDK automatically waits 3 seconds between consecutive `run()` calls to comply with the platform rate limit.
-
----
-
-## 12. Billing & Pricing Plans
-
-| Plan | Price | Runs/month | Max qubits |
-|---|---|---|---|
-| Starter | $29/mo | 1,000 | 8 |
-| Professional | $99/mo | 50,000 | 20 |
-| Enterprise | Custom | Unlimited | 100 |
-
-Stripe is scaffolded (`NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_SECRET_KEY`) but not yet connected to real checkout flows. Enterprise plan inquiries go to `hello@plancktechnologies.xyz`.
-
----
-
-## 13. Deployment (Vercel)
-
-`vercel.json`:
-```json
-{
-  "buildCommand": "pnpm run build",
-  "installCommand": "pnpm install",
-  "framework": "nextjs",
-  "env": { "NEXT_TELEMETRY_DISABLED": "1", "DB_DIR": "/tmp" }
-}
-```
-
-**Key notes:**
-- `DB_DIR=/tmp` → SQLite is ephemeral. Self-healing JWT keeps users logged in across cold starts.
-- `git.deploymentEnabled: false` → manual deploys only via `vercel deploy`.
-- Images are `unoptimized: true` to avoid Vercel Image Optimization quota.
-- C++ binaries are not compiled on Vercel — all paths fall back to TypeScript automatically.
-
-**Production URL:** `https://plancktechnologies.xyz`
-
----
-
-## 14. Local Development
-
-```bash
-# Install dependencies
+# Instalar dependencias
 pnpm install
 
-# Start dev server (Turbopack)
+# Crear el archivo de variables de entorno
+cp .env.example .env.local   # y ajustar los valores
+
+# Arrancar el servidor de desarrollo
 pnpm dev
+```
 
-# Run tests
+El servidor arranca en `http://localhost:3000`. La base de datos SQLite se crea automáticamente en `./.data/planck.db` en el primer request.
+
+Para los tests:
+
+```bash
 pnpm test
+```
 
-# Build for production
-pnpm build
+Los tests en `__tests__/` validan el shape del JSON de resultados de ejecución y el comportamiento del caché de ejecuciones. Son tests de integración ligeros que pueden ejecutarse sin servidor.
 
-# (Optional) Compile C++ binaries
+Si se quiere usar la capa nativa C++ (opcional, solo para rendimiento con datasets grandes):
+
+```bash
 mkdir .dist
 g++ -O3 -std=c++17 -o .dist/generate_circuit scripts/generate_circuit.cpp
 g++ -O3 -std=c++17 -o .dist/transpile_circuit scripts/transpile_circuit.cpp
 ```
 
-Default dev server: `http://localhost:3000`
-
-The SQLite database is created automatically at `./.data/planck.db` on first request (controlled by `DB_DIR`).
+Sin los binarios compilados, la plataforma cae automáticamente a las implementaciones TypeScript. Para el desarrollo del día a día no son necesarios.
 
 ---
 
-## 15. Environment Variables
+## 16. Variables de entorno
 
-| Variable | Required | Description |
+| Variable | Requerida | Descripción |
 |---|---|---|
-| `DB_DIR` | Yes | SQLite directory. `./.data` locally, `/tmp` on Vercel. |
-| `JWT_SECRET` | Yes | JWT signing secret. **Must be changed in production.** |
-| `NODE_ENV` | Yes | `development` or `production`. |
-| `OPENAI_API_KEY` | No | Powers the quantum assistant chat feature. |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | No | Stripe publishable key (billing, not yet active). |
-| `STRIPE_SECRET_KEY` | No | Stripe secret key (billing, not yet active). |
-| `VERCEL_OIDC_TOKEN` | No | Auto-injected by Vercel for OIDC identity verification. |
+| `DB_DIR` | Sí | Directorio donde SQLite crea el archivo `.db`. `./.data` en local, `/tmp` en Vercel. |
+| `JWT_SECRET` | Sí | Clave para firmar los JWTs. **En producción debe ser un string aleatorio de al menos 256 bits.** El valor en `.env.local` es solo para desarrollo. |
+| `NODE_ENV` | Sí | `development` o `production`. Afecta al comportamiento de error handling y logs. |
+| `OPENAI_API_KEY` | No | Necesario para el asistente de IA cuántico. Sin él, el chat no funciona. |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | No | Para cuando se active billing real con Stripe. Actualmente comentado. |
+| `STRIPE_SECRET_KEY` | No | Idem. |
+| `VERCEL_OIDC_TOKEN` | No | Lo inyecta Vercel automáticamente para verificación de identidad OIDC. No se configura manualmente. |
 
 ---
 
-## 16. Subsystem Dependencies Map
+## 17. Seguridad
 
-```
-app/qsaas/runner/page.tsx
-  ├── components/runner/*           (all runner panels)
-  ├── lib/circuit-builder.ts        (analyzeInputData, buildCircuit)
-  ├── lib/backend-selector.ts       (selectOptimalBackend, calculateFidelity)
-  ├── hooks/use-live-executions.ts  (SSE subscription)
-  ├── hooks/use-live-mode.ts        (broadcastExecution)
-  ├── contexts/digital-twin-mode-context.tsx
-  └── contexts/synthetic-mode-context.tsx
+La seguridad de la plataforma se construye en capas:
 
-app/api/quantum/simulate/route.ts
-  ├── lib/api-auth.ts               (authenticateRequest)
-  ├── lib/security.ts               (validateInputData, validateQASM, sanitize)
-  ├── lib/rate-limiter.ts           (checkRateLimit)
-  ├── lib/circuit-builder.ts        (buildCircuit)
-  ├── lib/backend-policy.ts         (selectBackendByPolicy)
-  ├── lib/ml/cpp-ml-engine.ts       (recommendParams, recordExecution)
-  ├── lib/db/client.ts              (Executions.create)
-  └── lib/qasm-processor.ts         (optional C++ path)
+**En la autenticación:** toda la autenticación usa JWTs firmados con una clave secreta o API keys de 64 caracteres hexadecimales. Las contraseñas nunca se almacenan en claro — se guardan como hash SHA-256. Las API keys se buscan en la base de datos con queries parametrizadas.
 
-lib/qasm-processor.ts
-  ├── lib/circuit-builder.ts        (TS path for small/medium)
-  └── scripts/generate_circuit.cpp  (C++ path for large/massive, via spawn)
+**En la validación de inputs:** todo lo que llega a la API pasa por `lib/security.ts` antes de procesarse. El QASM se analiza para detectar patrones de inyección. Los datos de usuario se limitan en tamaño (máximo 1MB para datos, 100KB para QASM). Cualquier string de usuario se sanitiza contra XSS antes de persistirse.
 
-lib/db/client.ts
-  └── lib/db/init.ts                (ensures tables exist before any query)
+**En la base de datos:** todas las queries de SQLite usan prepared statements con parámetros. No hay interpolación de strings en ninguna query. Esto elimina la posibilidad de SQL injection.
 
-lib/auth-utils.ts
-  └── lib/db/client.ts              (selfHealFromJWT recreates rows)
+**En el rate limiting:** cada usuario puede hacer máximo una ejecución cada 3 segundos. Las peticiones que superan este límite reciben un error 429. El SDK de Python respeta este límite automáticamente.
 
-sdk/python/planck_sdk/client.py
-  └── POST /api/quantum/simulate    (HTTP, x-api-key auth)
-      └── lib/api-auth.ts → lib/db/client.ts (ApiKeys.findByKey)
+**En las respuestas de error:** ningún error devuelto al cliente contiene información interna: sin stack traces, sin rutas del filesystem, sin nombres de variables internas. `createSafeErrorResponse()` se usa en toda la API para garantizar esto.
 
-components/dashboard/digital-twin-dashboard.tsx
-  ├── hooks/use-live-executions.ts  (SSE via /api/quantum/stream)
-  ├── components/dashboard/execution-charts.tsx
-  └── lib/types/ (ExecutionRow interface)
-```
-
----
-
-## 17. Security Model
-
-| Control | Implementation |
-|---|---|
-| **Authentication** | JWT (7-day) or API key (64-char hex). Dual-path via `lib/api-auth.ts`. |
-| **Input validation** | QASM injection detection, payload size limits (1MB data, 100KB QASM). |
-| **SQL injection** | All SQLite queries use parameterised statements (`better-sqlite3` prepared statements). |
-| **XSS** | `sanitizeString()` applies HTML entity encoding + pattern removal before persistence. |
-| **Rate limiting** | Token bucket: 1 request per 3 seconds per user. In-memory, per Lambda instance. |
-| **Error redaction** | `createSafeErrorResponse()` strips stack traces and internal paths from error responses. |
-| **CORS** | `validateRequestHeaders()` checks Origin and required headers. |
-| **API key format** | v0.9: pure 64-char hex. Validated by regex before DB lookup. |
-| **Data deletion** | Full cascade delete on account removal. GDPR-ready soft-delete for execution history. |
-
-> **Note:** The `JWT_SECRET` in `.env.local` is a development placeholder. Replace with a cryptographically random 256-bit secret in production.
+**En el borrado de datos:** cuando un usuario borra su cuenta, todos sus datos se borran en cascada desde la base de datos. El historial borrado se marca en `localStorage` para que no "vuelva" desde el caché si el servidor aún tiene copias. Cumplimos GDPR: el usuario tiene control total sobre sus datos y puede eliminarlos en cualquier momento.
 
 ---
 
