@@ -52,10 +52,29 @@ jobs:
         working-directory: sdk/python
         run: |
           python -m pip install --upgrade pip
-          pip install pytest
+          pip install pytest pytest-cov pytest-junit
           pip install -e .
 
-      - name: Run Python tests
+      - name: Run Python tests with coverage
         working-directory: sdk/python
-        run: python -m pytest --tb=short -v
-        continue-on-error: true
+        run: |
+          python -m pytest --tb=short -v \
+            --cov=planck_sdk \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-report=html:htmlcov \
+            --junitxml=test-results.xml
+
+      - name: Upload Python coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage-report
+          path: sdk/python/htmlcov/
+
+      - name: Upload Python test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-test-results
+          path: sdk/python/test-results.xml
