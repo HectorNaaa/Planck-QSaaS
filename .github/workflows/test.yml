@@ -65,6 +65,39 @@ jobs:
             --cov-report=html:htmlcov \
             --junitxml=test-results.xml
 
+      - name: Generate Python coverage summary
+        if: always()
+        working-directory: sdk/python
+        shell: python
+        run: |
+          import xml.etree.ElementTree as ET, os
+          tree = ET.parse("coverage.xml")
+          total_stmts = total_covered = 0
+          lines = ["## Python SDK Coverage\n",
+                   "| File | % Stmts | % Branch | % Funcs | Uncovered Line #s |",
+                   "|------|---------|----------|---------|-------------------|"]
+          for pkg in tree.findall(".//package"):
+              for cls in pkg.findall("class"):
+                  fn = cls.get("name", "").replace(".", "/") + ".py"
+                  s = int(cls.get("lines-valid", 0)); c = int(cls.get("lines-covered", 0))
+                  b = int(cls.get("branches-valid", 0)); bc = int(cls.get("branches-covered", 0))
+                  m = int(cls.get("methods-valid", 0)); mc = int(cls.get("methods-covered", 0))
+                  total_stmts += s; total_covered += c
+                  if s:
+                      bad_lines = cls.find("lines")
+                      uncovered = bad_lines and " ".join(
+                          l.get("number") for l in bad_lines if l.get("hits") == "0"
+                      ) or ""
+                      stmt_pct = c / s * 100
+                      br_pct = bc / b * 100 if b else 100
+                      fn_pct = mc / m * 100 if m else 100
+                      lines.append(f"| {fn} | {stmt_pct:.2f} | {br_pct:.2f} | {fn_pct:.2f} | {uncovered} |")
+          pct = total_covered / total_stmts * 100 if total_stmts else 0
+          lines.append(f"\n**Total: {pct:.2f}%**")
+          summary = os.environ.get("GITHUB_STEP_SUMMARY", "")
+          with open(summary, "a") as f:
+              f.write("\n".join(lines) + "\n")
+
       - name: Upload Python coverage report
         if: always()
         uses: actions/upload-artifact@v4
