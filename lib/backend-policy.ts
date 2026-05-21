@@ -106,7 +106,7 @@ export function selectBackend(input: PolicyInput): PolicyResult {
       const candidates: Backend[] = ["quantum_inspired_gpu", "hpc_gpu", "quantum_qpu"]
       // Sort by cost and pick the first that is at least as capable
       candidates.sort((a, b) => COST_RANK[a] - COST_RANK[b])
-      backendId = candidates.find((c) => COST_RANK[c] <= COST_RANK[optimal]) ?? optimal
+      backendId = candidates.find((c) => COST_RANK[c] <= COST_RANK[optimal])!
       reason = `Cost-first: selected ${backendId} (cost rank ${COST_RANK[backendId]})`
       break
     }
@@ -121,10 +121,6 @@ export function selectBackend(input: PolicyInput): PolicyResult {
       }
       reason = `Capacity-first: selected ${backendId} for headroom`
       break
-    }
-    default: {
-      backendId = selectOptimalBackend(metrics)
-      reason = `Fallback: selected ${backendId} via optimal selector`
     }
   }
 

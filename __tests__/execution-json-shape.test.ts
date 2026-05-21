@@ -211,15 +211,13 @@ describe("selectBackend — auto mode produces a reason", () => {
     const result = selectBackend({
       ...base,
       errorMitigation: "high",
-      // Force quantum_qpu selection by using a circuit that targets it
-      qubits: 25,
-      depth: 120,
-      gateCount: 600,
+      qubits: 15,
+      depth: 30,
+      gateCount: 50,
       policy: "latency_first",
     })
-    // quantum_qpu would be selected but should be overridden to hpc_gpu
     expect(result.backendId).toBe("hpc_gpu")
-    expect(result.reason).toMatch(/hpc_gpu/)
+    expect(result.reason).toContain("upgraded to hpc_gpu for high error-mitigation")
   })
 
   it("metadata.source is 'auto' for auto mode", () => {
@@ -230,5 +228,48 @@ describe("selectBackend — auto mode produces a reason", () => {
   it("metadata.source is 'manual' for manual hint", () => {
     const result = selectBackend({ ...base, backendHint: "quantum_qpu" })
     expect(result.metadata.source).toBe("manual")
+  })
+
+  it("capacity_first selects hpc_gpu when qubits >= 20", () => {
+    const result = selectBackend({
+      ...base, policy: "capacity_first",
+      qubits: 20, depth: 10, gateCount: 30,
+    })
+    expect(result.backendId).toBe("hpc_gpu")
+    expect(result.reason).toMatch(/headroom/)
+  })
+
+  it("capacity_first selects hpc_gpu when depth >= 100", () => {
+    const result = selectBackend({
+      ...base, policy: "capacity_first",
+      qubits: 10, depth: 100, gateCount: 30,
+    })
+    expect(result.backendId).toBe("hpc_gpu")
+    expect(result.reason).toMatch(/headroom/)
+  })
+
+  it("capacity_first selects hpc_gpu for mid-range qubits (12-19)", () => {
+    const result = selectBackend({
+      ...base, policy: "capacity_first",
+      qubits: 15, depth: 30, gateCount: 50,
+    })
+    expect(result.backendId).toBe("hpc_gpu")
+    expect(result.reason).toMatch(/headroom/)
+  })
+
+  it("latency_first includes targetLatency in reason when set", () => {
+    const result = selectBackend({
+      ...base, policy: "latency_first",
+      targetLatency: 250,
+      qubits: 15, depth: 30, gateCount: 50,
+    })
+    expect(result.reason).toContain("with target 250ms")
+  })
+
+  it("uses BACKEND_POLICY env var when no policy override given", () => {
+    process.env.BACKEND_POLICY = "cost_first"
+    const result = selectBackend({ ...base })
+    expect(result.reason).toMatch(/cost/i)
+    delete process.env.BACKEND_POLICY
   })
 })
