@@ -223,6 +223,8 @@ export default function DashboardPage() {
       setTwins(data.twins || [])
     } catch (error) {
       console.error('[DASHBOARD] Error loading dashboard data:', error)
+      // Never show another user's cached data to a guest
+      if (isGuest) return
       // Show cached data when server fetch fails
       const cachedRows = readExecCache()
       if (cachedRows.length > 0) {

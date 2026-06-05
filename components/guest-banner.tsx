@@ -11,19 +11,23 @@ function getGuestCookie(): boolean {
 }
 
 /** Hook — returns true when the current visitor is a guest (no auth session).
- *  Checks both the cookie AND the sessionStorage flag set by QsaasLayout. */
+ *  Reads sessionStorage synchronously (via lazy useState initializer) so the
+ *  value is correct on the very first render — no false→true flicker that
+ *  would cause the dashboard to briefly load authenticated data. */
 export function useIsGuest(): boolean {
-  const [isGuest, setIsGuest] = useState(false)
+  const [isGuest, setIsGuest] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false
+    const serverFlag = sessionStorage.getItem("planck_is_guest")
+    if (serverFlag !== null) return serverFlag === "true"
+    return getGuestCookie()
+  })
 
   useEffect(() => {
-    // Primary: check the server-verified flag stored by QsaasLayout
+    // Keep in sync if the sessionStorage value changes after mount
+    // (e.g. layout sets it after an async /api/request-utils call)
     const serverFlag = sessionStorage.getItem("planck_is_guest")
-    if (serverFlag !== null) {
-      setIsGuest(serverFlag === "true")
-      return
-    }
-    // Fallback: check the cookie directly
-    setIsGuest(getGuestCookie())
+    const value = serverFlag !== null ? serverFlag === "true" : getGuestCookie()
+    setIsGuest(value)
   }, [])
 
   return isGuest

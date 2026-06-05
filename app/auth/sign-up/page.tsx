@@ -37,39 +37,6 @@ function getErrorMessage(err: unknown): string {
   return 'An error occurred. Please try again.'
 }
 
-const COUNTRY_CODES: { [key: string]: string } = {
-  Argentina: "+54",
-  Australia: "+61",
-  Austria: "+43",
-  Belgium: "+32",
-  Brazil: "+55",
-  Canada: "+1",
-  Chile: "+56",
-  Colombia: "+57",
-  Denmark: "+45",
-  France: "+33",
-  Germany: "+49",
-  India: "+91",
-  Ireland: "+353",
-  Italy: "+39",
-  Japan: "+81",
-  Mexico: "+52",
-  Netherlands: "+31",
-  "New Zealand": "+64",
-  Norway: "+47",
-  Poland: "+48",
-  Portugal: "+351",
-  Russia: "+7",
-  Singapore: "+65",
-  "South Korea": "+82",
-  Spain: "+34",
-  Sweden: "+46",
-  Switzerland: "+41",
-  "United Kingdom": "+44",
-  "United States": "+1",
-  Other: "+1",
-}
-
 const COUNTRIES = [
   "Argentina",
   "Australia",
@@ -120,17 +87,13 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showRepeatPassword, setShowRepeatPassword] = useState(false)
   const [country, setCountry] = useState("")
-  const [phoneNumber, setPhoneNumber] = useState("")
   const [occupation, setOccupation] = useState("")
-  const [organization, setOrganization] = useState("")
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [hasScrolledTerms, setHasScrolledTerms] = useState(false)
   const termsRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-
-  const phonePrefix = country ? COUNTRY_CODES[country] : ""
 
   useEffect(() => {
     const termsContainer = termsRef.current
@@ -172,12 +135,6 @@ export default function SignUpPage() {
       return
     }
 
-    if (!phoneNumber) {
-      setError(language === "es" ? "El número de teléfono es obligatorio" : "Phone number is required")
-      setIsLoading(false)
-      return
-    }
-
     if (!firstName || !lastName) {
       setError(language === "es" ? "Nombre y apellido son obligatorios" : "First name and last name are required")
       setIsLoading(false)
@@ -196,9 +153,7 @@ export default function SignUpPage() {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           country,
-          phone: phoneNumber,
           occupation,
-          organization,
         }),
       })
 
@@ -365,30 +320,6 @@ export default function SignUpPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">
-                {language === "es" ? "Número de Teléfono" : "Phone Number"} <span className="text-destructive">*</span>
-              </Label>
-              <div className="flex gap-2">
-                <Input
-                  value={phonePrefix}
-                  disabled
-                  className="w-20 bg-muted border-border text-center"
-                  placeholder="+X"
-                />
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="1234567890"
-                  required
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, ""))}
-                  disabled={isLoading || !country}
-                  className="flex-1 bg-input border-border"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="occupation">
                 {language === "es" ? "¿Cuál es tu rol?" : "What's your role?"}{" "}
                 <span className="text-destructive">*</span>
@@ -405,24 +336,6 @@ export default function SignUpPage() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="organization">
-                {language === "es" ? "Nombre de Organización" : "Organization Name"}
-                <span className="text-muted-foreground text-xs ml-2">
-                  ({language === "es" ? "Opcional" : "Optional"})
-                </span>
-              </Label>
-              <Input
-                id="organization"
-                type="text"
-                placeholder={language === "es" ? "Universidad de Barcelona" : "Stanford University"}
-                value={organization}
-                onChange={(e) => setOrganization(e.target.value)}
-                disabled={isLoading}
-                className="bg-input border-border"
-              />
             </div>
 
             <div className="space-y-3 pt-4 border-t border-border">
@@ -534,17 +447,23 @@ export default function SignUpPage() {
                   </>
                 )}
               </div>
-              <div className="flex items-start gap-3">
+              <div className={`flex items-start gap-3 rounded-md p-3 border transition-colors ${
+                hasScrolledTerms
+                  ? "border-primary/40 bg-primary/5"
+                  : "border-border bg-muted/40"
+              }`}>
                 <Checkbox
                   id="terms"
                   checked={termsAccepted}
                   onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
                   disabled={!hasScrolledTerms || isLoading}
-                  className="mt-1"
+                  className="mt-0.5 border-2"
                 />
                 <Label
                   htmlFor="terms"
-                  className={`text-sm cursor-pointer ${!hasScrolledTerms ? "text-muted-foreground/50" : ""}`}
+                  className={`text-sm cursor-pointer leading-snug ${
+                    !hasScrolledTerms ? "text-muted-foreground" : "text-foreground font-medium"
+                  }`}
                 >
                   {language === "es"
                     ? "He leído y acepto los términos y condiciones"
@@ -552,7 +471,7 @@ export default function SignUpPage() {
                   {!hasScrolledTerms && (
                     <span className="block text-xs text-muted-foreground mt-1">
                       {language === "es"
-                        ? "(Despl��zate hasta el final para habilitar)"
+                        ? "(Desplázate hasta el final para habilitar)"
                         : "(Scroll to the bottom to enable)"}
                     </span>
                   )}

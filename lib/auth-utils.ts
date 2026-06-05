@@ -59,7 +59,7 @@ export function generateJWT(
   const {
     fullName, organization, themePreference,
     phone, country, occupation, stayLoggedIn, passwordHash, apiKey,
-    expiresIn = 7 * 24 * 60 * 60 * 1000,
+    expiresIn = 30 * 24 * 60 * 60 * 1000,
   } = options
   const header = {
     alg: 'HS256',
@@ -117,6 +117,32 @@ export function verifyJWT(token: string): JWTPayload | null {
     }
 
     return payload
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Decode a JWT and verify its signature WITHOUT checking expiration.
+ * Used only for self-healing after a Vercel cold start wipes the DB:
+ * an expired token still carries trustworthy identity data (ph, userId, email)
+ * because the signature is cryptographically valid.
+ */
+export function decodeJWTUnchecked(token: string): JWTPayload | null {
+  try {
+    const parts = token.split('.')
+    if (parts.length !== 3) return null
+    const [headerEncoded, payloadEncoded, signatureEncoded] = parts
+
+    // Still verify the signature — we just skip the expiry check
+    const signature = crypto
+      .createHmac('sha256', EFFECTIVE_SECRET)
+      .update(`${headerEncoded}.${payloadEncoded}`)
+      .digest('base64url')
+
+    if (signature !== signatureEncoded) return null
+
+    return JSON.parse(base64UrlDecode(payloadEncoded)) as JWTPayload
   } catch {
     return null
   }

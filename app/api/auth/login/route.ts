@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Users, Profiles, ApiKeys } from '@/lib/db/client'
-import { verifyPassword, generateJWT, verifyJWT } from '@/lib/auth-utils'
+import { verifyPassword, generateJWT, verifyJWT, decodeJWTUnchecked } from '@/lib/auth-utils'
 import { ensureDbUser } from '@/lib/db/ensure-user'
 
 export async function POST(request: NextRequest) {
@@ -30,7 +30,8 @@ export async function POST(request: NextRequest) {
     try {
       const existingToken = request.cookies.get('auth-token')?.value
       if (existingToken) {
-        const prev = verifyJWT(existingToken)
+        // Try valid token first, then fall back to expired-but-signed token
+        const prev = verifyJWT(existingToken) ?? decodeJWTUnchecked(existingToken)
         if (prev) ensureDbUser(prev)
       }
     } catch { /* best-effort */ }
@@ -45,6 +46,30 @@ export async function POST(request: NextRequest) {
         { error: 'Authentication service unavailable. Please try again.' },
         { status: 500 }
       )
+    }
+
+    // ── Fallback self-heal: no cookie token but DB lost the user (cold start
+    // after token expiry).  Decode any stale token to extract the password
+    // hash and verify the supplied password against it.
+    if (!user) {
+      try {
+        const staleToken = request.cookies.get('auth-token')?.value
+        if (staleToken) {
+          const decoded = decodeJWTUnchecked(staleToken)
+          if (decoded && decoded.ph && decoded.email === email.toLowerCase().trim()) {
+            const { hashPassword } = await import('@/lib/auth-utils')
+            const suppliedHash = hashPassword(password)
+            if (suppliedHash === decoded.ph) {
+              // Password matches → recreate the user so subsequent DB calls work
+              console.log('[LOGIN] Self-healing user from expired token for:', email)
+              ensureDbUser(decoded)
+              user = Users.findByEmail(email.toLowerCase().trim())
+            }
+          }
+        }
+      } catch (healErr) {
+        console.warn('[LOGIN] Self-heal from expired token failed (non-fatal):', healErr)
+      }
     }
 
     if (!user) {
@@ -79,7 +104,7 @@ export async function POST(request: NextRequest) {
       try {
         const existingToken = request.cookies.get('auth-token')?.value
         if (existingToken) {
-          const prev = verifyJWT(existingToken)
+          const prev = verifyJWT(existingToken) ?? decodeJWTUnchecked(existingToken)
           if (prev?.ak) existingApiKey = prev.ak
         }
       } catch { /* best-effort */ }
@@ -111,7 +136,7 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      maxAge: 30 * 24 * 60 * 60, // 30 days
     })
 
     // Clear any lingering guest cookie so authenticated mode takes effect immediately.

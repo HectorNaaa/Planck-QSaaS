@@ -75,6 +75,13 @@ export default function LoginPage() {
   const handleGuest = () => {
     setIsGuestLoading(true)
     document.cookie = `planck_guest=true; max-age=${2 * 60 * 60}; path=/; SameSite=Strict`
+    // Clear any cached executions from a previous authenticated session so
+    // the guest sees a completely empty dashboard.
+    try {
+      localStorage.removeItem("planck_exec_cache")
+      localStorage.removeItem("planck_exec_cleared_before")
+      localStorage.removeItem("planck_exec_deleted_ids")
+    } catch { /* non-fatal */ }
     router.push("/qsaas/dashboard")
   }
 
