@@ -5,6 +5,9 @@
 
 <img width="2669" height="585" alt="Planck QSaaS Banner" src="https://github.com/user-attachments/assets/beea1cff-1c81-481a-a95e-e47b2f834d85" />
 
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/HectorNaaa/Planck-QSaaS)
+
 ---
 
 ## What is this repository?
