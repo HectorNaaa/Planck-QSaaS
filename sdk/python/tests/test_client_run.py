@@ -247,12 +247,40 @@ class TestRequestErrorHandling:
     @patch("planck_sdk.client.urlopen")
     def test_http_400_error(self, mock_urlopen, user):
         from urllib.error import HTTPError
+        from unittest.mock import MagicMock
 
-        error_body = json.dumps({"error": "bad request"}).encode("utf-8")
+        mock_fp = MagicMock()
+        mock_fp.read.return_value = json.dumps({"error": "bad request"}).encode("utf-8")
         mock_urlopen.side_effect = HTTPError(
-            url="http://mock/circuit", code=400, msg="Bad Request", hdrs={}, fp=None
+            url="http://mock/circuit", code=400, msg="Bad Request", hdrs={}, fp=mock_fp
         )
         with pytest.raises(CircuitError, match="Invalid request"):
+            user.generate_circuit(data=[1], algorithm="vqe")
+
+    @patch("planck_sdk.client.urlopen")
+    def test_http_401_error(self, mock_urlopen, user):
+        from urllib.error import HTTPError
+        from unittest.mock import MagicMock
+
+        mock_fp = MagicMock()
+        mock_fp.read.return_value = json.dumps({"error": "invalid key"}).encode("utf-8")
+        mock_urlopen.side_effect = HTTPError(
+            url="http://mock/circuit", code=401, msg="Unauthorized", hdrs={}, fp=mock_fp
+        )
+        with pytest.raises(AuthenticationError, match="invalid key"):
+            user.generate_circuit(data=[1], algorithm="vqe")
+
+    @patch("planck_sdk.client.urlopen")
+    def test_http_error_invalid_json(self, mock_urlopen, user):
+        from urllib.error import HTTPError
+        from unittest.mock import MagicMock
+
+        mock_fp = MagicMock()
+        mock_fp.read.return_value = b"Not a JSON response"
+        mock_urlopen.side_effect = HTTPError(
+            url="http://mock/circuit", code=500, msg="Server Error", hdrs={}, fp=mock_fp
+        )
+        with pytest.raises(APIError, match="Not a JSON response"):
             user.generate_circuit(data=[1], algorithm="vqe")
 
     @patch("planck_sdk.client.urlopen")

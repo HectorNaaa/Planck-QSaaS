@@ -105,6 +105,12 @@ class TestListDigitalTwins:
         twins = user.list_digital_twins()
         assert twins == []
 
+    @patch("planck_sdk.client.urlopen")
+    def test_list_digital_twins_not_a_dict(self, mock_urlopen, user):
+        mock_urlopen.return_value = mock_urlopen_factory(["not_a_dict"])
+        twins = user.list_digital_twins()
+        assert twins == []
+
 
 class TestGetRecommendations:
     @patch("planck_sdk.client.urlopen")
