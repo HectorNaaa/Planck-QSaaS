@@ -56,12 +56,20 @@ __all__ = [
 
 
 def get_install_command() -> str:
-    """Return the pip install command for this SDK."""
+    """Return the pip install command for this SDK.
+
+    Returns:
+        str: The pip install command.
+    """
     return "pip install planck_sdk"
 
 
 def get_notebook_install_code() -> str:
-    """Return code to install SDK in Jupyter/Colab notebooks."""
+    """Return code to install SDK in Jupyter/Colab notebooks.
+
+    Returns:
+        str: The code string to install the SDK in a notebook environment.
+    """
     return """# Install Planck SDK (run this cell once)
 !pip install -q planck_sdk
 print("Planck SDK installed!")"""

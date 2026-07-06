@@ -43,6 +43,11 @@ class CircuitBuildOptions:
     force_layers: Optional[int]   = None   # override VQE/QAOA layer count
 
     def to_dict(self) -> dict:
+        """Convert the build options to a dictionary.
+
+        Returns:
+            dict: The dictionary representation of the build options.
+        """
         return {k: v for k, v in {
             "maxQubits":   self.max_qubits,
             "maxDepth":    self.max_depth,
@@ -84,7 +89,11 @@ class QuantumCircuit:
     # ── Serialisation ──────────────────────────────────────────────────────────
 
     def to_dict(self) -> dict:
-        """Serialise to plain dict (useful for JSON export / logging)."""
+        """Serialise to plain dict (useful for JSON export / logging).
+
+        Returns:
+            dict: The dictionary representation of the quantum circuit.
+        """
         return {
             "qasm":              self.qasm,
             "qubits":            self.qubits,
@@ -101,9 +110,15 @@ class QuantumCircuit:
 
     @classmethod
     def from_api_response(cls, resp: dict) -> "QuantumCircuit":
-        """
-        Construct a QuantumCircuit from a raw /api/quantum/simulate response dict.
+        """Construct a QuantumCircuit from a raw /api/quantum/simulate response dict.
+
         Accepts both snake_case and camelCase keys produced by different routes.
+
+        Args:
+            resp (dict): The dictionary response from the API.
+
+        Returns:
+            QuantumCircuit: A new QuantumCircuit instance populated with the API data.
         """
         return cls(
             qasm              = resp.get("qasm", ""),
@@ -122,16 +137,29 @@ class QuantumCircuit:
     # ── Convenience ────────────────────────────────────────────────────────────
 
     def save(self, filepath: str) -> None:
-        """Write QASM source to *filepath*."""
+        """Write QASM source to *filepath*.
+
+        Args:
+            filepath (str): The path to the file where QASM should be saved.
+        """
         with open(filepath, "w") as fh:
             fh.write(self.qasm)
 
     @property
     def clean_qasm(self) -> str:
-        """QASM with comment lines stripped (useful for display)."""
+        """Get QASM with comment lines stripped (useful for display).
+
+        Returns:
+            str: The clean QASM string.
+        """
         return "\n".join(l for l in self.qasm.splitlines() if not l.startswith("//"))
 
     def __repr__(self) -> str:
+        """Get string representation of the QuantumCircuit.
+
+        Returns:
+            str: The string representation.
+        """
         suffix = " (transpiled)" if self.transpiled else ""
         return (
             f"QuantumCircuit(algorithm='{self.algorithm}', qubits={self.qubits}, "

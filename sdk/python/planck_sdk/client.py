@@ -73,7 +73,14 @@ class PlanckUser:
     
     @staticmethod
     def _validate_api_key(api_key: str) -> bool:
-        """Validate API key format to prevent injection attacks."""
+        """Validate API key format to prevent injection attacks.
+
+        Args:
+            api_key (str): The API key to validate.
+
+        Returns:
+            bool: True if the key is valid, False otherwise.
+        """
         # API keys should be alphanumeric with underscores/hyphens, 20-100 chars
         if not api_key or len(api_key) < 10 or len(api_key) > 200:
             return False
@@ -82,7 +89,15 @@ class PlanckUser:
     
     @staticmethod
     def _sanitize_string(value: str, max_length: int = 1000) -> str:
-        """Sanitize string input to prevent injection attacks."""
+        """Sanitize string input to prevent injection attacks.
+
+        Args:
+            value (str): The string to sanitize.
+            max_length (int, optional): The maximum length of the output string. Defaults to 1000.
+
+        Returns:
+            str: The sanitized string.
+        """
         if not isinstance(value, str):
             return str(value)[:max_length]
         # HTML escape and truncate
@@ -91,7 +106,14 @@ class PlanckUser:
     
     @staticmethod
     def _validate_algorithm(algorithm: str) -> str:
-        """Validate and normalise algorithm name to lowercase for the API."""
+        """Validate and normalise algorithm name to lowercase for the API.
+
+        Args:
+            algorithm (str): The algorithm name to validate.
+
+        Returns:
+            str: The normalised algorithm name.
+        """
         if not algorithm:
             return "vqe"
         normalized = algorithm.lower().strip()
@@ -99,12 +121,18 @@ class PlanckUser:
         return normalized if normalized in allowed else "vqe"
     
     def _validate_input_data(self, data: Any) -> Tuple[Any, int]:
-        """
-        Validate and sanitize input data.
+        """Validate and sanitize input data.
 
-        Returns a tuple (sampled_data, true_sample_count) where:
-          - sampled_data is at most _CLIENT_SAMPLE_CAP rows (safe to send)
-          - true_sample_count is the original length (used as sampleCountHint)
+        Args:
+            data (Any): The input data which can be a list, dict, or file path.
+
+        Returns:
+            Tuple[Any, int]: A tuple (sampled_data, true_sample_count) where:
+                - sampled_data is at most _CLIENT_SAMPLE_CAP rows (safe to send).
+                - true_sample_count is the original length (used as sampleCountHint).
+        
+        Raises:
+            ValidationError: If the data type is unsupported or dict is too large.
         """
         if data is None:
             raise ValidationError("Input data cannot be None")
@@ -137,7 +165,21 @@ class PlanckUser:
         endpoint: str,
         data: Optional[Dict] = None
     ) -> Dict[str, Any]:
-        """Make an HTTP request to the Planck API with security validations."""
+        """Make an HTTP request to the Planck API with security validations.
+
+        Args:
+            method (str): The HTTP method (e.g., 'GET', 'POST').
+            endpoint (str): The API endpoint path.
+            data (Optional[Dict], optional): The JSON payload. Defaults to None.
+
+        Returns:
+            Dict[str, Any]: The parsed JSON response.
+
+        Raises:
+            APIError: If the request fails, times out, or is invalid.
+            AuthenticationError: If the API key is unauthorized.
+            CircuitError: If the request is a 400 bad request.
+        """
         # Rate limiting: Wait at least 3 seconds between requests
         current_time = time.time()
         time_since_last_request = current_time - self._last_request_time
@@ -729,16 +771,22 @@ class PlanckUser:
     
     @staticmethod
     def _extract_qubit_count(qasm: str) -> int:
-        """Extract qubit count from QASM code."""
+        """Extract qubit count from QASM code.
+
+        Args:
+            qasm (str): The OpenQASM 2.0 code.
+
+        Returns:
+            int: The extracted qubit count, defaults to 4 if not found.
+        """
         match = re.search(r'qreg\s+\w+\[(\d+)\]', qasm)
         return int(match.group(1)) if match else 4
     
     def health_check(self) -> Dict[str, Any]:
-        """
-        Full health check against the API, returns status details.
+        """Full health check against the API, returns status details.
         
         Returns:
-            Dict with keys like 'status', 'version', 'timestamp', etc.
+            Dict[str, Any]: Dictionary with keys like 'status', 'version', 'timestamp', etc.
         
         Raises:
             APIError: If the health endpoint is unreachable.
@@ -747,8 +795,10 @@ class PlanckUser:
         return response
 
     def ping(self) -> bool:
-        """
-        Quick connectivity test. Returns True if the API responds, False otherwise.
+        """Quick connectivity test.
+
+        Returns:
+            bool: True if the API responds successfully, False otherwise.
         """
         try:
             resp = self.health_check()
@@ -894,4 +944,9 @@ class PlanckUser:
             raise APIError(f"API error ({e.code}): {message}")
     
     def __repr__(self) -> str:
+        """Get string representation of the PlanckUser.
+
+        Returns:
+            str: The string representation.
+        """
         return f"PlanckUser(base_url='{self.base_url}')"
