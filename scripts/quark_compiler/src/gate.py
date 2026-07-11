@@ -135,9 +135,14 @@ class Gate:
         Returns:
             True if this gate is effectively a no-op.
         """
-        # TODO: Implement this property.
-        # Hint: Use math.pi and check if angle % (2 * math.pi) is approximately 0.
-        pass
+        if self._gate_type not in self._PARAMETRIC_TYPES:
+            return False
+        if self._angle is None:
+            return False
+        import math
+
+        remainder = self._angle % (2 * math.pi)
+        return min(remainder, 2 * math.pi - remainder) < 1e-10
 
     @property
     def inverse(self) -> "Gate":
@@ -153,10 +158,34 @@ class Gate:
         Raises:
             NotImplementedError: If inverse is not defined for this gate type.
         """
-        # TODO: Implement this property.
-        # Hint: Handle each gate type. Self-inverse gates return Gate(same_type, same_qubits).
-        # S -> RZ(-π/2), T -> RZ(-π/4), RZ(θ) -> RZ(-θ), etc.
-        pass
+        if self.is_self_inverse:
+            return Gate(
+                self._gate_type,
+                self.target_qubits,
+                control_qubits=self.control_qubits,
+                angle=self._angle,
+            )
+        import math
+
+        if self._gate_type == GateType.S:
+            return Gate(GateType.RZ, self.target_qubits, angle=-math.pi / 2)
+        if self._gate_type == GateType.T:
+            return Gate(GateType.RZ, self.target_qubits, angle=-math.pi / 4)
+        if self._gate_type in self._PARAMETRIC_TYPES:
+            if self._gate_type == GateType.CU1:
+                return Gate(
+                    self._gate_type,
+                    self.target_qubits,
+                    control_qubits=self.control_qubits,
+                    angle=-self._angle if self._angle is not None else 0.0,
+                )
+            else:
+                return Gate(
+                    self._gate_type,
+                    self.target_qubits,
+                    angle=-self._angle if self._angle is not None else 0.0,
+                )
+        raise NotImplementedError(f"Inverse not implemented for {self._gate_type}")
 
     def merge_with(self, other: "Gate") -> "Gate | None":
         """Attempts to merge this gate with another same-axis rotation gate.
@@ -175,15 +204,68 @@ class Gate:
         Raises:
             ValueError: If the gates cannot be merged (different axes or qubits).
         """
-        # TODO: Implement this method.
-        # Hint:
-        # 1. Verify both gates act on the same qubits.
-        # 2. Convert each gate to its equivalent angle:
-        #    Z = π, S = π/2, T = π/4, RZ(θ) = θ, X = π, RX(θ) = θ, etc.
-        # 3. Sum the angles.
-        # 4. If the sum is ≈ 0 mod 2π, return None (identity).
-        # 5. Otherwise, return a new parametric gate (e.g., RZ) with the summed angle.
-        pass
+        if (
+            self.target_qubits != other.target_qubits
+            or self.control_qubits != other.control_qubits
+        ):
+            raise ValueError("Cannot merge gates acting on different qubits")
+
+        import math
+
+        z_family = {GateType.Z, GateType.S, GateType.T, GateType.RZ}
+        x_family = {GateType.X, GateType.RX}
+        y_family = {GateType.Y, GateType.RY}
+
+        def get_angle_and_axis(g: "Gate") -> tuple[float, str]:
+            t = g._gate_type
+            if t in z_family:
+                if t == GateType.Z:
+                    return math.pi, "Z"
+                if t == GateType.S:
+                    return math.pi / 2, "Z"
+                if t == GateType.T:
+                    return math.pi / 4, "Z"
+                return g.angle if g.angle is not None else 0.0, "Z"
+            if t in x_family:
+                if t == GateType.X:
+                    return math.pi, "X"
+                return g.angle if g.angle is not None else 0.0, "X"
+            if t in y_family:
+                if t == GateType.Y:
+                    return math.pi, "Y"
+                return g.angle if g.angle is not None else 0.0, "Y"
+            raise ValueError(f"Cannot determine axis for gate type {t}")
+
+        try:
+            angle1, axis1 = get_angle_and_axis(self)
+            angle2, axis2 = get_angle_and_axis(other)
+        except ValueError as e:
+            raise ValueError(f"Cannot merge: {e}") from e
+
+        if axis1 != axis2:
+            raise ValueError(
+                f"Cannot merge gates on different axes: {axis1} and {axis2}"
+            )
+
+        summed_angle = angle1 + angle2
+        remainder = summed_angle % (2 * math.pi)
+        if min(remainder, 2 * math.pi - remainder) < 1e-10:
+            return None
+
+        merged_type = (
+            GateType.RZ
+            if axis1 == "Z"
+            else (GateType.RX if axis1 == "X" else GateType.RY)
+        )
+        if self.control_qubits:
+            return Gate(
+                merged_type,
+                self.target_qubits,
+                control_qubits=self.control_qubits,
+                angle=summed_angle,
+            )
+        else:
+            return Gate(merged_type, self.target_qubits, angle=summed_angle)
 
     @property
     def gate_type(self) -> GateType:
