@@ -2,14 +2,10 @@ import sys
 import os
 import re
 
-# Add Quark compiler paths to sys.path
+# Add local Quark compiler path to sys.path
 script_dir = os.path.dirname(os.path.abspath(__file__))
-relative_path = os.path.abspath(os.path.join(script_dir, "..", "..", "Quark_compiler"))
-home_path = os.path.expanduser("~/Git Stuff/Quark_compiler")
-
-for path in [relative_path, home_path]:
-    if os.path.exists(path) and path not in sys.path:
-        sys.path.insert(0, path)
+local_quark_path = os.path.join(script_dir, "quark_compiler")
+sys.path.insert(0, local_quark_path)
 
 try:
     from src.circuit import Circuit
