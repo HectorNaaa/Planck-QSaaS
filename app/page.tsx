@@ -175,23 +175,23 @@ export default function LandingPage() {
 
             <div className="flex animate-scroll-carousel gap-8 whitespace-nowrap">
               {[
-                "Drug Discovery & Molecular Simulation",
-                "Machine Learning",
                 "Financial Portfolios",
-                "Cryptography & Communications",
-                "Supply Chain & Logistics",
-                "Materials Science & Chemistry",
-                "Climate & Environment",
-                "Genomics",
+                "Asset Management",
+                "Risk Analysis",
+                "Quantitative Trading",
+                "Portfolio Optimization",
+                "Algorithmic Trading",
+                "Fraud Detection",
+                "Market Forecasting",
                 // Duplicate for seamless loop
-                "Drug Discovery & Molecular Simulation",
-                "Machine Learning",
                 "Financial Portfolios",
-                "Cryptography & Communications",
-                "Supply Chain & Logistics",
-                "Materials Science & Chemistry",
-                "Climate & Environment",
-                "Genomics",
+                "Asset Management",
+                "Risk Analysis",
+                "Quantitative Trading",
+                "Portfolio Optimization",
+                "Algorithmic Trading",
+                "Fraud Detection",
+                "Market Forecasting",
               ].map((vertical, i) => (
                 <div
                   key={i}
