@@ -8,5 +8,9 @@
   "env": {
     "NEXT_TELEMETRY_DISABLED": "1",
     "DB_DIR": "/tmp"
+  },
+  "github": {
+    "enabled": false,
+    "silent": true
   }
 }
