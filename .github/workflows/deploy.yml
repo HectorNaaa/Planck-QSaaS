@@ -43,9 +43,22 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::Secret VERCEL_TOKEN is not set or is empty. Please add it in GitHub Repository Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          if [ -z "$VERCEL_ORG_ID" ]; then
+            echo "::error::Secret VERCEL_ORG_ID is not set or is empty. Please add it in GitHub Repository Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+          if [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "::error::Secret VERCEL_PROJECT_ID is not set or is empty. Please add it in GitHub Repository Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
           npm install -g vercel
           if [ "${{ github.event.inputs.target }}" = "production" ]; then
-            vercel deploy --prod --token $VERCEL_TOKEN --yes
+            vercel deploy --prod --token "$VERCEL_TOKEN" --yes
           else
-            vercel deploy --token $VERCEL_TOKEN --yes
+            vercel deploy --token "$VERCEL_TOKEN" --yes
           fi
