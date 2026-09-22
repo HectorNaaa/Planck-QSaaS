@@ -11,7 +11,7 @@ describe("executionRfqModule — greedy net-price allocation vs naive nominal-pr
   it("beats the best-nominal-price benchmark once fees are accounted for", () => {
     const snapshot = executionRfqModule.parseSnapshot(buildExecutionRfqDemoSnapshot())
     const scenario = executionRfqModule.parseScenario({ decisionTime: "2026-09-19T12:00:30Z" })
-    const { result, kpis } = executionRfqModule.runClassical(snapshot, scenario)
+    const { result, kpis } = executionRfqModule.runClassical(snapshot, scenario, 1)
 
     // VENUE_A has the cheapest headline price but a high fee — the naive
     // benchmark routes to it first; our net-price ranking should do better.
@@ -30,20 +30,20 @@ describe("executionRfqModule — greedy net-price allocation vs naive nominal-pr
     const snapshot = executionRfqModule.parseSnapshot(buildExecutionRfqDemoSnapshot())
     // 5 minutes after all quotes' 60s TTL has elapsed -> nothing alive.
     const scenario = executionRfqModule.parseScenario({ decisionTime: "2026-09-19T12:05:00Z" })
-    expect(() => executionRfqModule.runClassical(snapshot, scenario)).toThrow(/no quotes are alive/i)
+    expect(() => executionRfqModule.runClassical(snapshot, scenario, 1)).toThrow(/no quotes are alive/i)
   })
 
   it("does not fabricate a fill-rate prediction", () => {
     const snapshot = executionRfqModule.parseSnapshot(buildExecutionRfqDemoSnapshot())
     const scenario = executionRfqModule.parseScenario({ decisionTime: "2026-09-19T12:00:30Z" })
-    const { result } = executionRfqModule.runClassical(snapshot, scenario)
+    const { result } = executionRfqModule.runClassical(snapshot, scenario, 1)
     expect(result.fillPredictionAvailable).toBe(false)
   })
 
   it("experimental annealing route is honestly labeled quantum-inspired (classical)", () => {
     const snapshot = executionRfqModule.parseSnapshot(buildExecutionRfqDemoSnapshot())
     const scenario = executionRfqModule.parseScenario({ decisionTime: "2026-09-19T12:00:30Z", lotSize: 500 })
-    const baseline = executionRfqModule.runClassical(snapshot, scenario)
+    const baseline = executionRfqModule.runClassical(snapshot, scenario, 1)
     const experimental = executionRfqModule.runExperimental(snapshot, scenario, 3, baseline)
     expect(experimental.available).toBe(true)
     if (experimental.available) {

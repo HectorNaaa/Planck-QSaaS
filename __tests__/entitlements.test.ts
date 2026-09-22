@@ -5,43 +5,53 @@
  * across many rapid "concurrent-looking" requests for the same user.
  *
  * Uses an isolated temp SQLite file (via DB_DIR) so this never touches the
- * real dev/prod database.
+ * real dev/prod database. Modules are imported dynamically inside
+ * beforeAll (rather than top-level await) so DB_DIR is set before
+ * lib/db/init.ts is first evaluated, without requiring top-level await
+ * (which this project's tsconfig target does not support).
  */
 import { describe, it, expect, beforeAll } from "vitest"
 import os from "node:os"
 import path from "node:path"
 import fs from "node:fs"
 
-const testDbDir = fs.mkdtempSync(path.join(os.tmpdir(), "planck-entitlements-test-"))
-process.env.DB_DIR = testDbDir
+let db: any
+let Users: any
+let reserveQuota: typeof import("@/lib/entitlements")["reserveQuota"]
+let commitReservation: typeof import("@/lib/entitlements")["commitReservation"]
+let releaseReservation: typeof import("@/lib/entitlements")["releaseReservation"]
+let QuotaExceededError: typeof import("@/lib/entitlements")["QuotaExceededError"]
+let getPlanLimits: typeof import("@/lib/entitlements")["getPlanLimits"]
+let userId: string
 
-const dbModule = await import("@/lib/db/init")
-const { Users } = await import("@/lib/db/client")
-const {
-  reserveQuota,
-  commitReservation,
-  releaseReservation,
-  QuotaExceededError,
-  getPlanLimits,
-} = await import("@/lib/entitlements")
+beforeAll(async () => {
+  const testDbDir = fs.mkdtempSync(path.join(os.tmpdir(), "planck-entitlements-test-"))
+  process.env.DB_DIR = testDbDir
 
-const db = dbModule.default
+  const dbModule = await import("@/lib/db/init")
+  const clientModule = await import("@/lib/db/client")
+  const entitlementsModule = await import("@/lib/entitlements")
+
+  db = dbModule.default
+  Users = clientModule.Users
+  reserveQuota = entitlementsModule.reserveQuota
+  commitReservation = entitlementsModule.commitReservation
+  releaseReservation = entitlementsModule.releaseReservation
+  QuotaExceededError = entitlementsModule.QuotaExceededError
+  getPlanLimits = entitlementsModule.getPlanLimits
+
+  const user = Users.create(`test-${Date.now()}@example.com`, "hash")
+  userId = user.id
+  // Seed a tiny dedicated plan so the test doesn't depend on production defaults.
+  db.prepare(
+    `INSERT OR REPLACE INTO plan_limits
+      (plan, max_executions_per_cycle, max_concurrent_jobs, max_compute_ms_per_cycle, max_storage_bytes, cycle_length_days)
+     VALUES ('test-tiny', 3, 1, 100000, 1000000, 30)`,
+  ).run()
+  db.prepare("INSERT INTO entitlements (user_id, plan) VALUES (?, 'test-tiny')").run(userId)
+})
 
 describe("entitlements — atomic quota reservation", () => {
-  let userId: string
-
-  beforeAll(() => {
-    const user = Users.create(`test-${Date.now()}@example.com`, "hash")
-    userId = user.id
-    // Seed a tiny dedicated plan so the test doesn't depend on production defaults.
-    db.prepare(
-      `INSERT OR REPLACE INTO plan_limits
-        (plan, max_executions_per_cycle, max_concurrent_jobs, max_compute_ms_per_cycle, max_storage_bytes, cycle_length_days)
-       VALUES ('test-tiny', 3, 1, 100000, 1000000, 30)`,
-    ).run()
-    db.prepare("INSERT INTO entitlements (user_id, plan) VALUES (?, 'test-tiny')").run(userId)
-  })
-
   it("getPlanLimits reflects the seeded tiny plan", () => {
     const limits = getPlanLimits("test-tiny")
     expect(limits.maxExecutionsPerCycle).toBe(3)

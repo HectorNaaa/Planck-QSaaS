@@ -21,7 +21,7 @@ describe("collateralLiquidityModule — exact min-cost-flow baseline", () => {
       ],
     })
     const scenario = collateralLiquidityModule.parseScenario({})
-    const { result, kpis } = collateralLiquidityModule.runClassical(snapshot, scenario)
+    const { result, kpis } = collateralLiquidityModule.runClassical(snapshot, scenario, 1)
 
     // Optimal: fill A2 (cheap, cap 1000) fully, then 500 from A1.
     // cost = (1000*5 + 500*10) / 10000 = 1.0
@@ -40,7 +40,7 @@ describe("collateralLiquidityModule — exact min-cost-flow baseline", () => {
   it("reports an honest shortfall when capacity cannot cover demand under stress", () => {
     const snapshot = collateralLiquidityModule.parseSnapshot(buildCollateralLiquidityDemoSnapshot())
     const scenario = collateralLiquidityModule.parseScenario({ stressMultiplier: 5 })
-    const { result } = collateralLiquidityModule.runClassical(snapshot, scenario)
+    const { result } = collateralLiquidityModule.runClassical(snapshot, scenario, 1)
     expect(result.shortfall).toBeGreaterThan(0)
     expect(result.hardViolations).toHaveLength(0) // capacities are never violated, shortfall is reported instead
   })
@@ -48,7 +48,7 @@ describe("collateralLiquidityModule — exact min-cost-flow baseline", () => {
   it("experimental annealing route is available, honestly labeled, and never beats the exact optimum", () => {
     const snapshot = collateralLiquidityModule.parseSnapshot(buildCollateralLiquidityDemoSnapshot())
     const scenario = collateralLiquidityModule.parseScenario({ annealingIterations: 2000 })
-    const baseline = collateralLiquidityModule.runClassical(snapshot, scenario)
+    const baseline = collateralLiquidityModule.runClassical(snapshot, scenario, 1)
     const experimental = collateralLiquidityModule.runExperimental(snapshot, scenario, 7, baseline)
 
     expect(experimental.available).toBe(true)
