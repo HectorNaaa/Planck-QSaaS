@@ -108,6 +108,8 @@ export async function POST(request: NextRequest) {
     const userId = auth.userId!
 
     // ── Storage cap: 50 MB per user ────────────────────────────────────────
+    // Fails CLOSED: if the usage query itself errors, we cannot verify the
+    // user is under budget, so the request is rejected rather than allowed.
     const STORAGE_CAP_BYTES = 50 * 1024 * 1024 // 50 MB
     try {
       const usedBytes = Executions.getStorageSizeByUserId(userId)
@@ -123,7 +125,17 @@ export async function POST(request: NextRequest) {
           { status: 429 }
         )
       }
-    } catch { /* DB unavailable — non-fatal, allow the request */ }
+    } catch (storageCheckError) {
+      console.error("[API] Storage quota check failed — failing closed:", storageCheckError)
+      return NextResponse.json(
+        {
+          success: false,
+          storage_limit_exceeded: true,
+          error: "Unable to verify storage quota right now. Please try again shortly.",
+        },
+        { status: 503 }
+      )
+    }
     // session client for browser requests that already pass RLS.
     // Supabase logic removed; use internal DB logic here
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Zap, BookOpen, Settings } from "lucide-react"
+import { LayoutDashboard, Zap, BookOpen, Settings, LineChart } from "lucide-react"
 import Image from "next/image"
 import { useLanguage } from "@/contexts/language-context"
 import { useDigitalTwinMode } from "@/contexts/digital-twin-mode-context"
@@ -16,6 +16,7 @@ export function Sidebar() {
     { href: "/qsaas/dashboard", label: t("Dashboard"), icon: LayoutDashboard },
     { href: "/qsaas/runner", label: "Twin Simulator", icon: Zap },
     { href: "/qsaas/templates", label: "Model Templates", icon: BookOpen },
+    { href: "/qsaas/finance", label: "Finance Twins", icon: LineChart },
     { href: "/qsaas/settings", label: t("Settings"), icon: Settings },
   ]
 

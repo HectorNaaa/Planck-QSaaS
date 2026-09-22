@@ -153,6 +153,122 @@ export function initializeDatabase() {
       db.exec(`ALTER TABLE executions ADD COLUMN ${col.name} ${col.def}`)
     }
   }
+
+  // ── Finance digital twins (additive — Risk Scenario / Collateral & Liquidity / Execution-RFQ) ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS finance_twins (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      module_id TEXT NOT NULL,
+      name TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS finance_snapshots (
+      id TEXT PRIMARY KEY,
+      twin_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      module_id TEXT NOT NULL,
+      version INTEGER NOT NULL DEFAULT 1,
+      snapshot_hash TEXT NOT NULL,
+      model TEXT,
+      constraints TEXT,
+      data TEXT NOT NULL,
+      is_synthetic BOOLEAN DEFAULT 1,
+      seed INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (twin_id) REFERENCES finance_twins(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS finance_runs (
+      id TEXT PRIMARY KEY,
+      execution_id TEXT,
+      snapshot_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      module_id TEXT NOT NULL,
+      execution_mode TEXT NOT NULL,
+      solver_actual TEXT,
+      status TEXT DEFAULT 'pending',
+      is_synthetic BOOLEAN DEFAULT 1,
+      seed INTEGER,
+      model_version TEXT,
+      calibration_status TEXT,
+      lineage TEXT,
+      result TEXT,
+      kpis TEXT,
+      baseline TEXT,
+      warnings TEXT,
+      started_at DATETIME,
+      completed_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (execution_id) REFERENCES executions(id) ON DELETE SET NULL,
+      FOREIGN KEY (snapshot_id) REFERENCES finance_snapshots(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_finance_twins_user ON finance_twins(user_id);
+    CREATE INDEX IF NOT EXISTS idx_finance_snapshots_user ON finance_snapshots(user_id);
+    CREATE INDEX IF NOT EXISTS idx_finance_snapshots_twin ON finance_snapshots(twin_id);
+    CREATE INDEX IF NOT EXISTS idx_finance_runs_user ON finance_runs(user_id);
+    CREATE INDEX IF NOT EXISTS idx_finance_runs_snapshot ON finance_runs(snapshot_id);
+  `)
+
+  // ── Server-side entitlements / quota gate (additive — no client-supplied plan/quota is ever trusted) ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS plan_limits (
+      plan TEXT PRIMARY KEY,
+      max_executions_per_cycle INTEGER NOT NULL,
+      max_concurrent_jobs INTEGER NOT NULL,
+      max_compute_ms_per_cycle INTEGER NOT NULL,
+      max_storage_bytes INTEGER NOT NULL,
+      cycle_length_days INTEGER NOT NULL DEFAULT 30,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS entitlements (
+      user_id TEXT PRIMARY KEY,
+      plan TEXT NOT NULL DEFAULT 'starter',
+      cycle_start DATETIME DEFAULT CURRENT_TIMESTAMP,
+      executions_used INTEGER DEFAULT 0,
+      compute_ms_used INTEGER DEFAULT 0,
+      storage_bytes_used INTEGER DEFAULT 0,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS quota_reservations (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      resource_type TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'reserved',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_quota_reservations_user ON quota_reservations(user_id);
+    CREATE INDEX IF NOT EXISTS idx_quota_reservations_status ON quota_reservations(status);
+    CREATE INDEX IF NOT EXISTS idx_entitlements_plan ON entitlements(plan);
+  `)
+
+  // Conservative pilot defaults — aligned with the marketed Starter/Professional
+  // run caps in lib/constants.ts (PRICING_PLANS). Editable in-place via the
+  // plan_limits table without a redeploy; these INSERTs only seed first-run
+  // defaults and never overwrite an existing (possibly hand-tuned) row.
+  const seedPlanLimits = db.prepare(`
+    INSERT OR IGNORE INTO plan_limits
+      (plan, max_executions_per_cycle, max_concurrent_jobs, max_compute_ms_per_cycle, max_storage_bytes, cycle_length_days)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `)
+  seedPlanLimits.run('free', 100, 1, 5 * 60_000, 10 * 1024 * 1024, 30)
+  seedPlanLimits.run('starter', 1000, 2, 60 * 60_000, 50 * 1024 * 1024, 30)
+  seedPlanLimits.run('professional', 50000, 5, 8 * 60 * 60_000, 50 * 1024 * 1024, 30)
+  // Enterprise is not "unlimited" infrastructure — this is a high technical
+  // ceiling that protects shared infra pending a dedicated contract review.
+  seedPlanLimits.run('enterprise', 1_000_000, 20, 24 * 60 * 60_000, 50 * 1024 * 1024, 30)
 }
 
 // Initialize database automatically on import

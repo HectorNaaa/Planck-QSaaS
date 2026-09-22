@@ -135,9 +135,14 @@ class PlanckUser:
         self,
         method: str,
         endpoint: str,
-        data: Optional[Dict] = None
+        data: Optional[Dict] = None,
+        api_prefix: str = "quantum",
     ) -> Dict[str, Any]:
-        """Make an HTTP request to the Planck API with security validations."""
+        """Make an HTTP request to the Planck API with security validations.
+
+        `api_prefix` selects the API namespace (default 'quantum', kept for
+        backward compatibility). Additive finance-twin methods use 'finance'.
+        """
         # Rate limiting: Wait at least 3 seconds between requests
         current_time = time.time()
         time_since_last_request = current_time - self._last_request_time
@@ -158,7 +163,8 @@ class PlanckUser:
         
         # Build URL (sanitize endpoint)
         clean_endpoint = re.sub(r'[^\w/-]', '', endpoint)
-        url = f"{self.base_url}/api/quantum/{clean_endpoint}"
+        clean_prefix = re.sub(r'[^\w-]', '', api_prefix) or "quantum"
+        url = f"{self.base_url}/api/{clean_prefix}/{clean_endpoint}"
         
         headers = {
             "Content-Type": "application/json",
@@ -839,6 +845,126 @@ class PlanckUser:
             ml_tuning=response.get("ml_tuning"),
         )
     
+    # ── Finance digital twins (additive, opt-in — does not change run()/simulate()) ──
+    FINANCE_MODULES = ("risk-scenario", "collateral-liquidity", "execution-rfq")
+
+    def list_finance_modules(self) -> List[Dict[str, Any]]:
+        """
+        List the available finance digital twin modules (Risk Scenario,
+        Collateral & Liquidity, Execution/RFQ).
+
+        Returns:
+            List of dicts with 'id', 'name', 'description', 'clientProfile'.
+        """
+        response = self._request("GET", "modules", api_prefix="finance")
+        if not response.get("success"):
+            raise APIError(response.get("error", "Failed to list finance modules"))
+        return response.get("modules", [])
+
+    def run_finance_twin(
+        self,
+        module_id: str,
+        scenario: Dict[str, Any],
+        snapshot: Optional[Dict[str, Any]] = None,
+        use_demo: bool = False,
+        execution_mode: str = "classical",
+        seed: Optional[int] = None,
+        twin_name: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Define/run a finance digital twin (Risk Scenario, Collateral &
+        Liquidity or Execution/RFQ). Additive to the platform's quantum
+        circuit workflow — does not affect run()/simulate().
+
+        Args:
+            module_id: One of FINANCE_MODULES ('risk-scenario',
+                'collateral-liquidity', 'execution-rfq').
+            scenario: Module-specific scenario parameters (see API docs).
+            snapshot: Module-specific snapshot data. Required unless
+                use_demo=True, in which case a small reproducible synthetic
+                demo snapshot is used server-side.
+            use_demo: Use the built-in synthetic demo snapshot instead of
+                `snapshot`. Demo results are always marked `isSynthetic`.
+            execution_mode: 'classical' (default) or 'quantum-inspired' to
+                additionally run the honestly-labeled experimental route.
+            seed: Optional explicit seed for reproducibility.
+            twin_name: Optional display name for the twin.
+
+        Returns:
+            Dict with the FinanceRunResult ('executionMode', 'solverActual',
+            'status', 'isSynthetic', 'result', 'kpis', 'warnings', ...).
+
+        Raises:
+            ValidationError: If module_id is invalid or neither snapshot nor
+                use_demo is provided.
+            APIError: On quota/rate-limit/server errors.
+        """
+        if module_id not in self.FINANCE_MODULES:
+            raise ValidationError(f"Unknown finance module '{module_id}'. Use one of {self.FINANCE_MODULES}.")
+        if not use_demo and snapshot is None:
+            raise ValidationError("Provide `snapshot`, or set use_demo=True to use the built-in synthetic demo.")
+
+        payload: Dict[str, Any] = {
+            "useDemo": use_demo,
+            "scenario": scenario,
+            "executionMode": execution_mode if execution_mode == "quantum-inspired" else "classical",
+        }
+        if snapshot is not None:
+            payload["snapshot"] = snapshot
+        if seed is not None:
+            payload["seed"] = int(seed)
+        if twin_name:
+            payload["twinName"] = self._sanitize_string(twin_name, 120)
+
+        response = self._request("POST", f"{module_id}/run", payload, api_prefix="finance")
+        if not response.get("success"):
+            raise APIError(response.get("error", "Finance twin run failed"))
+        return response.get("run", {})
+
+    def get_finance_runs(self, module_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        List this user's past finance-twin runs (tenant-isolated server-side).
+
+        Args:
+            module_id: Optional filter — one of FINANCE_MODULES.
+
+        Returns:
+            List of past run summaries (most recent first).
+        """
+        if module_id is not None and module_id not in self.FINANCE_MODULES:
+            raise ValidationError(f"Unknown finance module '{module_id}'. Use one of {self.FINANCE_MODULES}.")
+
+        url = f"{self.base_url}/api/finance/runs"
+        if module_id:
+            url += f"?module={module_id}"
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-API-Key": self.api_key,
+            "X-Planck-SDK": "python/1.0.0",
+            "User-Agent": "PlanckSDK/1.0.0 Python",
+        }
+
+        req = Request(url, headers=headers, method="GET")
+        try:
+            with urlopen(req, timeout=self.timeout) as resp:
+                body = resp.read().decode("utf-8")
+                response = json.loads(body)
+        except HTTPError as e:
+            error_body = e.read().decode("utf-8")
+            try:
+                error_data = json.loads(error_body)
+                message = error_data.get("error", str(e))
+            except Exception:
+                message = error_body or str(e)
+            if e.code == 401:
+                raise AuthenticationError(f"Authentication failed: {message}")
+            raise APIError(f"API error ({e.code}): {message}")
+
+        if not response.get("success"):
+            raise APIError(response.get("error", "Failed to list finance runs"))
+        return response.get("runs", [])
+
     def list_executions(
         self,
         limit: int = 20,

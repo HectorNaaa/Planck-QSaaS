@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Zap, BookOpen, Settings } from 'lucide-react'
+import { LayoutDashboard, Zap, BookOpen, Settings, LineChart } from 'lucide-react'
 
 export function MobileBottomNav() {
   const pathname = usePathname()
@@ -11,6 +11,7 @@ export function MobileBottomNav() {
     { href: "/qsaas/dashboard", icon: LayoutDashboard },
     { href: "/qsaas/runner", icon: Zap },
     { href: "/qsaas/templates", icon: BookOpen },
+    { href: "/qsaas/finance", icon: LineChart },
     { href: "/qsaas/settings", icon: Settings },
   ]
 

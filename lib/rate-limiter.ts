@@ -12,7 +12,10 @@ const store = new Map<string, RateLimitStore>()
 
 const MAX_TOKENS = 1
 const REFILL_RATE = 3000 // 3 seconds in ms
-const MAX_PAYLOAD_SIZE = 100 * 1024 * 1024 // 100MB
+// Real enforced limit — must match the documented/advertised API + SDK limit (1MB).
+// Previously this constant was 100MB while error messages and docs said "1MB max",
+// so oversized bodies were fully parsed (CPU/memory cost) before ever being rejected.
+const MAX_PAYLOAD_SIZE = 1024 * 1024 // 1MB
 
 /**
  * Check if a request should be rate limited
@@ -74,6 +77,57 @@ export function getRetryAfter(identifier: string): number {
 export function validatePayloadSize(payload: any): boolean {
   const size = JSON.stringify(payload).length
   return size <= MAX_PAYLOAD_SIZE
+}
+
+export const RATE_LIMITER_MAX_PAYLOAD_BYTES = MAX_PAYLOAD_SIZE
+
+/**
+ * Reads a request body up to `maxBytes` of ACTUAL received bytes — enforced
+ * on the raw stream, before JSON.parse, and independent of any (possibly
+ * missing or spoofed) Content-Length header. Returns a 413-style result if
+ * the real byte count exceeds the limit, without ever buffering more than
+ * `maxBytes + 1` bytes.
+ */
+export async function readJsonWithByteLimit(
+  request: Request,
+  maxBytes: number = MAX_PAYLOAD_SIZE,
+): Promise<{ ok: true; data: any } | { ok: false; status: 413 | 400; error: string }> {
+  const reader = request.body?.getReader()
+  if (!reader) {
+    // No body stream available (e.g. some test mocks) — fall back to json() but still bound the check.
+    try {
+      const data = await request.json()
+      if (!validatePayloadSize(data)) {
+        return { ok: false, status: 413, error: `Payload too large. Maximum size is ${maxBytes} bytes.` }
+      }
+      return { ok: true, data }
+    } catch {
+      return { ok: false, status: 400, error: "Invalid JSON body" }
+    }
+  }
+
+  let received = 0
+  const chunks: Uint8Array[] = []
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    if (value) {
+      received += value.byteLength
+      if (received > maxBytes) {
+        await reader.cancel().catch(() => {})
+        return { ok: false, status: 413, error: `Payload too large. Maximum size is ${maxBytes} bytes.` }
+      }
+      chunks.push(value)
+    }
+  }
+
+  if (chunks.length === 0) return { ok: true, data: {} }
+  const buffer = Buffer.concat(chunks.map((c) => Buffer.from(c)))
+  try {
+    return { ok: true, data: JSON.parse(buffer.toString("utf8")) }
+  } catch {
+    return { ok: false, status: 400, error: "Invalid JSON body" }
+  }
 }
 
 /**
