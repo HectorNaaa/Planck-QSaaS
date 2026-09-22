@@ -38,3 +38,15 @@ build.log
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# External / sub-repos
+Planck-QSaaS/

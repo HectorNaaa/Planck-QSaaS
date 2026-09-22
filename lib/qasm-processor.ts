@@ -16,7 +16,7 @@
  *   transpileWithCpp(qasm)                  → Promise<{ qasm, used }>
  */
 
-import { execFile } from "child_process"
+import { execFile, spawn } from "child_process"
 import { promisify } from "util"
 import { existsSync } from "fs"
 import { join } from "path"
@@ -63,12 +63,58 @@ export interface CircuitStats {
   circuitType: string
 }
 
+// ─── Child process stdin helper ──────────────────────────────────────────────
+
+function runProcessWithStdin(
+  command: string,
+  args: string[],
+  input: string
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, { timeout: 10000 })
+    let stdout = ""
+    let stderr = ""
+
+    child.stdout.on("data", (data) => {
+      stdout += data.toString()
+    })
+
+    child.stderr.on("data", (data) => {
+      stderr += data.toString()
+    })
+
+    child.on("error", (err) => {
+      reject(err)
+    })
+
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve(stdout)
+      } else {
+        reject(new Error(`Process exited with code ${code}: ${stderr}`))
+      }
+    })
+
+    if (child.stdin) {
+      child.stdin.write(input)
+      child.stdin.end()
+    } else {
+      reject(new Error("Failed to open stdin stream"))
+    }
+  })
+}
+
 // ─── C++ binaries ─────────────────────────────────────────────────────────────
 
 const CPP_GENERATE  = join(process.cwd(), "scripts", "generate_circuit")
 const CPP_TRANSPILE = join(process.cwd(), "scripts", "transpile_circuit")
-const GEN_AVAILABLE = existsSync(CPP_GENERATE)
-const XPL_AVAILABLE = existsSync(CPP_TRANSPILE)
+
+const isWindows = process.platform === "win32"
+const GEN_EXE = isWindows ? `${CPP_GENERATE}.exe` : CPP_GENERATE
+const XPL_EXE = isWindows ? `${CPP_TRANSPILE}.exe` : CPP_TRANSPILE
+
+const GEN_AVAILABLE = existsSync(GEN_EXE)
+const XPL_AVAILABLE = existsSync(XPL_EXE)
 
 // Threshold: use C++ generator when dataset has ≥ this many samples
 const CPP_GEN_THRESHOLD = 50_000
@@ -98,13 +144,8 @@ async function generateWithCpp(
     forceLayers:  profile.buildOptions.forceLayers ?? null,
   })
   try {
-    const { stdout } = await execFileAsync(CPP_GENERATE, [], {
-      input:     payload,
-      timeout:   10_000,
-      maxBuffer: 4 * 1024 * 1024,
-      encoding:  "utf8",
-    } as any)
-    const s = String(stdout).trim()
+    const stdout = await runProcessWithStdin(GEN_EXE, [], payload)
+    const s = stdout.trim()
     return s.startsWith("OPENQASM") ? s : null
   } catch {
     return null
@@ -120,16 +161,61 @@ export async function transpileWithCpp(
 ): Promise<{ qasm: string; used: boolean }> {
   if (!XPL_AVAILABLE) return { qasm, used: false }
   try {
-    const { stdout } = await execFileAsync(CPP_TRANSPILE, [], {
-      input:     qasm,
-      timeout:   5_000,
-      maxBuffer: 1024 * 1024,
-      encoding:  "utf8",
-    } as any)
-    return { qasm: String(stdout).trim(), used: true }
+    const stdout = await runProcessWithStdin(XPL_EXE, [], qasm)
+    return { qasm: stdout.trim(), used: true }
   } catch {
     return { qasm, used: false }
   }
+}
+
+/**
+ * Pipe QASM through the Python Quark compiler (Clifford+T optimization pass).
+ * Returns the original string unchanged if execution fails.
+ */
+export async function transpileWithQuark(
+  qasm: string,
+): Promise<{ qasm: string; used: boolean }> {
+  const scriptPath = join(process.cwd(), "scripts", "transpile_quark.py")
+  
+  // Try running with 'python'
+  try {
+    const stdout = await runProcessWithStdin("python", [scriptPath], qasm)
+    return { qasm: stdout.trim(), used: true }
+  } catch {
+    // Try running with 'python3' as fallback
+    try {
+      const stdout = await runProcessWithStdin("python3", [scriptPath], qasm)
+      return { qasm: stdout.trim(), used: true }
+    } catch {
+      return { qasm, used: false }
+    }
+  }
+}
+
+/**
+ * Run the full transpilation pipeline (C++ optimization followed by Python Quark compiler).
+ */
+export async function transpileCircuitPipeline(
+  qasm: string,
+): Promise<{ qasm: string; used: boolean }> {
+  let currentQasm = qasm
+  let used = false
+
+  // 1. Run C++ transpile pass if available
+  const cppRes = await transpileWithCpp(currentQasm)
+  if (cppRes.used) {
+    currentQasm = cppRes.qasm
+    used = true
+  }
+
+  // 2. Run Quark transpile pass
+  const quarkRes = await transpileWithQuark(currentQasm)
+  if (quarkRes.used) {
+    currentQasm = quarkRes.qasm
+    used = true
+  }
+
+  return { qasm: currentQasm, used }
 }
 
 // ─── Core functions ────────────────────────────────────────────────────────────
@@ -143,7 +229,7 @@ export async function transpileWithCpp(
  *   1. analyzeInputData()        → safe O(5K) sample, real log-scale complexity
  *   2. C++ generator (if large)  → fast QASM directly from profile JSON
  *      OR TS buildCircuit()      → pure-TS fallback
- *   3. C++ transpiler            → gate fusion + CX cancellation (if available)
+ *   3. Transpiler pipeline      → gate fusion + CX cancellation (C++) + Quark optimization
  */
 export async function generateCircuit(
   algorithm: string,
@@ -169,7 +255,7 @@ export async function generateCircuit(
     rawQasm = buildCircuit(algo, profile).qasm
   }
 
-  const { qasm, used: transpiled } = await transpileWithCpp(rawQasm)
+  const { qasm, used: transpiled } = await transpileCircuitPipeline(rawQasm)
   const built = buildCircuit(algo, profile) // re-run for metadata (cheap)
 
   return {

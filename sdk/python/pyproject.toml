@@ -44,8 +44,14 @@ dev = [
     "mypy>=1.0.0",
 ]
 
-[tool.setuptools]
-packages = ["planck_sdk"]
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--tb=short -v --cov=planck_sdk --cov-report=term-missing"
+pythonpath = ["."]
+
+[tool.coverage.run]
+source = ["planck_sdk"]
+omit = ["tests/*"]
 package-dir = {"" = "."}
 
 [tool.setuptools.package-data]

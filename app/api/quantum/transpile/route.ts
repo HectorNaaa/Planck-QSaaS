@@ -7,6 +7,7 @@ import {
   createSafeErrorResponse,
   validateRequestHeaders,
 } from "@/lib/security"
+import { transpileCircuitPipeline, analyzeCircuit } from "@/lib/qasm-processor"
 
 export async function POST(request: NextRequest) {
   try {
@@ -104,13 +105,16 @@ async function transpileCircuit(config: {
   qubits: number
   topology: any
 }) {
-  // Simulate transpilation logic
-  const swapCount = config.backend === "quantum_qpu" ? Math.floor(Math.random() * 5) : 0
+  const { qasm, used } = await transpileCircuitPipeline(config.qasm)
+  
+  // Count the actual SWAP gates in the optimized QASM
+  const swapCount = (qasm.match(/\bswap\b/g) || []).length
+  const stats = analyzeCircuit(qasm)
 
   return {
-    qasm: config.qasm, // Would be modified QASM with SWAP gates inserted
+    qasm,
     swapCount,
     qubitMapping: Array.from({ length: config.qubits }, (_, i) => i),
-    depth: config.qasm.split("\n").length + swapCount,
+    depth: stats.depth,
   }
 }

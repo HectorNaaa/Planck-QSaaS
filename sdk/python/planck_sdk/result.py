@@ -45,19 +45,31 @@ class ExecutionResult:
     
     @property
     def fidelity(self) -> float:
-        """Estimated fidelity based on success rate."""
+        """Estimated fidelity based on success rate.
+
+        Returns:
+            float: The fidelity value, calculated as success_rate / 100.
+        """
         return self.success_rate / 100.0
     
     @property
     def most_frequent(self) -> str:
-        """Return the most frequently measured state."""
+        """Return the most frequently measured state.
+
+        Returns:
+            str: The state string with the highest measurement count.
+        """
         if not self.counts:
             return ""
         return max(self.counts, key=self.counts.get)
     
     @property
     def probabilities(self) -> Dict[str, float]:
-        """Return measurement probabilities for each state."""
+        """Return measurement probabilities for each state.
+
+        Returns:
+            Dict[str, float]: A dictionary mapping states to their probability.
+        """
         total = sum(self.counts.values())
         if total == 0:
             return {}
@@ -65,7 +77,11 @@ class ExecutionResult:
     
     @property
     def overview(self) -> Optional[Dict[str, Any]]:
-        """Digital Twin overview: interpretation + performance metrics + quantum metrics."""
+        """Digital Twin overview: interpretation + performance metrics + quantum metrics.
+
+        Returns:
+            Optional[Dict[str, Any]]: The digital twin overview, or None if unavailable.
+        """
         if not self.digital_twin:
             return None
         return {
@@ -76,7 +92,11 @@ class ExecutionResult:
     
     @property
     def analysis(self) -> Optional[Dict[str, Any]]:
-        """Digital Twin analysis: behavior insights, data patterns, topology."""
+        """Digital Twin analysis: behavior insights, data patterns, topology.
+
+        Returns:
+            Optional[Dict[str, Any]]: The digital twin analysis, or None if unavailable.
+        """
         if not self.digital_twin:
             return None
         return {
@@ -87,20 +107,32 @@ class ExecutionResult:
     
     @property
     def recommendations(self) -> Optional[List[str]]:
-        """Digital Twin system recommendations."""
+        """Digital Twin system recommendations.
+
+        Returns:
+            Optional[List[str]]: A list of recommendations, or None if unavailable.
+        """
         if not self.digital_twin:
             return None
         return self.digital_twin.get("system_recommendations", [])
     
     @property
     def performance(self) -> Optional[Dict[str, str]]:
-        """Digital Twin performance metrics (executionSpeed, convergence, reliability)."""
+        """Digital Twin performance metrics (executionSpeed, convergence, reliability).
+
+        Returns:
+            Optional[Dict[str, str]]: Performance metrics dictionary, or None if unavailable.
+        """
         if not self.digital_twin:
             return None
         return self.digital_twin.get("performance_metrics", {})
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert result to dictionary representation."""
+        """Convert result to dictionary representation.
+
+        Returns:
+            Dict[str, Any]: A dictionary containing all execution result attributes.
+        """
         d: Dict[str, Any] = {
             "execution_id": self.execution_id,
             "counts": self.counts,
@@ -123,25 +155,30 @@ class ExecutionResult:
         return d
     
     def to_json(self, indent: int = 2) -> str:
-        """Convert result to JSON string."""
+        """Convert result to JSON string.
+
+        Args:
+            indent (int, optional): The indentation level for JSON. Defaults to 2.
+
+        Returns:
+            str: The JSON serialized representation of the execution result.
+        """
         return json.dumps(self.to_dict(), indent=indent)
     
     def save(self, filepath: str) -> None:
-        """
-        Save result to a JSON file.
+        """Save result to a JSON file.
         
         Args:
-            filepath: Path to save the file
+            filepath (str): Path to save the file.
         """
         with open(filepath, "w") as f:
             f.write(self.to_json())
     
     def plot_histogram(self, top_n: int = 10) -> None:
-        """
-        Print a simple ASCII histogram of measurement counts.
+        """Print a simple ASCII histogram of measurement counts.
         
         Args:
-            top_n: Number of top states to show
+            top_n (int, optional): Number of top states to show. Defaults to 10.
         """
         if not self.counts:
             print("No measurement data available")
@@ -195,6 +232,11 @@ class ExecutionResult:
                     print(f"    -> {r}")
     
     def __repr__(self) -> str:
+        """Get string representation of the ExecutionResult.
+
+        Returns:
+            str: The string representation.
+        """
         return (
             f"ExecutionResult(id='{self.execution_id}', "
             f"shots={self.shots}, fidelity={self.fidelity:.3f}, "

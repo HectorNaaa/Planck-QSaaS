@@ -1,0 +1,113 @@
+name: Test Suite
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  node-tests:
+    name: Node.js unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with coverage
+        run: npm test -- --coverage
+
+      - name: Check coverage thresholds
+        run: npx vitest run --coverage --coverage.thresholds.statements=80 --coverage.thresholds.branches=80 --coverage.thresholds.functions=80 --coverage.thresholds.lines=80
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+
+  python-sdk-tests:
+    name: Python SDK tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        working-directory: sdk/python
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov
+          pip install -e .
+
+      - name: Run Python tests with coverage
+        working-directory: sdk/python
+        run: |
+          python -m pytest --tb=short -v \
+            --cov=planck_sdk \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --cov-report=html:htmlcov \
+            --junitxml=test-results.xml
+
+      - name: Generate Python coverage summary
+        if: always()
+        working-directory: sdk/python
+        shell: python
+        run: |
+          import xml.etree.ElementTree as ET, os
+          tree = ET.parse("coverage.xml")
+          total_stmts = total_covered = 0
+          lines = ["## Python SDK Coverage\n",
+                   "| File | % Stmts | % Branch | % Funcs | Uncovered Line #s |",
+                   "|------|---------|----------|---------|-------------------|"]
+          for pkg in tree.findall(".//package"):
+              for cls in pkg.findall("class"):
+                  fn = cls.get("name", "").replace(".", "/") + ".py"
+                  s = int(cls.get("lines-valid", 0)); c = int(cls.get("lines-covered", 0))
+                  b = int(cls.get("branches-valid", 0)); bc = int(cls.get("branches-covered", 0))
+                  m = int(cls.get("methods-valid", 0)); mc = int(cls.get("methods-covered", 0))
+                  total_stmts += s; total_covered += c
+                  if s:
+                      bad_lines = cls.find("lines")
+                      uncovered = bad_lines and " ".join(
+                          l.get("number") for l in bad_lines if l.get("hits") == "0"
+                      ) or ""
+                      stmt_pct = c / s * 100
+                      br_pct = bc / b * 100 if b else 100
+                      fn_pct = mc / m * 100 if m else 100
+                      lines.append(f"| {fn} | {stmt_pct:.2f} | {br_pct:.2f} | {fn_pct:.2f} | {uncovered} |")
+          pct = total_covered / total_stmts * 100 if total_stmts else 0
+          lines.append(f"\n**Total: {pct:.2f}%**")
+          summary = os.environ.get("GITHUB_STEP_SUMMARY", "")
+          with open(summary, "a") as f:
+              f.write("\n".join(lines) + "\n")
+
+      - name: Upload Python coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage-report
+          path: sdk/python/htmlcov/
+
+      - name: Upload Python test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-test-results
+          path: sdk/python/test-results.xml
