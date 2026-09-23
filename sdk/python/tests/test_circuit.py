@@ -11,7 +11,9 @@ class TestCircuitBuildOptions:
     def test_defaults_omit_none_fields(self):
         opts = CircuitBuildOptions()
         d = opts.to_dict()
-        assert d == {}
+        # quarkOptimizer is always sent explicitly (on by default) — every other
+        # field is omitted when left at its default/None.
+        assert d == {"quarkOptimizer": True}
 
     def test_max_qubits_appears(self):
         opts = CircuitBuildOptions(max_qubits=8)
@@ -37,8 +39,12 @@ class TestCircuitBuildOptions:
     def test_multiple_fields(self):
         opts = CircuitBuildOptions(max_qubits=10, angle_scale=1.2, force_layers=2)
         d = opts.to_dict()
-        assert d == {"maxQubits": 10, "angleScale": 1.2, "forceLayers": 2}
+        assert d == {"maxQubits": 10, "angleScale": 1.2, "forceLayers": 2, "quarkOptimizer": True}
         assert "maxDepth" not in d
+
+    def test_quark_optimizer_disabled_is_sent_as_false(self):
+        opts = CircuitBuildOptions(quark_optimizer=False)
+        assert opts.to_dict()["quarkOptimizer"] is False
 
 
 class TestQuantumCircuitFromApiResponse:

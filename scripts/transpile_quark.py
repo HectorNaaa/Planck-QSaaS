@@ -12,10 +12,14 @@ try:
     from src.gate import Gate, GateType
     from src.optimizer import GateCancellationPass
 except ImportError as e:
-    # If import fails, fall back to echoing stdin verbatim to avoid breaking the pipeline
+    # Quark is unavailable (e.g. `networkx` not installed in this environment).
+    # Echo stdin verbatim but exit non-zero so the Node.js caller
+    # (lib/qasm-processor.ts::transpileWithQuark) can tell the difference between
+    # "actually optimized" and "silently fell back" — it must never report
+    # used: true for a circuit that was never touched by Quark.
     sys.stderr.write(f"ImportError: {e}\n")
     sys.stdout.write(sys.stdin.read())
-    sys.exit(0)
+    sys.exit(3)
 
 def main():
     qasm_content = sys.stdin.read()

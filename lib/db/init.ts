@@ -215,6 +215,30 @@ export function initializeDatabase() {
     CREATE INDEX IF NOT EXISTS idx_finance_runs_snapshot ON finance_runs(snapshot_id);
   `)
 
+  // ── Finance twins: reusable/saved instances + private-by-default publishing ──
+  // Additive columns so pre-existing finance_twins rows (created one-per-run) keep working.
+  const twinCols = db.pragma('table_info(finance_twins)') as { name: string }[]
+  const twinColNames = new Set(twinCols.map((c) => c.name))
+  const financeTwinCols: { name: string; def: string }[] = [
+    { name: 'description',     def: "TEXT DEFAULT NULL" },
+    { name: 'tags',            def: "TEXT DEFAULT '[\"finance\"]'" },
+    { name: 'config',          def: "TEXT DEFAULT NULL" },
+    { name: 'visibility',      def: "TEXT NOT NULL DEFAULT 'private'" },
+    { name: 'kind',            def: "TEXT NOT NULL DEFAULT 'ephemeral'" },
+    { name: 'source_twin_id',  def: "TEXT DEFAULT NULL" },
+    { name: 'published_at',    def: "DATETIME DEFAULT NULL" },
+    { name: 'updated_at',      def: "DATETIME DEFAULT NULL" },
+  ]
+  for (const col of financeTwinCols) {
+    if (!twinColNames.has(col.name)) {
+      db.exec(`ALTER TABLE finance_twins ADD COLUMN ${col.name} ${col.def}`)
+    }
+  }
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_finance_twins_kind_user ON finance_twins(kind, user_id);
+    CREATE INDEX IF NOT EXISTS idx_finance_twins_visibility ON finance_twins(kind, visibility);
+  `)
+
   // ── Server-side entitlements / quota gate (additive — no client-supplied plan/quota is ever trusted) ──
   db.exec(`
     CREATE TABLE IF NOT EXISTS plan_limits (

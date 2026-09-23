@@ -94,6 +94,7 @@ export default function RunnerPage() {
   const [autoShots, setAutoShots] = useState<number | null>(null)
   const [qubits, setQubits] = useState(4)
   const [errorMitigation, setErrorMitigation] = useState<"auto" | "none" | "low" | "medium" | "high">("auto")
+  const [quarkOptimizer, setQuarkOptimizer] = useState(true)
   const [results, setResults] = useState<any>(null)
   const [circuitCode, setCircuitCode] = useState("")
   const [circuitData, setCircuitData] = useState<CircuitData | null>(null)
@@ -584,6 +585,7 @@ const adaptiveShots = calculateAdaptiveShots({
             qubits: uploadedData.qubits || Math.max(2, Math.ceil(Math.log2(dataSize))),
             shots: executionType === "auto" ? (autoShots || calculateAdaptiveShots({ qubits, depth: circuitData?.depth || 10, gates: circuitData?.gates.length || 20 })) : (shots || 1024),
             errorMitigation,
+            quarkOptimizer,
             dataMetadata: {
               structure: dataStructure,
               dimensions: dataDimensions,
@@ -653,7 +655,7 @@ const adaptiveShots = calculateAdaptiveShots({
         setDataUploaded(false)
       }
     },
-    [circuitName, executionType, qubits, shots, errorMitigation, targetLatency, calculateAdaptiveShots],
+    [circuitName, executionType, qubits, shots, errorMitigation, quarkOptimizer, targetLatency, calculateAdaptiveShots],
   )
 
   const handleSaveCode = useCallback(() => {
@@ -1709,6 +1711,7 @@ const adaptiveShots = calculateAdaptiveShots({
                 onExecutionTypeChange={setExecutionType}
                 onQubitsChange={setQubits}
                 onErrorMitigationChange={setErrorMitigation}
+                onQuarkOptimizerChange={setQuarkOptimizer}
               />
               {!isHidden('runner.execution_settings') && (
               <ExecutionSettings
@@ -2061,6 +2064,7 @@ const adaptiveShots = calculateAdaptiveShots({
                   onExecutionTypeChange={setExecutionType}
                   onQubitsChange={setQubits}
                   onErrorMitigationChange={setErrorMitigation}
+                  onQuarkOptimizerChange={setQuarkOptimizer}
                 />
                 {!isHidden('runner.execution_settings') && (
                 <ExecutionSettings

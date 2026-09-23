@@ -36,11 +36,16 @@ class CircuitBuildOptions:
         angle_scale: Multiply all data-derived rotation angles by this factor.
                      Use < 1.0 to damp rotations, > 1.0 to amplify them.
         force_layers: Override the auto-computed layer count for VQE / QAOA.
+        quark_optimizer: Whether to run the Quark gate-cancellation optimizer
+                     pass after circuit generation. Defaults to True (on) —
+                     pass False (or 0 via `run(..., quark_optimizer=0)`) to
+                     get the raw, un-optimized circuit.
     """
-    max_qubits:   Optional[int]   = None   # e.g. 8 → keep circuit small
-    max_depth:    Optional[int]   = None
-    angle_scale:  float           = 1.0    # multiplicative; 1.0 = no change
-    force_layers: Optional[int]   = None   # override VQE/QAOA layer count
+    max_qubits:      Optional[int] = None   # e.g. 8 → keep circuit small
+    max_depth:       Optional[int] = None
+    angle_scale:     float         = 1.0    # multiplicative; 1.0 = no change
+    force_layers:    Optional[int] = None   # override VQE/QAOA layer count
+    quark_optimizer: bool          = True   # on by default
 
     def to_dict(self) -> dict:
         """Convert the build options to a dictionary.
@@ -48,12 +53,14 @@ class CircuitBuildOptions:
         Returns:
             dict: The dictionary representation of the build options.
         """
-        return {k: v for k, v in {
+        d = {k: v for k, v in {
             "maxQubits":   self.max_qubits,
             "maxDepth":    self.max_depth,
             "angleScale":  self.angle_scale if self.angle_scale != 1.0 else None,
             "forceLayers": self.force_layers,
         }.items() if v is not None}
+        d["quarkOptimizer"] = self.quark_optimizer
+        return d
 
 
 # ─── Circuit result ────────────────────────────────────────────────────────────
@@ -73,6 +80,9 @@ class QuantumCircuit:
         recommended_shots: ML-tuned shot count for statistical accuracy.
         param_summary:    Human-readable description of how data shaped the circuit.
         transpiled:       True if the C++ gate-optimiser pass was applied.
+        quark_applied:    True if the Quark gate-cancellation optimizer actually
+                          ran (False if disabled, unavailable, or it errored —
+                          never fabricated).
     """
     qasm:              str
     qubits:            int
@@ -83,6 +93,7 @@ class QuantumCircuit:
     recommended_shots: int         = 1024
     param_summary:     str         = ""
     transpiled:        bool        = False
+    quark_applied:     bool        = False
     data_scale:        str         = "small"   # small | medium | large | massive
     layers:            int         = 1         # ansatz / iteration layers used
 
@@ -104,6 +115,7 @@ class QuantumCircuit:
             "recommended_shots": self.recommended_shots,
             "param_summary":     self.param_summary,
             "transpiled":        self.transpiled,
+            "quark_applied":     self.quark_applied,
             "data_scale":        self.data_scale,
             "layers":            self.layers,
         }
@@ -130,6 +142,7 @@ class QuantumCircuit:
             recommended_shots = int(resp.get("recommended_shots", resp.get("recommendedShots", 1024))),
             param_summary     = resp.get("param_summary", resp.get("paramSummary", "")),
             transpiled        = bool(resp.get("transpiled", False)),
+            quark_applied     = bool(resp.get("quark_applied", resp.get("quarkApplied", False))),
             data_scale        = resp.get("data_scale", resp.get("dataScale", "small")),
             layers            = int(resp.get("layers", 1)),
         )

@@ -8,17 +8,20 @@ interface CircuitSettingsProps {
   onExecutionTypeChange?: (type: "auto" | "manual") => void
   onQubitsChange?: (qubits: number) => void
   onErrorMitigationChange?: (level: "auto" | "none" | "low" | "medium" | "high") => void
+  onQuarkOptimizerChange?: (enabled: boolean) => void
 }
 
 export function CircuitSettings({
   onExecutionTypeChange,
   onQubitsChange,
   onErrorMitigationChange,
+  onQuarkOptimizerChange,
 }: CircuitSettingsProps) {
   const [isAutomatic, setIsAutomatic] = useState(true)
   const [shots, setShots] = useState(1024)
   const [errorMitigation, setErrorMitigation] = useState<"auto" | "none" | "low" | "medium" | "high">("none")
   const [isExpanded, setIsExpanded] = useState(false)
+  const [quarkOptimizer, setQuarkOptimizer] = useState(true)
 
   const handleModeChange = (auto: boolean) => {
     setIsAutomatic(auto)
@@ -27,6 +30,11 @@ export function CircuitSettings({
     if (auto) {
       onErrorMitigationChange?.("auto")
     }
+  }
+
+  const handleQuarkOptimizerChange = (enabled: boolean) => {
+    setQuarkOptimizer(enabled)
+    onQuarkOptimizerChange?.(enabled)
   }
 
   const handleErrorMitigationChange = (value: "auto" | "none" | "low" | "medium" | "high") => {
@@ -73,6 +81,24 @@ export function CircuitSettings({
                 Manual
               </button>
             </div>
+          </div>
+
+          <div className="mb-4 flex items-center justify-between p-3 bg-secondary/30 rounded-lg border border-border">
+            <div>
+              <p className="text-sm font-medium text-foreground">Quark optimizer</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Cancels redundant/commuting gates before execution for a cleaner circuit. Enabled by default.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={quarkOptimizer}
+              onClick={() => handleQuarkOptimizerChange(!quarkOptimizer)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors flex-shrink-0 ${quarkOptimizer ? "bg-primary" : "bg-muted"}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${quarkOptimizer ? "translate-x-6" : "translate-x-1"}`} />
+            </button>
           </div>
 
           {isAutomatic ? (

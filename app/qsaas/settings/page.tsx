@@ -12,7 +12,6 @@ import { deleteUserAccount, updateUserAccount, generateApiKey, getApiKey, revoke
 import { useIsGuest } from "@/components/guest-banner"
 import { useUIPreferences } from "@/contexts/ui-preferences-context"
 import { useDigitalTwinMode } from "@/contexts/digital-twin-mode-context"
-import { QUANTUM_TEMPLATES } from "@/lib/constants"
 
 // ── Execution history deletion-tracking helpers (localStorage) ────────────
 // These prevent server rows from "coming back" after a user deletes them,
@@ -1031,10 +1030,10 @@ export default function SettingsPage() {
                 <Item prefKey="runner.digital_twin_panel"      label="Twin Analysis Panel (3D)" />
               </Section>
 
-              <Section id="templates" label="Model Templates — Cards">
-                {QUANTUM_TEMPLATES.map((t) => (
-                  <Item key={t.id} prefKey={`templates.${t.id}`} label={t.name} />
-                ))}
+              <Section id="templates" label="Digital Twin Templates">
+                <Item prefKey="templates.finance_presets" label="Finance Presets section" />
+                <Item prefKey="templates.my_twins"        label="My Twins section" />
+                <Item prefKey="templates.community"       label="Community Presets section" />
               </Section>
 
               <Section id="display" label="Display Preferences — Quantum Details">

@@ -21,7 +21,7 @@ import { getFinanceModule } from "@/lib/finance/registry"
 import { computeSnapshotHash } from "@/lib/finance/hash"
 import { seedFromString } from "@/lib/finance/random"
 import { executeFinanceRun } from "@/lib/finance/run"
-import { createTwin, createSnapshot, saveRun } from "@/lib/finance/store"
+import { createTwin, createSnapshot, getOwnedTwin, saveRun } from "@/lib/finance/store"
 import { reserveQuota, commitReservation, releaseReservation, QuotaExceededError } from "@/lib/entitlements"
 import { Executions } from "@/lib/db/client"
 import {
@@ -102,7 +102,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const snapshotHash = computeSnapshotHash(snapshot)
     const seed = typeof body.seed === "number" ? body.seed : (useDemo ? DEMO_SEED : seedFromString(snapshotHash))
-    const requestExperimental = body.executionMode === "quantum-inspired"
+    // `computeMode` is the canonical field (matches SDK/web contract); `executionMode` is a legacy alias.
+    const computeMode = body.computeMode ?? body.executionMode
+    const requestExperimental = computeMode === "quantum-inspired"
 
     // ── Quota gate: reserve BEFORE running, fail closed on any error ──────
     try {
@@ -122,7 +124,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ success: false, error: "Unable to verify quota right now. Please try again shortly." }, { status: 503 })
     }
 
-    const twinId = createTwin(userId, moduleId, body.twinName || `${moduleDef.name} (${useDemo ? "demo" : "custom"})`)
+    // Reuse a saved twin (a real, re-runnable instance) when `twinId` is provided, instead
+    // of creating a new throwaway twin row on every single run.
+    let twinId: string
+    if (typeof body.twinId === "string" && body.twinId) {
+      const owned = getOwnedTwin(body.twinId, userId)
+      if (!owned || owned.moduleId !== moduleId) {
+        if (reservationId) { try { releaseReservation(reservationId) } catch { /* already settled */ } }
+        return NextResponse.json({ success: false, error: "Twin not found or not owned by you" }, { status: 404 })
+      }
+      twinId = owned.id
+    } else {
+      twinId = createTwin(userId, moduleId, body.twinName || `${moduleDef.name} (${useDemo ? "demo" : "custom"})`)
+    }
     const snapshotId = createSnapshot({
       userId,
       twinId,

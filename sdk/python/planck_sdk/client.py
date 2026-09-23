@@ -165,6 +165,7 @@ class PlanckUser:
         endpoint: str,
         data: Optional[Dict] = None,
         api_prefix: str = "quantum",
+        query: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """Make an HTTP request to the Planck API with security validations.
 
@@ -173,8 +174,10 @@ class PlanckUser:
             endpoint (str): The API endpoint path.
             data (Optional[Dict], optional): The JSON payload. Defaults to None.
             api_prefix (str, optional): API namespace ('quantum', the default,
-                kept for backward compatibility, or 'finance' for the
-                additive finance-twin methods).
+                kept for backward compatibility, 'finance' for finance-twin
+                methods, or 'twins' for the canonical twin CRUD endpoints).
+            query (Optional[Dict[str, str]], optional): Query-string params
+                (e.g. `{"scope": "public", "tag": "finance"}`).
 
         Returns:
             Dict[str, Any]: The parsed JSON response.
@@ -205,7 +208,10 @@ class PlanckUser:
         # Build URL (sanitize endpoint)
         clean_endpoint = re.sub(r'[^\w/-]', '', endpoint)
         clean_prefix = re.sub(r'[^\w-]', '', api_prefix) or "quantum"
-        url = f"{self.base_url}/api/{clean_prefix}/{clean_endpoint}"
+        url = f"{self.base_url}/api/{clean_prefix}/{clean_endpoint}".rstrip("/")
+        if query:
+            from urllib.parse import urlencode
+            url = f"{url}?{urlencode(query)}"
         
         headers = {
             "Content-Type": "application/json",
@@ -267,6 +273,7 @@ class PlanckUser:
         digital_twin_id: Optional[str] = None,
         build_options: Optional[CircuitBuildOptions] = None,
         wait: bool = True,
+        quark_optimizer: int = 1,
         # ── Scenario / Digital-Twin metadata ──────────────────────────────
         scenario_name: Optional[str] = None,
         scenario_type: Optional[str] = None,
@@ -296,6 +303,9 @@ class PlanckUser:
                 Use list_digital_twins() to see available IDs.
             build_options:      Fine-grained parametric hints (CircuitBuildOptions).
             wait:               Block until execution completes (default: True).
+            quark_optimizer:    1 (default) runs the Quark gate-cancellation optimizer
+                                on the generated circuit to strip redundant gates before
+                                execution. Pass 0 to disable and get the raw circuit.
             scenario_name:      Optional human-readable label for this scenario
                                 (e.g. 'Peak Load 2026').
             scenario_type:      One of 'Baseline' | 'Stress test' | 'Optimization' |
@@ -342,9 +352,10 @@ class PlanckUser:
 
         # Merge sampleCountHint into build_options so the server knows real volume
         effective_build_opts = build_options
+        if effective_build_opts is None:
+            effective_build_opts = CircuitBuildOptions()
+        effective_build_opts.quark_optimizer = bool(quark_optimizer)
         if true_sample_count > 0:
-            if effective_build_opts is None:
-                effective_build_opts = CircuitBuildOptions()
             # Inject the hint only when it exceeds the sampled row count
             if not hasattr(effective_build_opts, "_sample_count_hint"):
                 object.__setattr__(effective_build_opts, "_sample_count_hint", true_sample_count)
@@ -894,7 +905,7 @@ class PlanckUser:
             ml_tuning=response.get("ml_tuning"),
         )
     
-    # ── Finance digital twins (additive, opt-in — does not change run()/simulate()) ──
+    # ── Finance digital twins (does not change run()/simulate()) ──
     FINANCE_MODULES = ("risk-scenario", "collateral-liquidity", "execution-rfq")
 
     def list_finance_modules(self) -> List[Dict[str, Any]]:
@@ -910,6 +921,217 @@ class PlanckUser:
             raise APIError(response.get("error", "Failed to list finance modules"))
         return response.get("modules", [])
 
+    # ── Twin management (create / list / publish / duplicate) ──────────────────
+    # These are configuration operations, not execution — the only execution
+    # primitive is run_twin() below.
+
+    def create_twin(
+        self,
+        module_id: str,
+        name: str,
+        description: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        config: Optional[Dict[str, Any]] = None,
+        visibility: str = "private",
+    ) -> Dict[str, Any]:
+        """
+        Create a saved, reusable twin instance from a module/preset.
+
+        Twins are private by default. Use `publish_twin()` to explicitly
+        share the definition (never data/results) with the community.
+
+        Args:
+            module_id: One of FINANCE_MODULES.
+            name: Display name for the twin.
+            description: Optional description.
+            tags: Tags for the twin (only "finance" is supported today).
+            config: Optional default config, e.g. `{"scenario": {...}}`.
+            visibility: "private" (default) or "public".
+
+        Returns:
+            The created twin record dict.
+        """
+        if module_id not in self.FINANCE_MODULES:
+            raise ValidationError(f"Unknown module '{module_id}'. Use one of {self.FINANCE_MODULES}.")
+        payload: Dict[str, Any] = {
+            "moduleId": module_id,
+            "name": self._sanitize_string(name, 120),
+            "tags": tags or ["finance"],
+            "visibility": "public" if visibility == "public" else "private",
+        }
+        if description:
+            payload["description"] = self._sanitize_string(description, 500)
+        if config is not None:
+            payload["config"] = config
+        response = self._request("POST", "", payload, api_prefix="twins")
+        if not response.get("success"):
+            raise APIError(response.get("error", "Failed to create twin"))
+        return response.get("twin", {})
+
+    def list_twins(self, scope: str = "mine", tag: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        List twin definitions.
+
+        Args:
+            scope: "mine" (default, your own twins) or "public" (community-
+                published twins).
+            tag: Optional tag filter (e.g. "finance").
+
+        Returns:
+            List of twin record dicts.
+        """
+        if scope not in ("mine", "public"):
+            raise ValidationError("scope must be 'mine' or 'public'")
+        query = {"scope": scope}
+        if tag:
+            query["tag"] = tag
+        response = self._request("GET", "", api_prefix="twins", query=query)
+        if not response.get("success"):
+            raise APIError(response.get("error", "Failed to list twins"))
+        return response.get("twins", [])
+
+    def get_twin(self, twin_id: str) -> Dict[str, Any]:
+        """Fetch a single twin definition (yours, or any published one)."""
+        response = self._request("GET", str(twin_id), api_prefix="twins")
+        if not response.get("success"):
+            raise APIError(response.get("error", "Failed to load twin"))
+        return response.get("twin", {})
+
+    def update_twin(
+        self,
+        twin_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Update your own twin's definition (name/description/tags/config)."""
+        payload: Dict[str, Any] = {}
+        if name is not None:
+            payload["name"] = self._sanitize_string(name, 120)
+        if description is not None:
+            payload["description"] = self._sanitize_string(description, 500)
+        if tags is not None:
+            payload["tags"] = tags
+        if config is not None:
+            payload["config"] = config
+        response = self._request("PATCH", str(twin_id), payload, api_prefix="twins")
+        if not response.get("success"):
+            raise APIError(response.get("error", "Failed to update twin"))
+        return response.get("twin", {})
+
+    def publish_twin(self, twin_id: str) -> Dict[str, Any]:
+        """
+        Publish your twin's current definition as a community preset.
+        Never shares data, snapshots, run results, or keys — only the
+        reusable definition (name/description/tags/config).
+        """
+        response = self._request("PATCH", str(twin_id), {"visibility": "public"}, api_prefix="twins")
+        if not response.get("success"):
+            raise APIError(response.get("error", "Failed to publish twin"))
+        return response.get("twin", {})
+
+    def unpublish_twin(self, twin_id: str) -> Dict[str, Any]:
+        """Make a previously-published twin private again."""
+        response = self._request("PATCH", str(twin_id), {"visibility": "private"}, api_prefix="twins")
+        if not response.get("success"):
+            raise APIError(response.get("error", "Failed to unpublish twin"))
+        return response.get("twin", {})
+
+    def duplicate_twin(self, twin_id: str) -> Dict[str, Any]:
+        """Copy a published community twin's definition into your own private space."""
+        response = self._request("POST", f"{twin_id}/duplicate", {}, api_prefix="twins")
+        if not response.get("success"):
+            raise APIError(response.get("error", "Failed to duplicate twin"))
+        return response.get("twin", {})
+
+    def delete_twin(self, twin_id: str) -> bool:
+        """Delete one of your own saved twins (and its snapshots/runs)."""
+        response = self._request("DELETE", str(twin_id), api_prefix="twins")
+        return bool(response.get("success"))
+
+    # ── The one canonical twin-execution primitive ──────────────────────────
+
+    def run_twin(
+        self,
+        twin_id: Optional[str] = None,
+        module_id: Optional[str] = None,
+        scenario: Optional[Dict[str, Any]] = None,
+        snapshot: Optional[Dict[str, Any]] = None,
+        use_demo: bool = False,
+        compute_mode: str = "classical",
+        seed: Optional[int] = None,
+        twin_name: Optional[str] = None,
+        # Deprecated alias, kept for backward compatibility with run_finance_twin():
+        execution_mode: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Run a digital twin — either a saved twin (`twin_id`, from
+        `create_twin()`/`list_twins()`) or an ad-hoc/demo run of a built-in
+        module (`module_id`). This is the single public execution primitive
+        for twins; there is no separate run_twin()/my_twin_run() split.
+
+        Args:
+            twin_id: ID of a saved twin (reused across runs — never creates
+                a duplicate twin). Takes precedence over `module_id`.
+            module_id: One of FINANCE_MODULES, for an ad-hoc/demo run when
+                you don't want to save a twin first.
+            scenario: Module-specific scenario parameters (see API docs).
+            snapshot: Module-specific snapshot data. Required unless
+                use_demo=True, in which case a small reproducible synthetic
+                demo snapshot is used server-side.
+            use_demo: Use the built-in synthetic demo snapshot instead of
+                `snapshot`. Demo results are always marked `isSynthetic`.
+            compute_mode: 'classical' (default) or 'quantum-inspired' to
+                additionally run the honestly-labeled experimental route.
+                (Simulated annealing is a classical, quantum-*inspired*
+                heuristic — never a real quantum-hardware execution.)
+            seed: Optional explicit seed for reproducibility.
+            twin_name: Display name when creating an ephemeral ad-hoc twin
+                (ignored when `twin_id` is given — the saved twin's own name
+                is used instead).
+
+        Returns:
+            Dict with the FinanceRunResult ('executionMode', 'solverActual',
+            'status', 'isSynthetic', 'result', 'kpis', 'warnings', 'twinId', ...).
+
+        Raises:
+            ValidationError: If neither `twin_id` nor `module_id` is given,
+                or module_id is invalid, or neither snapshot nor use_demo.
+            APIError: On quota/rate-limit/server errors.
+        """
+        effective_mode = compute_mode if execution_mode is None else execution_mode
+        if not twin_id and not module_id:
+            raise ValidationError("Provide either `twin_id` (a saved twin) or `module_id` (ad-hoc/demo run).")
+        if module_id is not None and module_id not in self.FINANCE_MODULES:
+            raise ValidationError(f"Unknown finance module '{module_id}'. Use one of {self.FINANCE_MODULES}.")
+        if not use_demo and snapshot is None:
+            raise ValidationError("Provide `snapshot`, or set use_demo=True to use the built-in synthetic demo.")
+
+        resolved_module_id = module_id
+        if twin_id and not resolved_module_id:
+            # The server resolves/validates the twin's module — module_id is optional here.
+            resolved_module_id = self.get_twin(twin_id).get("moduleId")
+
+        payload: Dict[str, Any] = {
+            "useDemo": use_demo,
+            "scenario": scenario or {},
+            "computeMode": effective_mode if effective_mode == "quantum-inspired" else "classical",
+        }
+        if twin_id:
+            payload["twinId"] = str(twin_id)
+        if snapshot is not None:
+            payload["snapshot"] = snapshot
+        if seed is not None:
+            payload["seed"] = int(seed)
+        if twin_name:
+            payload["twinName"] = self._sanitize_string(twin_name, 120)
+
+        response = self._request("POST", f"{resolved_module_id}/run", payload, api_prefix="finance")
+        if not response.get("success"):
+            raise APIError(response.get("error", "Twin run failed"))
+        return response.get("run", {})
+
     def run_finance_twin(
         self,
         module_id: str,
@@ -921,54 +1143,24 @@ class PlanckUser:
         twin_name: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Define/run a finance digital twin (Risk Scenario, Collateral &
-        Liquidity or Execution/RFQ). Additive to the platform's quantum
-        circuit workflow — does not affect run()/simulate().
-
-        Args:
-            module_id: One of FINANCE_MODULES ('risk-scenario',
-                'collateral-liquidity', 'execution-rfq').
-            scenario: Module-specific scenario parameters (see API docs).
-            snapshot: Module-specific snapshot data. Required unless
-                use_demo=True, in which case a small reproducible synthetic
-                demo snapshot is used server-side.
-            use_demo: Use the built-in synthetic demo snapshot instead of
-                `snapshot`. Demo results are always marked `isSynthetic`.
-            execution_mode: 'classical' (default) or 'quantum-inspired' to
-                additionally run the honestly-labeled experimental route.
-            seed: Optional explicit seed for reproducibility.
-            twin_name: Optional display name for the twin.
-
-        Returns:
-            Dict with the FinanceRunResult ('executionMode', 'solverActual',
-            'status', 'isSynthetic', 'result', 'kpis', 'warnings', ...).
-
-        Raises:
-            ValidationError: If module_id is invalid or neither snapshot nor
-                use_demo is provided.
-            APIError: On quota/rate-limit/server errors.
+        Deprecated: use `run_twin()` instead. Kept as a thin, behavior-preserving
+        alias so existing integrations keep working.
         """
-        if module_id not in self.FINANCE_MODULES:
-            raise ValidationError(f"Unknown finance module '{module_id}'. Use one of {self.FINANCE_MODULES}.")
-        if not use_demo and snapshot is None:
-            raise ValidationError("Provide `snapshot`, or set use_demo=True to use the built-in synthetic demo.")
-
-        payload: Dict[str, Any] = {
-            "useDemo": use_demo,
-            "scenario": scenario,
-            "executionMode": execution_mode if execution_mode == "quantum-inspired" else "classical",
-        }
-        if snapshot is not None:
-            payload["snapshot"] = snapshot
-        if seed is not None:
-            payload["seed"] = int(seed)
-        if twin_name:
-            payload["twinName"] = self._sanitize_string(twin_name, 120)
-
-        response = self._request("POST", f"{module_id}/run", payload, api_prefix="finance")
-        if not response.get("success"):
-            raise APIError(response.get("error", "Finance twin run failed"))
-        return response.get("run", {})
+        import warnings
+        warnings.warn(
+            "run_finance_twin() is deprecated; use run_twin() instead (same behavior).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.run_twin(
+            module_id=module_id,
+            scenario=scenario,
+            snapshot=snapshot,
+            use_demo=use_demo,
+            compute_mode=execution_mode,
+            seed=seed,
+            twin_name=twin_name,
+        )
 
     def get_finance_runs(self, module_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """

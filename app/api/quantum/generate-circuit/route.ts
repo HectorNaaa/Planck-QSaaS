@@ -66,11 +66,14 @@ export async function POST(request: NextRequest) {
     const angleScale  = body.angleScale  ?? bo.angleScale
     const forceLayers = body.forceLayers ?? bo.forceLayers
     const sampleHint  = body.sampleCountHint ?? bo.sampleCountHint
+    const quarkOptimizer = body.quarkOptimizer ?? bo.quarkOptimizer
     if (typeof maxQubits   === "number") opts.maxQubits        = Math.min(20, Math.max(2, maxQubits))
     if (typeof maxDepth    === "number") opts.maxDepth         = Math.max(1, maxDepth)
     if (typeof angleScale  === "number") opts.angleScale       = angleScale
     if (typeof forceLayers === "number") opts.forceLayers      = Math.max(1, forceLayers)
     if (typeof sampleHint  === "number") opts.sampleCountHint  = Math.max(1, sampleHint)
+    // Quark optimizer defaults to ON; accepts boolean or 0/1 from either the UI or the SDK.
+    opts.quarkOptimizer = quarkOptimizer === undefined ? true : Boolean(quarkOptimizer)
 
     const circuit = await generateCircuit(algorithm, inputDataValidation.data, opts)
 
@@ -84,6 +87,7 @@ export async function POST(request: NextRequest) {
       recommendedShots: circuit.recommended_shots,
       paramSummary:     circuit.paramSummary,
       transpiled:       circuit.transpiled,
+      quarkApplied:     circuit.quarkApplied,
       dataScale:        circuit.dataScale,
       layers:           circuit.layers,
     })

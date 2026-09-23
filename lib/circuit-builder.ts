@@ -45,6 +45,12 @@ export interface BuildOptions {
    * larger circuit even though only 5K rows are forwarded in the payload.
    */
   sampleCountHint?: number
+  /**
+   * Whether to run the Quark gate-cancellation optimizer pass after circuit
+   * generation. Defaults to `true` (on) — set to `false` to get the raw,
+   * un-optimized circuit (e.g. to compare against the optimized version).
+   */
+  quarkOptimizer?: boolean
 }
 
 export interface DataProfile {

@@ -50,6 +50,8 @@ export interface QuantumCircuit {
   paramSummary: string
   /** Whether the C++ transpiler pass was applied. */
   transpiled: boolean
+  /** Whether the Quark gate-cancellation optimizer actually ran (false if disabled, unavailable, or errored). */
+  quarkApplied: boolean
   /** Dataset size tier that shaped this circuit. */
   dataScale: string
   /** Ansatz / iteration layer count used. */
@@ -193,29 +195,36 @@ export async function transpileWithQuark(
 }
 
 /**
- * Run the full transpilation pipeline (C++ optimization followed by Python Quark compiler).
+ * Run the full transpilation pipeline: C++ gate fusion/cancellation, then the
+ * Python Quark gate-cancellation optimizer. Pass `{ quark: false }` to skip the
+ * Quark stage entirely (e.g. the user disabled it for this run).
  */
 export async function transpileCircuitPipeline(
   qasm: string,
-): Promise<{ qasm: string; used: boolean }> {
+  opts: { quark?: boolean } = {},
+): Promise<{ qasm: string; used: boolean; cppApplied: boolean; quarkApplied: boolean }> {
   let currentQasm = qasm
-  let used = false
+  let cppApplied = false
+  let quarkApplied = false
 
   // 1. Run C++ transpile pass if available
   const cppRes = await transpileWithCpp(currentQasm)
   if (cppRes.used) {
     currentQasm = cppRes.qasm
-    used = true
+    cppApplied = true
   }
 
-  // 2. Run Quark transpile pass
-  const quarkRes = await transpileWithQuark(currentQasm)
-  if (quarkRes.used) {
-    currentQasm = quarkRes.qasm
-    used = true
+  // 2. Run Quark transpile pass, unless explicitly disabled for this run
+  const quarkEnabled = opts.quark !== false
+  if (quarkEnabled) {
+    const quarkRes = await transpileWithQuark(currentQasm)
+    if (quarkRes.used) {
+      currentQasm = quarkRes.qasm
+      quarkApplied = true
+    }
   }
 
-  return { qasm: currentQasm, used }
+  return { qasm: currentQasm, used: cppApplied || quarkApplied, cppApplied, quarkApplied }
 }
 
 // ─── Core functions ────────────────────────────────────────────────────────────
@@ -255,7 +264,7 @@ export async function generateCircuit(
     rawQasm = buildCircuit(algo, profile).qasm
   }
 
-  const { qasm, used: transpiled } = await transpileCircuitPipeline(rawQasm)
+  const { qasm, used: transpiled, quarkApplied } = await transpileCircuitPipeline(rawQasm, { quark: opts.quarkOptimizer !== false })
   const built = buildCircuit(algo, profile) // re-run for metadata (cheap)
 
   return {
@@ -268,6 +277,7 @@ export async function generateCircuit(
     algorithm:         algo,
     paramSummary:      built.paramSummary,
     transpiled:        transpiled || usedNativeGen,
+    quarkApplied,
     dataScale:         profile.dataScale,
     layers:            profile.layers,
   }
