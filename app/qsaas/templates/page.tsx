@@ -40,7 +40,7 @@ const BUILTIN_MODULES: ModuleMeta[] = [
     name: "Risk Scenario Twin",
     description: "Portfolio VaR/CVaR via historical simulation and seeded Monte Carlo, benchmarked against a parametric-normal reference.",
     clientProfile: "Wealthtechs, digital asset managers and risk teams.",
-    demoScenario: { horizonDays: 10, confidenceLevel: 0.95, method: "monte-carlo", numScenarios: 2000 },
+    demoScenario: { horizonDays: 10, confidenceLevel: 0.95, method: "historical", numScenarios: 2000 },
   },
   {
     id: "collateral-liquidity",

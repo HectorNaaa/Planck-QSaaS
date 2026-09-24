@@ -41,7 +41,14 @@ export type RiskSnapshotInput = z.infer<typeof RiskSnapshotSchema>
 export const RiskScenarioSchema = z.object({
   horizonDays: z.number().int().min(1).max(252),
   confidenceLevel: z.number().gt(0.5).lt(1),
-  method: z.enum(["historical", "monte-carlo"]).default("monte-carlo"),
+  // "monte-carlo" is temporarily disabled server-side: it reproducibly crashes the whole
+  // Node process on the current production runtime (native SIGABRT, not a catchable JS
+  // error) — never reproduced locally, root cause still under investigation. Rather than
+  // risk taking the server down, only "historical" (verified safe) is accepted for now.
+  method: z.enum(["historical", "monte-carlo"]).default("historical").refine(
+    (m) => m === "historical",
+    { message: "method 'monte-carlo' is temporarily unavailable pending a platform-level fix — use 'historical'" },
+  ),
   numScenarios: z.number().int().min(200).max(5000).default(2000),
   /** Optional additive per-symbol return shock overlay (stress test), e.g. -0.1 = -10%. */
   shocks: z.record(z.string(), z.number().finite()).optional(),

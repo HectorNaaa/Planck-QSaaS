@@ -50,7 +50,9 @@ export function cvarAboveQuantile(losses: number[], p: number): number {
   const tail = losses.filter((x) => x >= varThreshold)
   // Guard against an empty tail when p rounds to include no strictly-greater sample
   // (can happen with heavy ties) — fall back to the single worst observation.
-  if (tail.length === 0) return Math.max(...losses)
+  // Avoids `Math.max(...losses)`: spreading a large array into a function call can
+  // exhaust the engine's argument/stack limits for large sample counts.
+  if (tail.length === 0) return losses.reduce((a, b) => (b > a ? b : a), losses[0])
   return mean(tail)
 }
 

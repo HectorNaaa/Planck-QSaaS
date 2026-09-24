@@ -60,6 +60,9 @@ describe("riskScenarioModule — historical VaR/CVaR (exact hand-verified case)"
 })
 
 describe("riskScenarioModule — Monte Carlo (seeded reproducibility + reference cross-check)", () => {
+  // parseScenario() rejects "monte-carlo" at the public API boundary (temporary platform
+  // restriction — see RiskScenarioSchema) but runClassical() itself is still exercised
+  // directly here so this computation stays covered and regressions are still caught.
   const returns30 = (mean: number, i: number) => mean + 0.01 * Math.sin(i)
   const snapshot = riskScenarioModule.parseSnapshot({
     asOf: "2026-09-19",
@@ -70,7 +73,7 @@ describe("riskScenarioModule — Monte Carlo (seeded reproducibility + reference
       B: Array.from({ length: 60 }, (_, i) => returns30(0.0002, i + 7)),
     },
   })
-  const scenario = riskScenarioModule.parseScenario({ horizonDays: 5, confidenceLevel: 0.95, method: "monte-carlo", numScenarios: 2000 })
+  const scenario = { horizonDays: 5, confidenceLevel: 0.95, method: "monte-carlo" as const, numScenarios: 2000 }
 
   it("is exactly reproducible given the same seed", () => {
     const runA = riskScenarioModule.runClassical(snapshot, scenario, 12345)
@@ -90,5 +93,21 @@ describe("riskScenarioModule — Monte Carlo (seeded reproducibility + reference
     const baseline = riskScenarioModule.runClassical(snapshot, scenario, 1)
     const experimental = riskScenarioModule.runExperimental(snapshot, scenario, 1, baseline)
     expect(experimental.available).toBe(false)
+  })
+})
+
+describe("riskScenarioModule — monte-carlo temporarily disabled at the public API boundary", () => {
+  it("parseScenario rejects method: monte-carlo", () => {
+    expect(() => riskScenarioModule.parseScenario({ horizonDays: 5, confidenceLevel: 0.95, method: "monte-carlo" })).toThrow()
+  })
+
+  it("parseScenario still accepts method: historical", () => {
+    const scenario = riskScenarioModule.parseScenario({ horizonDays: 5, confidenceLevel: 0.95, method: "historical" })
+    expect(scenario.method).toBe("historical")
+  })
+
+  it("defaults to historical when method is omitted", () => {
+    const scenario = riskScenarioModule.parseScenario({ horizonDays: 5, confidenceLevel: 0.95 })
+    expect(scenario.method).toBe("historical")
   })
 })
