@@ -145,7 +145,13 @@ export function cleanupRateLimitStore(): void {
   }
 }
 
-// Auto-cleanup every 60 seconds
+// Auto-cleanup every 60 seconds. `.unref()` so this timer never keeps the
+// process/isolate alive between invocations — in serverless (Vercel) runtimes,
+// a referenced interval can survive across warm-container reuse and fire
+// against a torn-down Environment/isolate, which crashes the whole process
+// with a native SIGABRT (not a catchable JS error). This is a background
+// maintenance task only — it must never affect process lifetime.
 if (typeof setInterval !== "undefined") {
-  setInterval(cleanupRateLimitStore, 60000)
+  const cleanupTimer = setInterval(cleanupRateLimitStore, 60000)
+  cleanupTimer.unref?.()
 }
