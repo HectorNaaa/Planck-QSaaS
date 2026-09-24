@@ -126,52 +126,81 @@ function activeReservedSum(userId: string, resourceType: ResourceType): number {
 }
 
 /**
+ * Runs `fn` wrapped in an explicit BEGIN IMMEDIATE / COMMIT (manual SQL
+ * transaction) rather than better-sqlite3's `Database#transaction()` helper.
+ * `.transaction()` is avoided deliberately: it was the only call site in this
+ * codebase to use it, and it reproducibly crashed the whole Node process
+ * with a native SIGABRT (node::RemoveEnvironmentCleanupHook assertion) on
+ * Vercel's serverless runtime, while never reproducing locally. Plain
+ * `db.prepare(...).run()/.get()` calls (used everywhere else) are unaffected.
+ * This gives the same atomicity guarantee (single synchronous block, one
+ * SQL-level transaction) without the suspect wrapper.
+ */
+function withTransaction<T>(fn: () => T): T {
+  db.exec("BEGIN IMMEDIATE")
+  try {
+    const result = fn()
+    db.exec("COMMIT")
+    return result
+  } catch (err) {
+    try { db.exec("ROLLBACK") } catch { /* no active transaction to roll back */ }
+    throw err
+  }
+}
+
+/**
  * Atomically reserves `amount` of `resourceType` for `userId`, or throws
  * QuotaExceededError. Runs as a single synchronous better-sqlite3
  * transaction — no `await` occurs between the usage check and the insert,
  * so concurrent Node requests cannot both pass the check for the last unit
  * of quota.
  */
-export const reserveQuota = db.transaction((userId: string, resourceType: ResourceType, amount: number): string => {
-  sweepAbandonedReservationsInternal()
-  const { plan } = ensureEntitlementRow(userId)
-  const limits = getPlanLimits(plan)
-  const limit = limitFor(resourceType, limits)
+export function reserveQuota(userId: string, resourceType: ResourceType, amount: number): string {
+  return withTransaction(() => {
+    sweepAbandonedReservationsInternal()
+    const { plan } = ensureEntitlementRow(userId)
+    const limits = getPlanLimits(plan)
+    const limit = limitFor(resourceType, limits)
 
-  const entitlement = db.prepare("SELECT * FROM entitlements WHERE user_id = ?").get(userId) as any
-  const used = entitlement[usedColumnFor(resourceType)] ?? 0
-  const reserved = activeReservedSum(userId, resourceType)
-  const projected = used + reserved + amount
+    const entitlement = db.prepare("SELECT * FROM entitlements WHERE user_id = ?").get(userId) as any
+    const used = entitlement[usedColumnFor(resourceType)] ?? 0
+    const reserved = activeReservedSum(userId, resourceType)
+    const projected = used + reserved + amount
 
-  if (projected > limit) {
-    throw new QuotaExceededError(resourceType, limit, used + reserved, plan)
-  }
+    if (projected > limit) {
+      throw new QuotaExceededError(resourceType, limit, used + reserved, plan)
+    }
 
-  const id = randomUUID()
-  const expiresAt = new Date(Date.now() + RESERVATION_TTL_MS).toISOString()
-  db.prepare(
-    "INSERT INTO quota_reservations (id, user_id, resource_type, amount, status, expires_at) VALUES (?, ?, ?, ?, 'reserved', ?)",
-  ).run(id, userId, resourceType, amount, expiresAt)
-  return id
-})
+    const id = randomUUID()
+    const expiresAt = new Date(Date.now() + RESERVATION_TTL_MS).toISOString()
+    db.prepare(
+      "INSERT INTO quota_reservations (id, user_id, resource_type, amount, status, expires_at) VALUES (?, ?, ?, ?, 'reserved', ?)",
+    ).run(id, userId, resourceType, amount, expiresAt)
+    return id
+  })
+}
 
 /** Marks a reservation as committed and folds its amount into the cycle's used counter. */
-export const commitReservation = db.transaction((reservationId: string): void => {
-  const res = db.prepare("SELECT * FROM quota_reservations WHERE id = ?").get(reservationId) as any
-  if (!res || res.status !== "reserved") return // already settled/expired — idempotent no-op
-  db.prepare("UPDATE quota_reservations SET status = 'committed' WHERE id = ?").run(reservationId)
-  const column = usedColumnFor(res.resource_type as ResourceType)
-  db.prepare(
-    `UPDATE entitlements SET ${column} = ${column} + ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?`,
-  ).run(res.amount, res.user_id)
-})
+export function commitReservation(reservationId: string): void {
+  withTransaction(() => {
+    const res = db.prepare("SELECT * FROM quota_reservations WHERE id = ?").get(reservationId) as any
+    if (!res || res.status !== "reserved") return // already settled/expired — idempotent no-op
+    db.prepare("UPDATE quota_reservations SET status = 'committed' WHERE id = ?").run(reservationId)
+    const column = usedColumnFor(res.resource_type as ResourceType)
+    db.prepare(
+      `UPDATE entitlements SET ${column} = ${column} + ?, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?`,
+    ).run(res.amount, res.user_id)
+  })
+}
 
 /** Releases a reservation without charging usage (failed/cancelled job). Idempotent. */
-export const releaseReservation = db.transaction((reservationId: string): void => {
-  const res = db.prepare("SELECT * FROM quota_reservations WHERE id = ?").get(reservationId) as any
-  if (!res || res.status !== "reserved") return
-  db.prepare("UPDATE quota_reservations SET status = 'released' WHERE id = ?").run(reservationId)
-})
+export function releaseReservation(reservationId: string): void {
+  withTransaction(() => {
+    const res = db.prepare("SELECT * FROM quota_reservations WHERE id = ?").get(reservationId) as any
+    if (!res || res.status !== "reserved") return
+    db.prepare("UPDATE quota_reservations SET status = 'released' WHERE id = ?").run(reservationId)
+  })
+}
 
 export function getEntitlementSummary(userId: string) {
   const { plan } = ensureEntitlementRow(userId)
