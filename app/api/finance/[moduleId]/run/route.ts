@@ -70,6 +70,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     const userId = auth.userId!
     userIdForCleanup = userId
+    console.error("[DIAG] checkpoint: authenticated", userId)
 
     if (!checkRateLimit(userId)) {
       const retryAfter = Math.ceil(getRetryAfter(userId) / 1000)
@@ -78,6 +79,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 429, headers: { "Retry-After": retryAfter.toString() } },
       )
     }
+    console.error("[DIAG] checkpoint: rate limit ok")
 
     const useDemo = body.useDemo === true
     const isSynthetic = useDemo || body.isSynthetic === true
@@ -90,6 +92,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 400 },
       )
     }
+    console.error("[DIAG] checkpoint: snapshot parsed")
     let scenario: unknown
     try {
       scenario = moduleDef.parseScenario(body.scenario ?? {})
@@ -99,16 +102,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         { status: 400 },
       )
     }
+    console.error("[DIAG] checkpoint: scenario parsed")
 
     const snapshotHash = computeSnapshotHash(snapshot)
+    console.error("[DIAG] checkpoint: snapshot hashed")
     const seed = typeof body.seed === "number" ? body.seed : (useDemo ? DEMO_SEED : seedFromString(snapshotHash))
+    console.error("[DIAG] checkpoint: seed resolved")
     // `computeMode` is the canonical field (matches SDK/web contract); `executionMode` is a legacy alias.
     const computeMode = body.computeMode ?? body.executionMode
     const requestExperimental = computeMode === "quantum-inspired"
 
     // ── Quota gate: reserve BEFORE running, fail closed on any error ──────
+    console.error("[DIAG] checkpoint: about to reserveQuota")
     try {
       reservationId = reserveQuota(userId, "execution", 1)
+      console.error("[DIAG] checkpoint: reserveQuota ok", reservationId)
     } catch (err) {
       if (err instanceof QuotaExceededError) {
         return NextResponse.json(
@@ -137,6 +145,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     } else {
       twinId = createTwin(userId, moduleId, body.twinName || `${moduleDef.name} (${useDemo ? "demo" : "custom"})`)
     }
+    console.error("[DIAG] checkpoint: twinId resolved", twinId)
     const snapshotId = createSnapshot({
       userId,
       twinId,
@@ -148,6 +157,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       isSynthetic,
       seed,
     })
+    console.error("[DIAG] checkpoint: snapshot created", snapshotId)
 
     const runResult = executeFinanceRun({
       moduleId,
@@ -162,16 +172,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       modelVersion: MODEL_VERSION,
       requestExperimental,
     })
+    console.error("[DIAG] checkpoint: executeFinanceRun done", runResult.status)
 
     // Commit the execution slot regardless of outcome (it was consumed either way);
     // then meter compute_ms post-hoc since duration is only known after running.
     commitReservation(reservationId)
+    console.error("[DIAG] checkpoint: commitReservation done")
     try {
       const computeReservation = reserveQuota(userId, "compute_ms", Math.max(1, runResult.timingsMs.execute))
       commitReservation(computeReservation)
     } catch {
       // compute_ms is metering/reporting only here — never blocks a run that already executed.
     }
+    console.error("[DIAG] checkpoint: compute_ms metering done")
 
     const execRow = Executions.create({
       user_id: userId,
@@ -187,7 +200,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       compute_route: runResult.executionMode,
     })
 
+    console.error("[DIAG] checkpoint: Executions.create done", execRow.id)
     saveRun({ userId, executionId: execRow.id, snapshotId, moduleId, run: runResult })
+    console.error("[DIAG] checkpoint: saveRun done")
 
     return NextResponse.json({ success: true, run: runResult })
   } catch (error) {
