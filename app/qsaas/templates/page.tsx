@@ -87,6 +87,14 @@ export default function TemplatesPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [prefillModule, setPrefillModule] = useState<FinanceModuleId>("risk-scenario")
   const [prefillScenario, setPrefillScenario] = useState<Record<string, unknown> | null>(null)
+  // Inline "Open in Runner" — editable scenario + run, reusing the same twinId for every run.
+  const [openRunner, setOpenRunner] = useState<Record<string, boolean>>({})
+  const [scenarioDraft, setScenarioDraft] = useState<Record<string, string>>({})
+
+  const toggleRunner = (key: string, defaultScenario: Record<string, unknown>) => {
+    setOpenRunner((prev) => ({ ...prev, [key]: !prev[key] }))
+    setScenarioDraft((prev) => (prev[key] ? prev : { ...prev, [key]: JSON.stringify(defaultScenario, null, 2) }))
+  }
 
   const loadTwins = async () => {
     setLoadingTwins(true)
@@ -110,27 +118,35 @@ export default function TemplatesPage() {
     loadTwins()
   }, [])
 
-  const runDemo = async (
+  /** Twin/preset → snapshot → scenario → execution contract. Saved twins (twinId set) always
+   *  run through /api/twins/{id}/run, which guarantees the same twin instance is reused on
+   *  every call; presets with no saved twin yet fall back to the module-centric demo route. */
+  const runTwin = async (
     key: string,
     moduleId: FinanceModuleId,
-    scenario: Record<string, unknown>,
-    computeMode: "classical" | "quantum-inspired",
-    twinId?: string,
+    opts: { scenario: Record<string, unknown>; computeMode: "classical" | "quantum-inspired"; twinId?: string; useDemo: boolean; snapshot?: unknown; seed?: number },
   ) => {
     setRunState((prev) => ({ ...prev, [key]: { loading: true, error: null, run: null } }))
     try {
-      const res = await fetch(`/api/finance/${moduleId}/run`, {
+      const endpoint = opts.twinId ? `/api/twins/${opts.twinId}/run` : `/api/finance/${moduleId}/run`
+      const res = await fetch(endpoint, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ useDemo: true, scenario, computeMode, twinId }),
+        body: JSON.stringify({
+          useDemo: opts.useDemo,
+          snapshot: opts.useDemo ? undefined : opts.snapshot,
+          scenario: opts.scenario,
+          computeMode: opts.computeMode,
+          seed: opts.seed,
+        }),
       })
       const data = await res.json()
       if (!res.ok || !data.success) {
         setRunState((prev) => ({ ...prev, [key]: { loading: false, error: data.error || `Request failed (${res.status})`, run: null } }))
         return
       }
-      setRunState((prev) => ({ ...prev, [key]: { loading: false, error: null, run: data.run } }))
+      setRunState((prev) => ({ ...prev, [key]: { loading: false, error: null, run: { ...data.run, requestedMode: opts.computeMode } } }))
     } catch (err) {
       setRunState((prev) => ({ ...prev, [key]: { loading: false, error: err instanceof Error ? err.message : "Network error", run: null } }))
     }
@@ -196,16 +212,30 @@ export default function TemplatesPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" disabled={s?.loading} onClick={() => runDemo(mod.id, mod.id, mod.demoScenario, "classical")}>
+                  <Button size="sm" disabled={s?.loading} onClick={() => runTwin(mod.id, mod.id, { scenario: mod.demoScenario, computeMode: "classical", useDemo: true })}>
                     {s?.loading ? "Running…" : "Run demo (classical)"}
                   </Button>
-                  <Button size="sm" variant="outline" disabled={s?.loading} onClick={() => runDemo(mod.id, mod.id, mod.demoScenario, "quantum-inspired")}>
+                  <Button size="sm" variant="outline" disabled={s?.loading} onClick={() => runTwin(mod.id, mod.id, { scenario: mod.demoScenario, computeMode: "quantum-inspired", useDemo: true })}>
                     Run demo (quantum-inspired)
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => toggleRunner(mod.id, mod.demoScenario)}>
+                    {openRunner[mod.id] ? "Hide runner" : "Open in Runner"}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => openCreateFor(mod.id, mod.demoScenario)}>
                     Use as my twin
                   </Button>
                 </div>
+
+                {openRunner[mod.id] && (
+                  <RunnerPanel
+                    scenarioText={scenarioDraft[mod.id] ?? JSON.stringify(mod.demoScenario, null, 2)}
+                    onScenarioChange={(v) => setScenarioDraft((prev) => ({ ...prev, [mod.id]: v }))}
+                    loading={!!s?.loading}
+                    onRun={(scenario, computeMode, dataMode, snapshot, seed) =>
+                      runTwin(mod.id, mod.id, { scenario, computeMode, useDemo: dataMode === "demo", snapshot, seed })
+                    }
+                  />
+                )}
 
                 <RunResult state={s} />
               </Card>
@@ -249,26 +279,43 @@ export default function TemplatesPage() {
                       size="sm"
                       disabled={s?.loading}
                       onClick={() =>
-                        runDemo(
-                          twin.id,
-                          twin.moduleId,
-                          twin.config?.scenario ?? BUILTIN_MODULES.find((m) => m.id === twin.moduleId)?.demoScenario ?? {},
-                          "classical",
-                          twin.id,
-                        )
+                        runTwin(twin.id, twin.moduleId, {
+                          scenario: twin.config?.scenario ?? BUILTIN_MODULES.find((m) => m.id === twin.moduleId)?.demoScenario ?? {},
+                          computeMode: "classical",
+                          useDemo: true,
+                          twinId: twin.id,
+                        })
                       }
                     >
-                      {s?.loading ? "Running…" : "Run demo"}
+                      {s?.loading ? "Running…" : "Quick demo run"}
                     </Button>
                     {twin.visibility === "private" ? (
                       <Button size="sm" variant="outline" onClick={() => publishTwin(twin, "public")}>Publish</Button>
                     ) : (
                       <Button size="sm" variant="outline" onClick={() => publishTwin(twin, "private")}>Unpublish</Button>
                     )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => toggleRunner(twin.id, twin.config?.scenario ?? BUILTIN_MODULES.find((m) => m.id === twin.moduleId)?.demoScenario ?? {})}
+                    >
+                      {openRunner[twin.id] ? "Hide runner" : "Open in Runner"}
+                    </Button>
                     <Button size="sm" variant="outline" className="text-destructive" onClick={() => deleteTwin(twin)}>
                       <Trash2 size={14} />
                     </Button>
                   </div>
+
+                  {openRunner[twin.id] && (
+                    <RunnerPanel
+                      scenarioText={scenarioDraft[twin.id] ?? JSON.stringify(twin.config?.scenario ?? {}, null, 2)}
+                      onScenarioChange={(v) => setScenarioDraft((prev) => ({ ...prev, [twin.id]: v }))}
+                      loading={!!s?.loading}
+                      onRun={(scenario, computeMode, dataMode, snapshot, seed) =>
+                        runTwin(twin.id, twin.moduleId, { scenario, computeMode, useDemo: dataMode === "demo", snapshot, seed, twinId: twin.id })
+                      }
+                    />
+                  )}
 
                   <RunResult state={s} />
                 </Card>
@@ -319,39 +366,210 @@ export default function TemplatesPage() {
   )
 }
 
+/** Inline "Open in Runner" panel — scenario/constraints editor (level 1), Execute
+ *  action (level 2), and a collapsed "Advanced Compute Settings" (level 3: compute
+ *  mode + seed). The caller always passes the same twinId for a given card, so
+ *  repeated runs reuse that twin instance instead of creating a new one each time. */
+function RunnerPanel({
+  scenarioText,
+  onScenarioChange,
+  loading,
+  onRun,
+}: {
+  scenarioText: string
+  onScenarioChange: (v: string) => void
+  loading: boolean
+  onRun: (
+    scenario: Record<string, unknown>,
+    computeMode: "classical" | "quantum-inspired",
+    dataMode: "demo" | "own",
+    snapshot: unknown,
+    seed: number | undefined,
+  ) => void
+}) {
+  const [jsonError, setJsonError] = useState<string | null>(null)
+  const [dataMode, setDataMode] = useState<"demo" | "own">("demo")
+  const [snapshotText, setSnapshotText] = useState("{\n  \n}")
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [computeMode, setComputeMode] = useState<"classical" | "quantum-inspired">("classical")
+  const [seedText, setSeedText] = useState("")
+
+  const run = () => {
+    try {
+      const scenario = scenarioText.trim() ? JSON.parse(scenarioText) : {}
+      let snapshot: unknown = undefined
+      if (dataMode === "own") {
+        snapshot = snapshotText.trim() ? JSON.parse(snapshotText) : {}
+      }
+      setJsonError(null)
+      const seed = seedText.trim() ? Number(seedText) : undefined
+      onRun(scenario, computeMode, dataMode, snapshot, Number.isFinite(seed) ? seed : undefined)
+    } catch {
+      setJsonError("Scenario/snapshot must be valid JSON")
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+      <div>
+        <p className="text-xs font-semibold text-foreground mb-1">Data</p>
+        <div className="flex gap-2 mb-2">
+          <button
+            type="button"
+            onClick={() => setDataMode("demo")}
+            className={`px-2 py-1 text-xs rounded ${dataMode === "demo" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"}`}
+          >
+            Demo data
+          </button>
+          <button
+            type="button"
+            onClick={() => setDataMode("own")}
+            className={`px-2 py-1 text-xs rounded ${dataMode === "own" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"}`}
+          >
+            My data
+          </button>
+        </div>
+        {dataMode === "own" && (
+          <textarea
+            value={snapshotText}
+            onChange={(e) => setSnapshotText(e.target.value)}
+            rows={5}
+            placeholder="Paste your own snapshot JSON (matches this module's schema)"
+            className="w-full px-2 py-1.5 bg-background border border-border rounded-md text-[11px] font-mono text-foreground"
+            spellCheck={false}
+          />
+        )}
+      </div>
+
+      <div>
+        <p className="text-xs font-semibold text-foreground mb-1">Scenario &amp; constraints</p>
+        <textarea
+          value={scenarioText}
+          onChange={(e) => onScenarioChange(e.target.value)}
+          rows={6}
+          className="w-full px-2 py-1.5 bg-background border border-border rounded-md text-[11px] font-mono text-foreground"
+          spellCheck={false}
+        />
+      </div>
+
+      {jsonError && <p className="text-xs text-destructive">{jsonError}</p>}
+
+      <button
+        type="button"
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+      >
+        {showAdvanced ? "Hide" : "Show"} Advanced Compute Settings
+      </button>
+      {showAdvanced && (
+        <div className="rounded-md border border-border/60 bg-background/40 p-2 space-y-2">
+          <div>
+            <p className="text-[11px] text-muted-foreground mb-1">Compute mode</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setComputeMode("classical")}
+                className={`px-2 py-1 text-xs rounded ${computeMode === "classical" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"}`}
+              >
+                Classical (baseline solver)
+              </button>
+              <button
+                type="button"
+                onClick={() => setComputeMode("quantum-inspired")}
+                className={`px-2 py-1 text-xs rounded ${computeMode === "quantum-inspired" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"}`}
+              >
+                Quantum-inspired (experimental)
+              </button>
+            </div>
+          </div>
+          <div>
+            <p className="text-[11px] text-muted-foreground mb-1">Seed (optional — overrides auto-derived seed)</p>
+            <input
+              type="number"
+              value={seedText}
+              onChange={(e) => setSeedText(e.target.value)}
+              placeholder="auto"
+              className="w-32 px-2 py-1 bg-background border border-border rounded-md text-xs text-foreground"
+            />
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" disabled={loading} onClick={run}>
+          {loading ? "Running…" : "Execute"}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function RunResult({ state: s }: { state: RunState | undefined }) {
+  const [showDetails, setShowDetails] = useState(false)
   if (!s) return null
+  const run = s.run
   return (
     <>
       {s.error && <p className="text-xs text-destructive">{s.error}</p>}
-      {s.run && (
+      {run && (
         <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2 text-xs">
           <div className="flex flex-wrap gap-1.5">
-            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{s.run.executionMode}</span>
-            <span className="px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground font-medium">{s.run.solverActual}</span>
-            <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 font-medium">
-              {s.run.isSynthetic ? "synthetic demo data" : "user data"}
+            {run.requestedMode && run.requestedMode !== run.executionMode && (
+              <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium" title="Requested compute mode">
+                requested: {run.requestedMode}
+              </span>
+            )}
+            <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium" title="Compute mode actually executed">
+              executed: {run.executionMode}
             </span>
-            <span className={`px-2 py-0.5 rounded-full font-medium ${s.run.status === "completed" ? "bg-green-500/10 text-green-600" : "bg-orange-500/10 text-orange-600"}`}>
-              {s.run.status}
+            <span className="px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground font-medium">{run.solverActual}</span>
+            <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 font-medium">
+              {run.isSynthetic ? "synthetic demo data" : "user data"}
+            </span>
+            <span className={`px-2 py-0.5 rounded-full font-medium ${run.status === "completed" ? "bg-green-500/10 text-green-600" : "bg-orange-500/10 text-orange-600"}`}>
+              {run.status}
             </span>
           </div>
-          {s.run.capability && (
-            <p className="text-muted-foreground italic">Experimental route unavailable: {s.run.capability.reason}</p>
+          {run.capability && (
+            <p className="text-muted-foreground italic">Experimental route unavailable: {run.capability.reason}</p>
           )}
           <pre className="overflow-x-auto whitespace-pre-wrap break-all text-[11px] leading-snug">
-            {JSON.stringify(s.run.kpis, null, 2)}
+            {JSON.stringify(run.kpis, null, 2)}
           </pre>
-          {s.run.warnings?.length > 0 && (
+          {run.warnings?.length > 0 && (
             <ul className="list-disc list-inside text-muted-foreground">
-              {s.run.warnings.map((w: string, i: number) => <li key={i}>{w}</li>)}
+              {run.warnings.map((w: string, i: number) => <li key={i}>{w}</li>)}
             </ul>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowDetails(!showDetails)}
+            className="text-[11px] text-muted-foreground hover:text-foreground underline underline-offset-2"
+          >
+            {showDetails ? "Hide" : "Show"} lineage &amp; technical details
+          </button>
+          {showDetails && (
+            <div className="rounded-md border border-border/60 bg-background/40 p-2 space-y-1 text-[11px] text-muted-foreground">
+              <p>run_id: <span className="font-mono text-foreground">{run.runId}</span></p>
+              <p>twin_id: <span className="font-mono text-foreground">{run.twinId}</span></p>
+              <p>snapshot_id: <span className="font-mono text-foreground">{run.snapshotId}</span></p>
+              <p>snapshot_hash: <span className="font-mono text-foreground">{run.snapshotHash}</span></p>
+              <p>model_version: <span className="font-mono text-foreground">{run.modelVersion}</span></p>
+              <p>seed: <span className="font-mono text-foreground">{run.seed}</span></p>
+              {run.baseline && (
+                <>
+                  <p className="pt-1 font-semibold text-foreground">Baseline (classical) result</p>
+                  <pre className="overflow-x-auto whitespace-pre-wrap break-all">{JSON.stringify(run.baseline, null, 2)}</pre>
+                </>
+              )}
+            </div>
           )}
         </div>
       )}
     </>
   )
 }
+
 
 function CreateTwinModal({
   defaultModuleId,

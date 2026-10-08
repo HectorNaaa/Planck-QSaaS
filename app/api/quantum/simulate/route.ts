@@ -229,6 +229,7 @@ export async function POST(request: NextRequest) {
     // Save execution to internal SQLite DB
     const circuitDataJson = JSON.stringify({
       source,
+      digital_twin: Boolean(digitalTwinId),
       digital_twin_id: digitalTwinId,
       qasm,  // full QASM for download
       results: { fidelity: actualFidelity, counts: results.counts },

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Plus, Upload, X, Edit2, Check, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -18,8 +18,29 @@ interface DigitalTwinSelectorProps {
   onSelect: (twinId: string | null) => void
 }
 
+/** Local cosmetic overrides (name/description/image) for twins not yet confirmed
+ *  by a server execution. Twin identity/ownership always comes from the server
+ *  list below — this cache only affects display labels, never authorization. */
+const PENDING_KEY = "planck_pending_digital_twins"
+
+function readPending(): Record<string, { name: string; description: string | null; image_url: string | null }> {
+  try {
+    const raw = localStorage.getItem(PENDING_KEY)
+    return raw ? JSON.parse(raw) : {}
+  } catch {
+    return {}
+  }
+}
+
+function writePending(map: Record<string, { name: string; description: string | null; image_url: string | null }>) {
+  try {
+    localStorage.setItem(PENDING_KEY, JSON.stringify(map))
+  } catch { /* storage unavailable — non-fatal, labels just won't persist */ }
+}
+
 export function DigitalTwinSelector({ selectedTwinId, onSelect }: DigitalTwinSelectorProps) {
   const [twins, setTwins] = useState<DigitalTwin[]>([])
+  const [loading, setLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
   const [newName, setNewName] = useState("")
@@ -28,6 +49,35 @@ export function DigitalTwinSelector({ selectedTwinId, onSelect }: DigitalTwinSel
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState("")
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const loadTwins = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch("/api/quantum/digital-twin", { credentials: "include" })
+      const data = await res.json()
+      const serverTwins: DigitalTwin[] = data.success && Array.isArray(data.digital_twins) ? data.digital_twins : []
+      const pending = readPending()
+      // Merge: server twins win on name/description once an execution confirms them,
+      // but pending-only twins (no execution yet) still show up so they stay selectable.
+      const merged = new Map<string, DigitalTwin>()
+      for (const [id, p] of Object.entries(pending)) {
+        merged.set(id, { id, name: p.name, description: p.description, image_url: p.image_url, created_at: new Date().toISOString() })
+      }
+      for (const t of serverTwins) {
+        const existing = merged.get(t.id)
+        merged.set(t.id, { ...t, image_url: existing?.image_url ?? t.image_url ?? null })
+      }
+      setTwins(Array.from(merged.values()))
+    } catch {
+      setTwins(Object.entries(readPending()).map(([id, p]) => ({ id, name: p.name, description: p.description, image_url: p.image_url, created_at: new Date().toISOString() })))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadTwins()
+  }, [])
 
   const selectedTwin = twins.find((t) => t.id === selectedTwinId) ?? null
 
@@ -39,22 +89,38 @@ export function DigitalTwinSelector({ selectedTwinId, onSelect }: DigitalTwinSel
     reader.readAsDataURL(file)
   }
 
-  const handleCreate = async () => {
+  const handleCreate = () => {
     if (!newName.trim()) return
-    alert("Digital twins will be implemented in the next phase with full SQLite support")
+    const id = crypto.randomUUID()
+    const pending = readPending()
+    pending[id] = { name: newName.trim(), description: newDesc.trim() || null, image_url: imagePreview }
+    writePending(pending)
+    setTwins((prev) => [{ id, name: newName.trim(), description: newDesc.trim() || null, image_url: imagePreview, created_at: new Date().toISOString() }, ...prev])
+    onSelect(id)
+    setIsCreating(false)
+    setNewName("")
+    setNewDesc("")
+    setImagePreview(null)
   }
 
-  const handleUpdateName = async (id: string) => {
+  const handleUpdateName = (id: string) => {
     if (!editName.trim()) {
       setEditingId(null)
       return
     }
+    const pending = readPending()
+    const existing = twins.find((t) => t.id === id)
+    pending[id] = { name: editName.trim(), description: existing?.description ?? null, image_url: existing?.image_url ?? null }
+    writePending(pending)
     setTwins(twins.map((t) => (t.id === id ? { ...t, name: editName.trim() } : t)))
     setEditingId(null)
   }
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this digital twin? Linked executions will be unlinked.")) return
+  const handleDelete = (id: string) => {
+    if (!confirm("Remove this digital twin from the selector? Past executions linked to it are kept in your history.")) return
+    const pending = readPending()
+    delete pending[id]
+    writePending(pending)
     setTwins(twins.filter((t) => t.id !== id))
     if (selectedTwinId === id) onSelect(null)
   }
@@ -97,7 +163,7 @@ export function DigitalTwinSelector({ selectedTwinId, onSelect }: DigitalTwinSel
                 <span className="font-medium text-foreground">{selectedTwin.name}</span>
               </>
             ) : (
-              <span className="text-muted-foreground">None selected</span>
+              <span className="text-muted-foreground">{loading ? "Loading…" : "None selected"}</span>
             )}
             <ChevronDown size={14} className={`ml-1 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
           </button>
@@ -108,7 +174,7 @@ export function DigitalTwinSelector({ selectedTwinId, onSelect }: DigitalTwinSel
         <div className="mt-4 space-y-4">
           {isCreating && (
             <div className="p-4 bg-secondary/40 rounded-lg border border-border space-y-3">
-              <p className="text-xs font-semibold text-foreground">New digital twin (Coming soon)</p>
+              <p className="text-xs font-semibold text-foreground">New digital twin</p>
               <div className="flex gap-3">
                 <label className="flex-shrink-0 w-16 h-16 rounded-lg border-2 border-dashed border-border hover:border-primary cursor-pointer overflow-hidden bg-secondary flex items-center justify-center">
                   <input ref={fileRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
@@ -124,22 +190,20 @@ export function DigitalTwinSelector({ selectedTwinId, onSelect }: DigitalTwinSel
                     placeholder="Name *"
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    disabled
-                    className="w-full px-3 py-1.5 bg-background border border-border rounded-md text-sm text-foreground placeholder:text-muted-foreground opacity-50 cursor-not-allowed"
+                    className="w-full px-3 py-1.5 bg-background border border-border rounded-md text-sm text-foreground placeholder:text-muted-foreground"
                   />
                   <input
                     type="text"
                     placeholder="Description (optional)"
                     value={newDesc}
                     onChange={(e) => setNewDesc(e.target.value)}
-                    disabled
-                    className="w-full px-3 py-1.5 bg-background border border-border rounded-md text-sm text-foreground placeholder:text-muted-foreground opacity-50 cursor-not-allowed"
+                    className="w-full px-3 py-1.5 bg-background border border-border rounded-md text-sm text-foreground placeholder:text-muted-foreground"
                   />
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button onClick={handleCreate} size="sm" disabled className="flex-1">
-                  Create Twin (Soon)
+                <Button onClick={handleCreate} size="sm" disabled={!newName.trim()} className="flex-1">
+                  Create &amp; select
                 </Button>
                 <Button
                   onClick={() => {
@@ -154,10 +218,14 @@ export function DigitalTwinSelector({ selectedTwinId, onSelect }: DigitalTwinSel
                   <X size={14} />
                 </Button>
               </div>
-              <p className="text-xs text-amber-600 bg-amber-600/10 px-3 py-1.5 rounded border border-amber-600/20">
-                Digital twins will be implemented with SQLite in the next phase.
+              <p className="text-xs text-muted-foreground">
+                The twin becomes permanent in your history as soon as you run a circuit while it's selected.
               </p>
             </div>
+          )}
+
+          {!loading && twins.length === 0 && !isCreating && (
+            <p className="text-xs text-muted-foreground">No digital twins yet — click "New" to create one.</p>
           )}
 
           {twins.map((twin) => (
@@ -219,3 +287,4 @@ export function DigitalTwinSelector({ selectedTwinId, onSelect }: DigitalTwinSel
     </Card>
   )
 }
+

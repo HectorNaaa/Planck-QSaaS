@@ -14,8 +14,8 @@ export function Sidebar() {
 
   const navItems = [
     { href: "/qsaas/dashboard", label: t("Dashboard"), icon: LayoutDashboard },
-    { href: "/qsaas/runner", label: "Simulator", icon: Zap },
-    { href: "/qsaas/templates", label: "Templates", icon: BookOpen },
+    { href: "/qsaas/runner", label: "Digital Twin Runner", icon: Zap },
+    { href: "/qsaas/templates", label: "Digital Twin Presets", icon: BookOpen },
     { href: "/qsaas/settings", label: t("Settings"), icon: Settings },
   ]
 
