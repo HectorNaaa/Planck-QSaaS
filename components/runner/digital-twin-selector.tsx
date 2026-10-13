@@ -274,7 +274,7 @@ export function DigitalTwinSelector({ selectedTwinId, onSelect }: DigitalTwinSel
                     >
                       <Edit2 size={14} />
                     </button>
-                    <button onClick={() => handleDelete(twin.id)} className="p-1 hover:bg-red-500/10 rounded text-muted-foreground hover:text-red-500">
+                    <button onClick={() => handleDelete(twin.id)} className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground">
                       <X size={14} />
                     </button>
                   </div>

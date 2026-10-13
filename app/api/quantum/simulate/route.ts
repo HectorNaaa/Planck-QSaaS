@@ -5,6 +5,7 @@ import { selectBackend } from "@/lib/backend-policy"
 import { checkRateLimit, getRetryAfter, validatePayloadSize } from "@/lib/rate-limiter"
 import { authenticateRequest } from "@/lib/api-auth"
 import { Executions } from "@/lib/db/client"
+import { reserveQuota, commitReservation, releaseReservation, QuotaExceededError } from "@/lib/entitlements"
 import { extractQubitCount, calculateAdaptiveShots, selectAutoErrorMitigation } from "@/lib/circuit-utils"
 import {
   validateAlgorithm,
@@ -22,6 +23,7 @@ import {
 } from "@/lib/security"
 
 export async function POST(request: NextRequest) {
+  let quotaReservationId: string | undefined
   try {
     // Validate request headers
     const headerValidation = validateRequestHeaders(request.headers)
@@ -160,6 +162,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // ── Usage quota: per-user plan ceiling on executions per billing cycle ──
+    // Reserved BEFORE the costly work runs, committed on success, released on
+    // any failure below so a crashed/aborted request never leaks quota.
+    try {
+      quotaReservationId = reserveQuota(userId, "execution", 1)
+    } catch (quotaErr) {
+      if (quotaErr instanceof QuotaExceededError) {
+        return NextResponse.json(
+          {
+            success: false,
+            quota_exceeded: true,
+            resource: quotaErr.resourceType,
+            limit: quotaErr.limit,
+            used: quotaErr.used,
+            plan: quotaErr.plan,
+            error: `Usage quota exceeded for your ${quotaErr.plan} plan (${quotaErr.used}/${quotaErr.limit} executions this cycle). Upgrade your plan or wait for the next billing cycle.`,
+          },
+          { status: 429 }
+        )
+      }
+      console.error("[API] Quota check failed — failing closed:", quotaErr)
+      return NextResponse.json(
+        { success: false, error: "Unable to verify usage quota right now. Please try again shortly." },
+        { status: 503 }
+      )
+    }
+
     // ── Resolve qubits & circuit features ─────────────────────────
     const resolvedQubits = qubits || extractQubitCount(qasm)
     const resolvedDepth = depth || 1
@@ -286,6 +315,16 @@ export async function POST(request: NextRequest) {
 
     // ML recording disabled (no Supabase). Non-critical, skip.
 
+    // ── Settle usage quota: commit the execution reservation and record
+    // actual compute time (best-effort — never fails the response). ──
+    try {
+      commitReservation(quotaReservationId)
+      const computeReservationId = reserveQuota(userId, "compute_ms", Math.max(1, Math.round(results.runtime)))
+      commitReservation(computeReservationId)
+    } catch (quotaSettleErr) {
+      console.error("[API] Failed to settle usage quota (non-fatal):", quotaSettleErr)
+    }
+
     return NextResponse.json({
       success: true,
       counts: results.counts,
@@ -313,6 +352,9 @@ export async function POST(request: NextRequest) {
       batch_index: batchIndex,
     })
   } catch (error) {
+    try {
+      if (quotaReservationId) releaseReservation(quotaReservationId)
+    } catch { /* best-effort cleanup */ }
     const safeError = createSafeErrorResponse(error, "Failed to simulate circuit")
     console.error("[API] Simulate error:", error)
     return NextResponse.json(

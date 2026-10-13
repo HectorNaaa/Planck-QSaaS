@@ -6,6 +6,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { MainLayout } from "@/components/layout/main-layout"
 import { QuantumLoadingScreen } from "@/components/quantum-loading-screen"
 import { GuestBanner } from "@/components/guest-banner"
+import { OtherSessionBanner } from "@/components/layout/other-session-banner"
 import { UIPreferencesProvider } from "@/contexts/ui-preferences-context"
 import { SyntheticModeProvider } from "@/contexts/synthetic-mode-context"
 import { DigitalTwinModeProvider } from "@/contexts/digital-twin-mode-context"
@@ -75,6 +76,7 @@ export default function QsaasLayout({ children }: { children: React.ReactNode })
           <ModeStatusBanner />
           <MainLayout>
             <GuestBanner />
+            <OtherSessionBanner />
             {children}
           </MainLayout>
         </DigitalTwinModeProvider>

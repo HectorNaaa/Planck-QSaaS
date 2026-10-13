@@ -1,6 +1,11 @@
 /**
  * Rate Limiter - Prevents API abuse with token bucket algorithm
  * Limits: 1 request per 3 seconds per user/IP
+ *
+ * Isolation note: each `identifier` (always the authenticated userId, see
+ * api-auth.ts) gets its OWN bucket entry in the Map below. A flood/abuse
+ * attempt against one account only exhausts that account's bucket — it
+ * never consumes or blocks capacity shared with other users.
  */
 
 interface RateLimitStore {

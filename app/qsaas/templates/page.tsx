@@ -21,8 +21,31 @@ import { useEffect, useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/page-header"
-import { Plus, Globe2, Lock, Copy, Trash2, X } from "lucide-react"
+import { Plus, Globe2, Lock, Copy, Trash2, X, Info } from "lucide-react"
 import { useUIPreferences } from "@/contexts/ui-preferences-context"
+
+/** Human-readable help text for known scenario parameters, shown via the inline info icons
+ *  so non-technical users understand what each field does without reading code or docs. */
+const PARAM_HELP: Record<string, string> = {
+  horizonDays: "Number of days into the future the simulation projects.",
+  confidenceLevel: "Statistical confidence used for risk estimates (e.g. 0.95 = 95%).",
+  method: "Which simulation technique to use to generate scenarios.",
+  numScenarios: "How many simulated scenarios to generate — more gives smoother results but takes longer.",
+  stressMultiplier: "How much to amplify stress conditions versus normal conditions (1 = no extra stress).",
+  annealingIterations: "How many optimization steps the solver runs — higher can improve quality but takes longer.",
+  chunksPerObligation: "How finely each obligation is split when allocating funding.",
+  decisionTime: "The point in time the twin evaluates the decision against.",
+  lotSize: "The standard order size used when comparing venues.",
+  seed: "A fixed number that makes repeated runs reproducible. Leave blank for automatic.",
+}
+
+function InfoHint({ text }: { text: string }) {
+  return (
+    <span className="inline-flex" title={text}>
+      <Info size={12} className="text-muted-foreground cursor-help" />
+    </span>
+  )
+}
 
 type FinanceModuleId = "risk-scenario" | "collateral-liquidity" | "execution-rfq"
 
@@ -183,7 +206,7 @@ export default function TemplatesPage() {
     <div className="p-8 space-y-10 px-0">
       <div className="space-y-1 flex items-start justify-between flex-wrap gap-4">
         <div>
-          <PageHeader title="Digital Twin Templates" description="Reusable twin definitions — start from a preset or create your own." />
+          <PageHeader title="Presets" description="Reusable twin definitions — start from a preset or create your own." />
           <p className="text-xs text-muted-foreground px-0 mt-1">
             All presets here are tagged <span className="font-medium text-primary">finance</span> for now — more verticals can register without a new tab.
           </p>
@@ -213,10 +236,7 @@ export default function TemplatesPage() {
 
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" disabled={s?.loading} onClick={() => runTwin(mod.id, mod.id, { scenario: mod.demoScenario, computeMode: "classical", useDemo: true })}>
-                    {s?.loading ? "Running…" : "Run demo (classical)"}
-                  </Button>
-                  <Button size="sm" variant="outline" disabled={s?.loading} onClick={() => runTwin(mod.id, mod.id, { scenario: mod.demoScenario, computeMode: "quantum-inspired", useDemo: true })}>
-                    Run demo (quantum-inspired)
+                    {s?.loading ? "Running…" : "Run Demo"}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => toggleRunner(mod.id, mod.demoScenario)}>
                     {openRunner[mod.id] ? "Hide runner" : "Open in Runner"}
@@ -265,7 +285,7 @@ export default function TemplatesPage() {
                       {twin.tags.map((t) => (
                         <span key={t} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary">{t}</span>
                       ))}
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1 ${twin.visibility === "public" ? "bg-green-500/10 text-green-600" : "bg-muted text-muted-foreground"}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1 ${twin.visibility === "public" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
                         {twin.visibility === "public" ? <Globe2 size={10} /> : <Lock size={10} />}
                         {twin.visibility}
                       </span>
@@ -287,7 +307,7 @@ export default function TemplatesPage() {
                         })
                       }
                     >
-                      {s?.loading ? "Running…" : "Quick demo run"}
+                      {s?.loading ? "Running…" : "Run Demo"}
                     </Button>
                     {twin.visibility === "private" ? (
                       <Button size="sm" variant="outline" onClick={() => publishTwin(twin, "public")}>Publish</Button>
@@ -442,14 +462,11 @@ function RunnerPanel({
       </div>
 
       <div>
-        <p className="text-xs font-semibold text-foreground mb-1">Scenario &amp; constraints</p>
-        <textarea
-          value={scenarioText}
-          onChange={(e) => onScenarioChange(e.target.value)}
-          rows={6}
-          className="w-full px-2 py-1.5 bg-background border border-border rounded-md text-[11px] font-mono text-foreground"
-          spellCheck={false}
-        />
+        <div className="flex items-center gap-1.5 mb-1">
+          <p className="text-xs font-semibold text-foreground">Scenario &amp; constraints</p>
+          <InfoHint text="These parameters control how this twin's simulation behaves. Adjust them below — no JSON or code required." />
+        </div>
+        <ScenarioFieldsEditor value={scenarioText} onChange={onScenarioChange} />
       </div>
 
       {jsonError && <p className="text-xs text-destructive">{jsonError}</p>}
@@ -459,47 +476,98 @@ function RunnerPanel({
         onClick={() => setShowAdvanced(!showAdvanced)}
         className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
       >
-        {showAdvanced ? "Hide" : "Show"} Advanced Compute Settings
+        {showAdvanced ? "Hide" : "Show"} Advanced Settings
       </button>
       {showAdvanced && (
         <div className="rounded-md border border-border/60 bg-background/40 p-2 space-y-2">
-          <div>
-            <p className="text-[11px] text-muted-foreground mb-1">Compute mode</p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setComputeMode("classical")}
-                className={`px-2 py-1 text-xs rounded ${computeMode === "classical" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"}`}
-              >
-                Classical (baseline solver)
-              </button>
-              <button
-                type="button"
-                onClick={() => setComputeMode("quantum-inspired")}
-                className={`px-2 py-1 text-xs rounded ${computeMode === "quantum-inspired" ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground"}`}
-              >
-                Quantum-inspired (experimental)
-              </button>
-            </div>
+          <div className="flex items-center gap-1.5">
+            <p className="text-[11px] text-muted-foreground">Seed (optional — overrides auto-derived seed)</p>
+            <InfoHint text={PARAM_HELP.seed} />
           </div>
-          <div>
-            <p className="text-[11px] text-muted-foreground mb-1">Seed (optional — overrides auto-derived seed)</p>
-            <input
-              type="number"
-              value={seedText}
-              onChange={(e) => setSeedText(e.target.value)}
-              placeholder="auto"
-              className="w-32 px-2 py-1 bg-background border border-border rounded-md text-xs text-foreground"
-            />
-          </div>
+          <input
+            type="number"
+            value={seedText}
+            onChange={(e) => setSeedText(e.target.value)}
+            placeholder="auto"
+            className="w-32 px-2 py-1 bg-background border border-border rounded-md text-xs text-foreground"
+          />
         </div>
       )}
 
       <div className="flex flex-wrap gap-2">
         <Button size="sm" disabled={loading} onClick={run}>
-          {loading ? "Running…" : "Execute"}
+          {loading ? "Running…" : "Run Demo"}
         </Button>
       </div>
+    </div>
+  )
+}
+
+type ScenarioField = { key: string; value: string }
+
+function parseScenarioFields(jsonText: string): ScenarioField[] {
+  try {
+    const obj = jsonText.trim() ? JSON.parse(jsonText) : {}
+    if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+      return Object.entries(obj as Record<string, unknown>).map(([key, value]) => ({ key, value: String(value) }))
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
+function serializeScenarioFields(fields: ScenarioField[]): string {
+  const obj: Record<string, unknown> = {}
+  for (const f of fields) {
+    if (!f.key.trim()) continue
+    const raw = f.value.trim()
+    if (raw === "true" || raw === "false") obj[f.key] = raw === "true"
+    else if (raw !== "" && !Number.isNaN(Number(raw))) obj[f.key] = Number(raw)
+    else obj[f.key] = raw
+  }
+  return JSON.stringify(obj, null, 2)
+}
+
+/** Form-based editor for scenario/constraint parameters — replaces raw JSON editing so
+ *  non-technical users can adjust a twin's settings as simple name/value rows. */
+function ScenarioFieldsEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [fields, setFields] = useState<ScenarioField[]>(() => parseScenarioFields(value))
+
+  const update = (next: ScenarioField[]) => {
+    setFields(next)
+    onChange(serializeScenarioFields(next))
+  }
+
+  return (
+    <div className="space-y-2">
+      {fields.map((f, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <input
+            value={f.key}
+            onChange={(e) => update(fields.map((x, j) => (j === i ? { ...x, key: e.target.value } : x)))}
+            placeholder="Parameter name"
+            className="w-1/2 px-2 py-1.5 bg-background border border-border rounded-md text-xs text-foreground"
+          />
+          <input
+            value={f.value}
+            onChange={(e) => update(fields.map((x, j) => (j === i ? { ...x, value: e.target.value } : x)))}
+            placeholder="Value"
+            className="flex-1 px-2 py-1.5 bg-background border border-border rounded-md text-xs text-foreground"
+          />
+          {PARAM_HELP[f.key] && <InfoHint text={PARAM_HELP[f.key]} />}
+          <button type="button" onClick={() => update(fields.filter((_, j) => j !== i))} className="text-muted-foreground hover:text-foreground">
+            <X size={14} />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => update([...fields, { key: "", value: "" }])}
+        className="text-xs text-primary hover:underline"
+      >
+        + Add parameter
+      </button>
     </div>
   )
 }
@@ -523,10 +591,10 @@ function RunResult({ state: s }: { state: RunState | undefined }) {
               executed: {run.executionMode}
             </span>
             <span className="px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground font-medium">{run.solverActual}</span>
-            <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 font-medium">
+            <span className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
               {run.isSynthetic ? "synthetic demo data" : "user data"}
             </span>
-            <span className={`px-2 py-0.5 rounded-full font-medium ${run.status === "completed" ? "bg-green-500/10 text-green-600" : "bg-orange-500/10 text-orange-600"}`}>
+            <span className={`px-2 py-0.5 rounded-full font-medium ${run.status === "completed" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
               {run.status}
             </span>
           </div>
@@ -681,13 +749,11 @@ function CreateTwinModal({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1">Default scenario (JSON)</label>
-          <textarea
-            value={scenarioText}
-            onChange={(e) => setScenarioText(e.target.value)}
-            rows={6}
-            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground font-mono text-xs"
-          />
+          <div className="flex items-center gap-1.5 mb-1">
+            <label className="block text-sm font-medium text-foreground">Default scenario settings</label>
+            <InfoHint text="Starting parameters for this twin. You can add, rename or remove them as simple name/value fields — no JSON needed." />
+          </div>
+          <ScenarioFieldsEditor value={scenarioText} onChange={setScenarioText} />
         </div>
 
         <div>

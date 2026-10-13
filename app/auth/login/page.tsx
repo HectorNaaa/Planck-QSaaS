@@ -63,6 +63,12 @@ export default function LoginPage() {
         return
       }
 
+      if (data.otherSessionActive) {
+        sessionStorage.setItem(
+          "planck_other_session_notice",
+          JSON.stringify({ device: data.otherSessionDevice || "another device" }),
+        )
+      }
       sessionStorage.setItem("planck_nav_source", "auth")
       router.push("/qsaas/dashboard")
     } catch (err: unknown) {

@@ -95,6 +95,20 @@ export default function SettingsPage() {
   const [isDeletingExecs, setIsDeletingExecs] = useState(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
 
+  // Usage & quotas (server-side entitlements — never trusts client input)
+  const [usage, setUsage] = useState<{
+    plan: string
+    limits: { maxExecutionsPerCycle: number; maxComputeMsPerCycle: number; maxStorageBytes: number; cycleLengthDays: number }
+    used: { executions: number; computeMs: number; storageBytes: number }
+  } | null>(null)
+
+  useEffect(() => {
+    fetch("/api/user/usage", { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => { if (data.success) setUsage(data.usage) })
+      .catch(() => { /* non-fatal — usage card just stays hidden */ })
+  }, [])
+
   useEffect(() => {
     const loadUserData = async () => {
       let isAuthenticated = false
@@ -555,7 +569,7 @@ export default function SettingsPage() {
               className="w-full px-4 py-2 rounded-lg border border-border bg-secondary/50 text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
             />
             {isEditingAccount && userEmail !== originalEmail && (
-              <p className="text-xs text-amber-500 mt-1">Note: Changing your email will require re-verification</p>
+              <p className="text-xs text-muted-foreground mt-1">Note: Changing your email will require re-verification</p>
             )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -699,6 +713,39 @@ export default function SettingsPage() {
           </div>
         </div>
       </Card>
+
+      {/* Usage & Quotas */}
+      {usage && (
+        <Card className="p-6 shadow-lg">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-2xl font-bold text-foreground">Usage &amp; Quotas</h2>
+            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary capitalize">{usage.plan} plan</span>
+          </div>
+          <p className="text-sm text-muted-foreground mb-6">
+            Limits apply per {usage.limits.cycleLengthDays}-day billing cycle, enforced identically for the dashboard and the SDK.
+          </p>
+          <div className="space-y-4">
+            {[
+              { label: "Executions", used: usage.used.executions, limit: usage.limits.maxExecutionsPerCycle, format: (n: number) => n.toLocaleString() },
+              { label: "Compute time", used: usage.used.computeMs, limit: usage.limits.maxComputeMsPerCycle, format: (n: number) => `${(n / 1000).toFixed(1)}s` },
+              { label: "Storage", used: usage.used.storageBytes, limit: usage.limits.maxStorageBytes, format: (n: number) => `${(n / 1_048_576).toFixed(1)} MB` },
+            ].map((row) => {
+              const pct = row.limit > 0 ? Math.min(100, (row.used / row.limit) * 100) : 0
+              return (
+                <div key={row.label}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-muted-foreground">{row.label}</span>
+                    <span className="font-medium text-foreground">{row.format(row.used)} / {row.format(row.limit)}</span>
+                  </div>
+                  <div className="w-full bg-secondary rounded-full h-2">
+                    <div className="bg-primary rounded-full h-2 transition-all duration-300" style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Execution History & Storage */}
       <Card className="p-6 shadow-lg">

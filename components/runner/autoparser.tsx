@@ -8,10 +8,10 @@ import { Card } from "@/components/ui/card"
 import { analyzeInputData } from "@/lib/circuit-builder"
 
 const DATA_SCALE_LABELS: Record<string, { label: string; color: string }> = {
-  small:   { label: "Small (<1K rows)",     color: "text-green-500" },
-  medium:  { label: "Medium (<50K rows)",   color: "text-yellow-500" },
-  large:   { label: "Large (<10M rows)",    color: "text-orange-500" },
-  massive: { label: "Massive (≥10M rows)",  color: "text-red-500" },
+  small:   { label: "Small (<1K rows)",     color: "text-primary" },
+  medium:  { label: "Medium (<50K rows)",   color: "text-primary" },
+  large:   { label: "Large (<10M rows)",    color: "text-foreground font-semibold" },
+  massive: { label: "Massive (≥10M rows)",  color: "text-foreground font-bold" },
 }
 
 interface ParsedCircuit {

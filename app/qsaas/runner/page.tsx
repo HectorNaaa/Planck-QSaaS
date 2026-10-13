@@ -1188,26 +1188,26 @@ const adaptiveShots = calculateAdaptiveShots({
   return (
     <div className="p-8 space-y-8 px-0">
       <PageHeader
-        title="Twin Simulator"
+        title="Runner"
         description="Define your system scenario, then simulate it with quantum compute."
       />
 
       {/* Storage limit warning banner */}
       {!isGuest && storageUsedBytes >= STORAGE_CAP_BYTES && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-destructive/60 bg-destructive/10 text-sm">
-          <span className="text-destructive font-bold mt-0.5">⚠</span>
+        <div className="flex items-start gap-3 px-4 py-3 rounded-lg border-2 border-primary bg-primary/10 text-sm">
+          <span className="text-primary font-bold mt-0.5">⬤</span>
           <div>
-            <p className="font-semibold text-destructive">Execution history storage limit reached ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 50 MB)</p>
-            <p className="text-destructive/80 text-xs mt-0.5">New executions are blocked. Go to <strong>Settings → Execution History &amp; Storage</strong> and delete some records to free space.</p>
+            <p className="font-semibold text-primary">Execution history storage limit reached ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 50 MB)</p>
+            <p className="text-muted-foreground text-xs mt-0.5">New executions are blocked. Go to <strong>Settings → Execution History &amp; Storage</strong> and delete some records to free space.</p>
           </div>
         </div>
       )}
       {!isGuest && storageUsedBytes >= STORAGE_CAP_BYTES * 0.8 && storageUsedBytes < STORAGE_CAP_BYTES && (
-        <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-amber-500/60 bg-amber-500/10 text-sm">
-          <span className="text-amber-600 font-bold mt-0.5">⚠</span>
+        <div className="flex items-start gap-3 px-4 py-3 rounded-lg border border-primary/40 bg-primary/5 text-sm">
+          <span className="text-primary font-bold mt-0.5">ⓘ</span>
           <div>
-            <p className="font-semibold text-amber-700 dark:text-amber-400">Execution history approaching limit ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 50 MB)</p>
-            <p className="text-amber-600/80 dark:text-amber-400/70 text-xs mt-0.5">Consider freeing space in <strong>Settings → Execution History &amp; Storage</strong> before it fills up.</p>
+            <p className="font-semibold text-primary">Execution history approaching limit ({(storageUsedBytes / 1_048_576).toFixed(1)} MB / 50 MB)</p>
+            <p className="text-muted-foreground text-xs mt-0.5">Consider freeing space in <strong>Settings → Execution History &amp; Storage</strong> before it fills up.</p>
           </div>
         </div>
       )}
@@ -2193,8 +2193,8 @@ const adaptiveShots = calculateAdaptiveShots({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-card border border-border rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-8 h-8 rounded-full bg-amber-500/15 flex items-center justify-center flex-shrink-0">
-                <span className="text-amber-500 font-bold text-sm">!</span>
+              <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
+                <span className="text-primary font-bold text-sm">!</span>
               </div>
               <h3 className="text-base font-semibold text-foreground">Switch simulation mode?</h3>
             </div>

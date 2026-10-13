@@ -132,6 +132,18 @@ export function initializeDatabase() {
   if (!colNames.has('ui_preferences')) {
     db.exec("ALTER TABLE profiles ADD COLUMN ui_preferences TEXT DEFAULT NULL")
   }
+  // ── Multi-device session awareness: lets us warn a newly-logging-in device
+  // that the account is already open elsewhere, without forcibly logging the
+  // other device out (JWT remains the source of truth for auth itself). ──
+  if (!colNames.has('active_session_id')) {
+    db.exec("ALTER TABLE profiles ADD COLUMN active_session_id TEXT DEFAULT NULL")
+  }
+  if (!colNames.has('active_session_started_at')) {
+    db.exec("ALTER TABLE profiles ADD COLUMN active_session_started_at DATETIME DEFAULT NULL")
+  }
+  if (!colNames.has('active_session_device')) {
+    db.exec("ALTER TABLE profiles ADD COLUMN active_session_device TEXT DEFAULT NULL")
+  }
 
   // ── Scenario / batch metadata columns ─────────────────────────────────────
   const execCols = db.pragma('table_info(executions)') as { name: string }[]

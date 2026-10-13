@@ -23,6 +23,9 @@ export interface JWTPayload {
   ph?: string
   /** Active API key — stored in JWT so it survives ephemeral DB wipes on Vercel */
   ak?: string
+  /** Per-login session id — used only to let a new device detect and warn about
+   *  another already-active session; never used to gate authentication itself. */
+  sid?: string
   iat: number
   exp: number
 }
@@ -53,12 +56,13 @@ export function generateJWT(
     stayLoggedIn?: boolean
     passwordHash?: string
     apiKey?: string
+    sessionId?: string
     expiresIn?: number
   } = {}
 ): string {
   const {
     fullName, organization, themePreference,
-    phone, country, occupation, stayLoggedIn, passwordHash, apiKey,
+    phone, country, occupation, stayLoggedIn, passwordHash, apiKey, sessionId,
     expiresIn = 30 * 24 * 60 * 60 * 1000,
   } = options
   const header = {
@@ -81,6 +85,7 @@ export function generateJWT(
     ...(stayLoggedIn !== undefined && { stayLoggedIn }),
     ...(passwordHash !== undefined && { ph: passwordHash }),
     ...(apiKey !== undefined && { ak: apiKey }),
+    ...(sessionId !== undefined && { sid: sessionId }),
   }
 
   const headerEncoded = base64UrlEncode(JSON.stringify(header))

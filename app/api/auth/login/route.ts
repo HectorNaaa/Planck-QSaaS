@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomUUID } from 'node:crypto'
 import { Users, Profiles, ApiKeys } from '@/lib/db/client'
 import { verifyPassword, generateJWT, verifyJWT, decodeJWTUnchecked } from '@/lib/auth-utils'
 import { ensureDbUser } from '@/lib/db/ensure-user'
@@ -110,6 +111,27 @@ export async function POST(request: NextRequest) {
       } catch { /* best-effort */ }
     }
 
+    // ── Multi-device awareness: if the account already has a different active
+    // session, warn THIS (new) device rather than silently logging in. We do
+    // not block or revoke the other session — JWTs remain independently valid.
+    const sessionId = randomUUID()
+    const userAgent = (request.headers.get('user-agent') || 'Unknown device').slice(0, 180)
+    let otherSessionActive = false
+    let otherSessionDevice: string | null = null
+    try {
+      if (profile?.active_session_id && profile.active_session_id !== sessionId) {
+        otherSessionActive = true
+        otherSessionDevice = profile.active_session_device || 'another device'
+      }
+      Profiles.update(user.id, {
+        active_session_id: sessionId,
+        active_session_started_at: new Date().toISOString(),
+        active_session_device: userAgent,
+      })
+    } catch (sessionErr) {
+      console.warn('[LOGIN] Could not record active session (non-fatal):', sessionErr)
+    }
+
     const token = generateJWT(user.id, user.email, {
       fullName: profile?.full_name || '',
       organization: profile?.organization || '',
@@ -120,6 +142,7 @@ export async function POST(request: NextRequest) {
       stayLoggedIn: !!profile?.stay_logged_in,
       passwordHash: user.password_hash,
       apiKey: existingApiKey || undefined,
+      sessionId,
     })
 
     const response = NextResponse.json({
@@ -129,6 +152,8 @@ export async function POST(request: NextRequest) {
         email: user.email,
         profile: profile || null,
       },
+      otherSessionActive,
+      otherSessionDevice,
     })
 
     response.cookies.set('auth-token', token, {

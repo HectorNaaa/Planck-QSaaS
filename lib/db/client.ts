@@ -1,5 +1,6 @@
 import db, { initializeDatabase } from './init'
 import { randomUUID } from 'node:crypto'
+import { encryptForUser, decryptForUser } from '@/lib/encryption'
 
 // Initialize database on first import
 initializeDatabase()
@@ -102,6 +103,16 @@ export const Circuits = {
 }
 
 // Execution operations
+/** Decrypts the at-rest-encrypted result/circuit_data fields for one row. Safe no-op on legacy plaintext rows. */
+function decryptExecutionRow(userId: string, row: any) {
+  if (!row) return row
+  return {
+    ...row,
+    circuit_data: decryptForUser(userId, row.circuit_data),
+    result: decryptForUser(userId, row.result),
+  }
+}
+
 export const Executions = {
   create: (data: {
     user_id: string
@@ -167,8 +178,8 @@ export const Executions = {
       data.backend_hint || null,
       data.backend_metadata || null,
       data.backend_assigned_at || null,
-      data.circuit_data || null,
-      data.result || null,
+      encryptForUser(data.user_id, data.circuit_data || null),
+      encryptForUser(data.user_id, data.result || null),
       data.error || null,
       // Scenario / batch metadata
       data.scenario_id || null,
@@ -187,7 +198,7 @@ export const Executions = {
 
   findByUserId: (userId: string) => {
     const stmt = db.prepare('SELECT * FROM executions WHERE user_id = ? ORDER BY created_at DESC')
-    return stmt.all(userId) as any[]
+    return (stmt.all(userId) as any[]).map((row) => decryptExecutionRow(userId, row))
   },
 
   /** Return rows newer than `since` (ISO timestamp), ordered oldest→newest. */
@@ -199,24 +210,26 @@ export const Executions = {
                AND json_extract(circuit_data, '$.digital_twin_id') = ?
          ORDER BY created_at ASC`
       )
-      return stmt.all(userId, since, digitalTwinId) as any[]
+      return (stmt.all(userId, since, digitalTwinId) as any[]).map((row) => decryptExecutionRow(userId, row))
     }
     const stmt = db.prepare(
       'SELECT * FROM executions WHERE user_id = ? AND created_at > ? ORDER BY created_at ASC'
     )
-    return stmt.all(userId, since) as any[]
+    return (stmt.all(userId, since) as any[]).map((row) => decryptExecutionRow(userId, row))
   },
 
   findById: (id: string) => {
     const stmt = db.prepare('SELECT * FROM executions WHERE id = ?')
-    return stmt.get(id) as any
+    const row = stmt.get(id) as any
+    return row ? decryptExecutionRow(row.user_id, row) : row
   },
 
   updateStatus: (id: string, status: string, result?: string, error?: string) => {
+    const existing = db.prepare('SELECT user_id FROM executions WHERE id = ?').get(id) as { user_id: string } | undefined
     const stmt = db.prepare(
       'UPDATE executions SET status = ?, result = ?, error = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?'
     )
-    return stmt.run(status, result || null, error || null, id)
+    return stmt.run(status, existing ? encryptForUser(existing.user_id, result || null) : (result || null), error || null, id)
   },
 
   deleteById: (id: string) => {
