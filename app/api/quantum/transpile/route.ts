@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { authenticateRequest } from "@/lib/api-auth"
 import {
-  validateBackend,
   validateQubits,
   validateQASM,
   createSafeErrorResponse,
@@ -23,7 +22,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     
     // Validate inputs
-    const backend = validateBackend(body.backend) || "quantum_qpu"
     const qubits = validateQubits(body.qubits)
     
     // Validate QASM
@@ -47,12 +45,9 @@ export async function POST(request: NextRequest) {
 
     const transpilerConfig = {
       qasm,
-      backend,
       qubits,
-      topology: getTopologyForBackend(backend),
     }
 
-    // Simulate transpilation (in production, this would call the C++ transpiler)
     const transpiledCircuit = await transpileCircuit(transpilerConfig)
 
     return NextResponse.json({
@@ -72,41 +67,9 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function getTopologyForBackend(backend: string) {
-  const topologies: Record<string, any> = {
-    quantum_qpu: {
-      name: "IBM Falcon",
-      connectivity: [
-        [0, 1],
-        [1, 2],
-        [2, 3],
-        [3, 4],
-        [1, 4],
-      ],
-      qubits: 5,
-    },
-    hpc_gpu: {
-      name: "Fully Connected",
-      connectivity: "all-to-all",
-      qubits: 30,
-    },
-    quantum_inspired_gpu: {
-      name: "Fully Connected",
-      connectivity: "all-to-all",
-      qubits: 20,
-    },
-  }
-  return topologies[backend] || topologies.quantum_inspired_gpu
-}
+async function transpileCircuit(config: { qasm: string; qubits: number }) {
+  const { qasm } = await transpileCircuitPipeline(config.qasm)
 
-async function transpileCircuit(config: {
-  qasm: string
-  backend: string
-  qubits: number
-  topology: any
-}) {
-  const { qasm, used } = await transpileCircuitPipeline(config.qasm)
-  
   // Count the actual SWAP gates in the optimized QASM
   const swapCount = (qasm.match(/\bswap\b/g) || []).length
   const stats = analyzeCircuit(qasm)

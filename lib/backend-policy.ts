@@ -12,6 +12,7 @@
 
 import {
   type Backend,
+  ALL_BACKENDS,
   selectOptimalBackend,
   selectBackendWithLatency,
 } from "@/lib/backend-selector"
@@ -43,11 +44,7 @@ const VALID_POLICIES = new Set<PolicyName>([
   "capacity_first",
 ])
 
-const VALID_BACKENDS = new Set<Backend>([
-  "quantum_inspired_gpu",
-  "hpc_gpu",
-  "quantum_qpu",
-])
+const VALID_BACKENDS = new Set<Backend>(ALL_BACKENDS)
 
 /**
  * Cost ranking (lower = cheaper). Used by `cost_first` policy.

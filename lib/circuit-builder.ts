@@ -26,6 +26,10 @@
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type SupportedAlgorithm = "vqe" | "qaoa" | "grover" | "shor" | "bell" | "qft"
+
+/** Single source of truth for valid algorithm codes — reused by security.ts and qasm-processor.ts. */
+export const SUPPORTED_ALGORITHMS: SupportedAlgorithm[] = ["vqe", "qaoa", "grover", "shor", "bell", "qft"]
+
 export type DataScale = "small" | "medium" | "large" | "massive"
 
 /** Optional caller hints forwarded from the SDK or UI. */

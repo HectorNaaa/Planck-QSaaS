@@ -13,6 +13,9 @@
  */
 export type Backend = "quantum_inspired_gpu" | "hpc_gpu" | "quantum_qpu"
 
+/** Single source of truth for valid compute backends — reused by backend-policy.ts and security.ts. */
+export const ALL_BACKENDS: Backend[] = ["quantum_inspired_gpu", "hpc_gpu", "quantum_qpu"]
+
 export interface CircuitMetrics {
   qubits: number
   depth: number

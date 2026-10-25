@@ -3,6 +3,9 @@
  * Provides input validation, sanitization, and protection against common attacks
  */
 
+import { SUPPORTED_ALGORITHMS } from '@/lib/circuit-builder'
+import { ALL_BACKENDS } from '@/lib/backend-selector'
+
 // Regex patterns for validation
 const PATTERNS = {
   // API key: Pure alphanumeric (hex), 64 chars (v0.9 format)
@@ -23,17 +26,10 @@ const PATTERNS = {
 }
 
 // Allowed algorithms — lowercase only; validateAlgorithm returns lowercase
-const ALLOWED_ALGORITHMS = new Set([
-  'bell', 'grover', 'shor', 'vqe', 'qaoa', 'qft',
-])
+const ALLOWED_ALGORITHMS = new Set<string>(SUPPORTED_ALGORITHMS)
 
 // Allowed backends — must match UI (execution-settings.tsx) + SDK
-const ALLOWED_BACKENDS = new Set([
-  'auto',
-  'quantum_inspired_gpu',
-  'hpc_gpu',
-  'quantum_qpu',
-])
+const ALLOWED_BACKENDS = new Set<string>(['auto', ...ALL_BACKENDS])
 
 // Allowed error mitigation levels — must match UI (circuit-settings.tsx) + SDK
 const ALLOWED_ERROR_MITIGATION = new Set([

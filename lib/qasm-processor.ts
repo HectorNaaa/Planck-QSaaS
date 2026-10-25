@@ -23,6 +23,7 @@ import { join } from "path"
 import {
   analyzeInputData,
   buildCircuit,
+  SUPPORTED_ALGORITHMS,
   type BuildOptions,
   type DataProfile,
   type SupportedAlgorithm,
@@ -295,19 +296,11 @@ export function analyzeCircuit(qasm: string): CircuitStats {
   return { qubits, depth, gateCount, circuitType }
 }
 
-// ─── Class wrapper (backwards-compat) ─────────────────────────────────────────
-
-export class QASMProcessor {
-  static generateCircuit = generateCircuit
-  static analyzeCircuit  = analyzeCircuit
-}
-
 // ─── Private helpers ───────────────────────────────────────────────────────────
 
 function sanitizeAlgorithm(raw: string): SupportedAlgorithm {
-  const supported: SupportedAlgorithm[] = ["vqe", "qaoa", "grover", "shor", "bell", "qft"]
   const lower = (raw ?? "").toLowerCase().trim() as SupportedAlgorithm
-  return supported.includes(lower) ? lower : "vqe"
+  return SUPPORTED_ALGORITHMS.includes(lower) ? lower : "vqe"
 }
 
 function recommendShots(p: DataProfile): number {

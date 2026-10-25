@@ -8,9 +8,8 @@ import { type NextRequest, NextResponse } from "next/server"
 import { authenticateRequest } from "@/lib/api-auth"
 import { validateRequestHeaders, createSafeErrorResponse } from "@/lib/security"
 import { listRunsForUser } from "@/lib/finance/store"
+import { getFinanceModule } from "@/lib/finance/registry"
 import type { FinanceModuleId } from "@/lib/finance/types"
-
-const VALID_MODULES = new Set<FinanceModuleId>(["risk-scenario", "collateral-liquidity", "execution-rfq"])
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +23,7 @@ export async function GET(request: NextRequest) {
     }
 
     const moduleParam = request.nextUrl.searchParams.get("module")
-    const moduleId = moduleParam && VALID_MODULES.has(moduleParam as FinanceModuleId) ? (moduleParam as FinanceModuleId) : undefined
+    const moduleId = moduleParam && getFinanceModule(moduleParam) ? (moduleParam as FinanceModuleId) : undefined
 
     const rows = listRunsForUser(auth.userId!, moduleId)
     const runs = (rows as any[]).map((r) => ({
