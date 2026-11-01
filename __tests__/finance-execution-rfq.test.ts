@@ -51,4 +51,27 @@ describe("executionRfqModule — greedy net-price allocation vs naive nominal-pr
       expect(experimental.warnings.some((w) => /qaoa|qpu/i.test(w))).toBe(true)
     }
   })
+
+  it("caps discretized lots instead of hanging on a large order with a tiny lotSize", () => {
+    // Regression test: a $25M order with lotSize=1 used to request 25,000,000
+    // annealing lots and block the event loop for minutes. It must now be
+    // capped and complete quickly, with the cap disclosed in `warnings`.
+    const snapshot = executionRfqModule.parseSnapshot({
+      ...buildExecutionRfqDemoSnapshot(),
+      orderSize: 25_000_000,
+    })
+    const scenario = executionRfqModule.parseScenario({ decisionTime: "2026-09-19T12:00:30Z", lotSize: 1 })
+    const baseline = executionRfqModule.runClassical(snapshot, scenario, 1)
+
+    const t0 = Date.now()
+    const experimental = executionRfqModule.runExperimental(snapshot, scenario, 3, baseline)
+    const elapsedMs = Date.now() - t0
+
+    expect(elapsedMs).toBeLessThan(5000)
+    expect(experimental.available).toBe(true)
+    if (experimental.available) {
+      expect(experimental.lineage.find((l) => l.step === "encode")?.detail).toMatch(/^2000 lots/)
+      expect(experimental.warnings.some((w) => /capped to 2000/i.test(w))).toBe(true)
+    }
+  })
 })

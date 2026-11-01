@@ -1,24 +1,19 @@
 /**
- * lib/finance/modules/execution-rfq.ts
- * ─────────────────────────────────────────────────────────────────────────────
  * Execution / RFQ & Market Microstructure Twin — allocates one order across
  * venues/quotes to minimize net execution cost (buy) or maximize net proceeds
- * (sell), including fees, size limits and quote time-to-live (TTL).
+ * (sell), including fees, size limits and quote TTL.
  *
- * Baseline (classical, exact for the fractional/divisible-size relaxation):
- * quotes are ranked by *net* effective price (price adjusted for fees) and
- * filled greedily — the standard, provably-optimal "cheapest-first" water-
- * filling allocation for this class of capacitated allocation problem. It is
- * benchmarked against a naive "best nominal headline price" strategy to show
- * that headline-best is not always net-best once fees are included.
+ * Baseline (classical, exact for the divisible-size relaxation): quotes are
+ * ranked by net effective price (after fees) and filled greedily — a
+ * provably-optimal water-filling allocation, benchmarked against a naive
+ * "best nominal price" strategy to show headline-best isn't always net-best.
  *
- * Experimental (quantum-inspired, classical): the same allocation is
- * rediscretized into fixed lot sizes and solved via simulated annealing,
- * compared against the exact greedy baseline for an optimality gap.
+ * Experimental (quantum-inspired, classical): rediscretized into fixed lot
+ * sizes and solved via simulated annealing vs. the exact greedy baseline.
  *
- * Fill-rate prediction is intentionally NOT implemented: no historical fill
- * data is available in this pilot snapshot, so this module reports it as
- * unavailable rather than fabricating a model.
+ * Fill-rate prediction is intentionally NOT implemented — no historical fill
+ * data exists in this pilot snapshot, so it's reported unavailable rather
+ * than fabricated.
  */
 import { z } from "zod"
 import type { FinanceModuleDefinition, LineageEntry } from "@/lib/finance/types"
@@ -136,6 +131,14 @@ function bestNominalBenchmark(side: "buy" | "sell", quotes: RfqSnapshotInput["qu
   return { netCost, filled: orderSize - remaining, venue: best.venue }
 }
 
+// Hard cap on discretized annealing decision variables. The annealing loop below costs
+// O(numLots × annealingIterations); with orderSize/lotSize uncapped, a large order paired
+// with a small lotSize (e.g. the scenario default) can request tens of millions of lots and
+// block Node's single thread for minutes — this happened in practice with a $25M order and
+// lotSize=1. 2,000 lots × the schema's max 20,000 iterations is ~40M cheap map-lookup steps
+// (sub-second in V8), while still giving fine-enough granularity for any realistic order.
+const MAX_ANNEALING_LOTS = 2000
+
 export const executionRfqModule: FinanceModuleDefinition<RfqSnapshotInput, RfqScenarioInput, RfqResult, RfqKpis> = {
   id: "execution-rfq",
   name: "Execution / RFQ & Market Microstructure Twin",
@@ -203,11 +206,18 @@ export const executionRfqModule: FinanceModuleDefinition<RfqSnapshotInput, RfqSc
       "Classical simulated annealing (quantum-inspired) over discretized lots — no QAOA circuit or QPU execution is integrated in this pilot.",
     ]
 
-    const numLots = Math.max(1, Math.round(snapshot.orderSize / scenario.lotSize))
+    const rawNumLots = Math.max(1, Math.round(snapshot.orderSize / scenario.lotSize))
+    const numLots = Math.min(rawNumLots, MAX_ANNEALING_LOTS)
     const lotSize = snapshot.orderSize / numLots
     lineage.push({ step: "encode", detail: `${numLots} lots of size ${lotSize.toFixed(4)} across ${alive.length} venues`, at: new Date().toISOString() })
+    if (rawNumLots > MAX_ANNEALING_LOTS) {
+      warnings.push(
+        `Requested lotSize=${scenario.lotSize} would discretize this order into ${rawNumLots} lots — capped to ${MAX_ANNEALING_LOTS} (effective lot size ${lotSize.toFixed(4)}) to bound annealing cost. No iterations or quality were silently skipped — this only coarsens the discretization grid.`,
+      )
+    }
 
     const capacity = new Map(alive.map((q) => [q.venue, q.size]))
+    const quoteByVenue = new Map(alive.map((q) => [q.venue, q]))
     let assignment = new Array(numLots).fill(alive[0]?.venue ?? null)
 
     const energy = (assign: (string | null)[]): number => {
@@ -215,7 +225,7 @@ export const executionRfqModule: FinanceModuleDefinition<RfqSnapshotInput, RfqSc
       let cost = 0
       for (const venue of assign) {
         if (!venue) { cost += 1e6; continue }
-        const q = alive.find((x) => x.venue === venue)!
+        const q = quoteByVenue.get(venue)!
         cost += lotSize * netUnitPrice(snapshot.side, q.price, q.feeBps) * (snapshot.side === "buy" ? 1 : -1)
         used.set(venue, (used.get(venue) ?? 0) + lotSize)
       }
@@ -250,7 +260,7 @@ export const executionRfqModule: FinanceModuleDefinition<RfqSnapshotInput, RfqSc
     let filled = 0
     const allocations: RfqAllocation[] = []
     for (const [venue, amt] of used.entries()) {
-      const q = alive.find((x) => x.venue === venue)!
+      const q = quoteByVenue.get(venue)!
       const capped = Math.min(amt, capacity.get(venue) ?? 0)
       if (capped <= 1e-9) continue
       const unit = netUnitPrice(snapshot.side, q.price, q.feeBps)
